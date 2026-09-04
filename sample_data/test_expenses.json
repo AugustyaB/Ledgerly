@@ -1,0 +1,191 @@
+{
+  "expenses": [
+    {
+      "id": "exp-1787306126071-xbcg-2",
+      "title": "Adobe Creative Cloud",
+      "amount": 54.99,
+      "category": "Subscriptions & Software",
+      "paymentMethod": "Credit Card",
+      "date": "2026-08-12",
+      "description": "",
+      "tags": [],
+      "receiptFilename": null,
+      "paidBy": "Self",
+      "splitWith": [],
+      "isHouseholdExpense": false
+    },
+    {
+      "id": "exp-1787306126071-pfq1-1",
+      "title": "Shell Gas Station",
+      "amount": 42,
+      "category": "Transportation",
+      "paymentMethod": "Debit Card",
+      "date": "2026-08-11",
+      "description": "",
+      "tags": [],
+      "receiptFilename": null,
+      "paidBy": "Self",
+      "splitWith": [],
+      "isHouseholdExpense": false
+    },
+    {
+      "id": "exp-1787306126070-3cc7-0",
+      "title": "Whole Foods Market",
+      "amount": 78.45,
+      "category": "Food & Dining",
+      "paymentMethod": "Credit Card",
+      "date": "2026-08-10",
+      "description": "",
+      "tags": [],
+      "receiptFilename": null,
+      "paidBy": "Self",
+      "splitWith": [],
+      "isHouseholdExpense": false
+    },
+    {
+      "id": "exp-1",
+      "title": "MacBook Pro Stand",
+      "amount": 89.99,
+      "category": "Office & Tech",
+      "paymentMethod": "Credit Card",
+      "date": "2026-08-19",
+      "description": "Ergonomic aluminum laptop stand for office desk",
+      "tags": [
+        "work",
+        "hardware"
+      ]
+    },
+    {
+      "id": "exp-2",
+      "title": "Client Lunch Meeting",
+      "amount": 64.5,
+      "category": "Food & Dining",
+      "paymentMethod": "Corporate Card",
+      "date": "2026-08-17",
+      "description": "Quarterly review discussion with design team",
+      "tags": [
+        "client",
+        "food"
+      ]
+    },
+    {
+      "id": "exp-3",
+      "title": "Cloud Server Subscription",
+      "amount": 45,
+      "category": "Subscriptions & Software",
+      "paymentMethod": "Debit Card",
+      "date": "2026-08-15",
+      "description": "Monthly VPS web host server invoice",
+      "tags": [
+        "recurring",
+        "tech"
+      ]
+    },
+    {
+      "id": "exp-4",
+      "title": "Uber to Airport",
+      "amount": 38.25,
+      "category": "Transportation",
+      "paymentMethod": "Apple Pay",
+      "date": "2026-08-12",
+      "description": "Ride fare for business conference trip",
+      "tags": [
+        "travel"
+      ]
+    },
+    {
+      "id": "exp-5",
+      "title": "Espresso Beans & Supplies",
+      "amount": 28,
+      "category": "Food & Dining",
+      "paymentMethod": "Cash",
+      "date": "2026-08-10",
+      "description": "Weekly roasted coffee supply",
+      "tags": [
+        "personal"
+      ]
+    }
+  ],
+  "categories": [
+    "Food & Dining",
+    "Transportation",
+    "Office & Tech",
+    "Subscriptions & Software",
+    "Utilities & Bills",
+    "Travel & Lodging",
+    "Healthcare & Wellness",
+    "Entertainment",
+    "Miscellaneous"
+  ],
+  "presets": [
+    {
+      "id": "pst-1",
+      "icon": "☕",
+      "title": "Morning Coffee",
+      "amount": 5,
+      "category": "Food & Dining",
+      "paymentMethod": "Credit Card"
+    },
+    {
+      "id": "pst-2",
+      "icon": "🍱",
+      "title": "Work Lunch",
+      "amount": 15,
+      "category": "Food & Dining",
+      "paymentMethod": "Credit Card"
+    },
+    {
+      "id": "pst-3",
+      "icon": "⛽",
+      "title": "Gasoline",
+      "amount": 40,
+      "category": "Transportation",
+      "paymentMethod": "Credit Card"
+    },
+    {
+      "id": "pst-4",
+      "icon": "🚇",
+      "title": "Transit / Uber",
+      "amount": 12.5,
+      "category": "Transportation",
+      "paymentMethod": "Apple Pay"
+    },
+    {
+      "id": "pst-5",
+      "icon": "🛒",
+      "title": "Grocery Staples",
+      "amount": 45,
+      "category": "Food & Dining",
+      "paymentMethod": "Debit Card"
+    }
+  ],
+  "salaryConfig": {
+    "monthlyIncome": 4500,
+    "fixedBills": 1500,
+    "savingsGoal": 500
+  },
+  "householdMembers": [
+    "Self",
+    "Partner",
+    "Roommate"
+  ],
+  "budgetGoal": 1500,
+  "notes": [
+    {
+      "id": "note-1787306126031-v3mn",
+      "content": "Review monthly subscriptions this weekend",
+      "relation": "day",
+      "relationId": "2026-08-21",
+      "createdAt": "2026-08-21T09:55:26.031Z",
+      "updatedAt": "2026-08-21T09:55:26.031Z"
+    },
+    {
+      "id": "note-1787306126030-v6nk",
+      "content": "Updated dinner groceries memo",
+      "relation": "transaction",
+      "relationId": "exp-1",
+      "createdAt": "2026-08-21T09:55:26.030Z",
+      "updatedAt": "2026-08-21T09:55:26.033Z"
+    }
+  ]
+}

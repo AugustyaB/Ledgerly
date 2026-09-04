@@ -1,0 +1,119 @@
+﻿* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  user-select: none;
+}
+
+body {
+  background: transparent;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 4px 8px;
+}
+
+.quick-pill-container {
+  width: 100%;
+  height: 56px;
+  background: rgba(20, 22, 28, 0.96);
+  backdrop-filter: blur(20px);
+  border: 1.5px solid #D9822B;
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px 0 16px;
+  gap: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 20px rgba(217, 130, 43, 0.22);
+  -webkit-app-region: drag;
+}
+
+.pill-drag-icon {
+  font-size: 18px;
+  color: #D9822B;
+  flex-shrink: 0;
+}
+
+.pill-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #F3F4F6;
+  -webkit-app-region: no-drag;
+}
+
+.pill-input::placeholder {
+  color: #64748B;
+  font-weight: 500;
+  font-size: 13.5px;
+}
+
+.pill-preview-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.pill-token {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.pill-amt {
+  background: rgba(217, 130, 43, 0.18);
+  color: #E5943C;
+  border: 1px solid rgba(217, 130, 43, 0.35);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.pill-cat {
+  background: rgba(56, 189, 248, 0.14);
+  color: #38BDF8;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.pill-split {
+  background: rgba(16, 185, 129, 0.14);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.pill-submit-btn {
+  background: linear-gradient(135deg, #D9822B, #B86618);
+  border: none;
+  color: #FFFFFF;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(217, 130, 43, 0.35);
+  transition: transform 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.pill-submit-btn:hover {
+  transform: scale(1.06);
+  background: linear-gradient(135deg, #E5943C, #D9822B);
+}
+
+.pill-submit-btn:active {
+  transform: scale(0.96);
+}

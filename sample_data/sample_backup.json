@@ -1,0 +1,11 @@
+{
+  "expenses": [
+    {
+      "date": "2026-08-20",
+      "title": "Car Wash",
+      "amount": 20,
+      "category": "Transportation",
+      "paymentMethod": "Cash"
+    }
+  ]
+}

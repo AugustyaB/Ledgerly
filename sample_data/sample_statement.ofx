@@ -1,0 +1,26 @@
+OFXHEADER:100
+DATA:OFXSGML
+<OFX>
+  <BANKMSGSRSV1>
+    <STMTTRNRS>
+      <STMTRS>
+        <BANKTRANLIST>
+          <STMTTRN>
+            <TRNTYPE>DEBIT
+            <DTPOSTED>20260818120000
+            <TRNAMT>-85.50
+            <NAME>TARGET STORE #1234
+            <MEMO>Household supplies
+          </STMTTRN>
+          <STMTTRN>
+            <TRNTYPE>DEBIT
+            <DTPOSTED>20260819120000
+            <TRNAMT>-14.25
+            <NAME>STARBUCKS COFFEE
+            <MEMO>Morning latte
+          </STMTTRN>
+        </BANKTRANLIST>
+      </STMTRS>
+    </STMTTRNRS>
+  </BANKMSGSRSV1>
+</OFX>
