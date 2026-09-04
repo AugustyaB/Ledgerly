@@ -6,6 +6,18 @@ This document serves as the persistent registry of long-term ideas, feature pros
 
 ## 🎯 Priority Future Focus Items
 
+### Version 1.4: Web App for Android & iPhones
+- [ ] **Architecture Research**: Understand how to build responsive mobile web applications for Android and iOS devices.
+- [ ] **Android Web App**: Develop and optimize the web application for Android.
+- [ ] **iPhone Web App**: Develop and optimize the web application for iPhones.
+- [ ] **Camera Integration**: Integrate camera hardware access for both Android and iOS versions to capture pictures of bills and receipts.
+
+### Version 1.5: Smart Storage System
+- [ ] **Mobile-Desktop Connection**: Establish a secure connection between mobile phone apps and the desktop application.
+- [ ] **Syncing Logic**: Set up reliable cross-device data synchronization logic.
+- [ ] **ML Bill Scanner**: Use a Machine Learning (ML) model to scan through bill photos and recognize financial details automatically.
+- [ ] **Automated Ingestion**: Automatically upload and persist the extracted bill data directly into app storage.
+
 ### 1. 🎨 Bespoke App Logo & Brand Identity Customization
 - [ ] **Custom Vector/SVG Brand Mark**: Design a bespoke Ledgerly vector logo replacing the temporary credit card icon badge.
 - [ ] **App Icon & Asset Generation**: Create high-resolution `.ico` / `.png` icons for Windows desktop taskbar, installer, and frameless window titlebar.
@@ -56,4 +68,4 @@ This document serves as the persistent registry of long-term ideas, feature pros
 
 ---
 
-*Last Updated: 2026-08-25*
+*Last Updated: 2026-09-04*
