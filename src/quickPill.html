@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ledgerly Quick Add</title>
+  <link rel="stylesheet" href="quickPill.css">
+</head>
+<body>
+  <div class="quick-pill-container" id="quick-pill-container">
+    <div class="pill-drag-icon"><i data-icon="zap" data-icon-size="16"></i></div>
+    <input type="text" id="pill-input" class="pill-input" placeholder="Type: e.g. 'Coffee 20' or 'Swiggy 350 with Priya'..." autofocus autocomplete="off">
+    <div class="pill-preview-strip" id="pill-preview-strip">
+      <span class="pill-token pill-amt" id="token-amt">₹0.00</span>
+      <span class="pill-token pill-cat" id="token-cat">Food & Dining</span>
+      <span class="pill-token pill-split" id="token-split">Personal</span>
+    </div>
+    <button type="button" class="pill-submit-btn" id="pill-submit-btn" title="Log Expense (Enter)">↵</button>
+  </div>
+
+  <script src="icons.js"></script>
+  <script src="quickPill.js"></script>
+</body>
+</html>

@@ -1,0 +1,514 @@
+================================================================================
+LEDGERLY: FRICTIONLESS UX & FEATURE IMPLEMENTATION BLUEPRINT
+================================================================================
+A complete guide to feature rationale, user psychology, and exact technical
+implementation steps for all upcoming UX enhancements.
+(Note: QR Code Generator has been excluded per request.)
+
+TABLE OF CONTENTS:
+--------------------------------------------------------------------------------
+1. Instant Undo Toast Notification (Ctrl+Z)
+2. Direct Clipboard Image Paste for Receipts (Ctrl+V)
+3. Smart Merchant Auto-Categorization & Keyword Learning
+4. Natural Language Single-Bar Express Entry Parser ("1-Box Magic")
+5. Solo Workspace vs. Household Mode Toggle
+6. Rapid Date Shorthands in Batch Spreadsheet ('t', 'y', '-N', '15')
+7. Global Desktop Quick-Add Floating Pill Widget (Ctrl+Alt+L)
+8. Interactive "What-If" Spending Impact Simulator & Burnout Forecast
+9. Dynamic Color-Coded Budget Threshold Rings & Micro-Feedback
+================================================================================
+
+
+================================================================================
+FEATURE 1: Instant Undo Toast Notification (Ctrl+Z)
+================================================================================
+
+📌 WHY IT MATTERS:
+--------------------------------------------------------------------------------
+- Psychological Safety: When using 1-click presets or fast express logging, users
+  often fear accidental double-clicks or misclicking the wrong button (e.g., clicking
+  "Petrol ₹300" instead of "Chai ₹20").
+- Current Friction: Without an undo mechanism, fixing an error requires switching to
+  the Expense Feed tab, locating the record in the ledger, and clicking delete.
+- User Impact: A non-intrusive 4-second floating toast with a Ctrl+Z shortcut eliminates
+  all anxiety, encouraging users to log transactions at maximum speed.
+
+🛠️ HOW TO IMPLEMENT:
+--------------------------------------------------------------------------------
+1. Files to Modify:
+   - `src/index.html` (Add floating toast container)
+   - `src/styles.css` (Glassmorphic toast slide-in animation)
+   - `src/app.js` (Track last added transaction ID and bind Ctrl+Z listener)
+
+2. HTML Structure (add near bottom of `src/index.html`):
+   ```html
+   <div id="toast-undo-container" class="toast-undo-container hidden">
+     <span class="toast-message" id="toast-undo-message">✓ Logged "Coffee" ₹20.00</span>
+     <button type="button" class="toast-undo-btn" id="toast-undo-btn">↩️ Undo (Ctrl+Z)</button>
+   </div>
+   ```
+
+3. CSS Styling (in `src/styles.css`):
+   ```css
+   .toast-undo-container {
+     position: fixed;
+     bottom: 24px;
+     right: 24px;
+     background: rgba(26, 28, 35, 0.95);
+     backdrop-filter: blur(12px);
+     border: 1px solid var(--border-color, #2D303C);
+     border-left: 4px solid #D9822B;
+     padding: 12px 18px;
+     border-radius: 10px;
+     display: flex;
+     align-items: center;
+     gap: 14px;
+     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+     z-index: 9999;
+     animation: slideUpToast 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+   }
+   .toast-undo-btn {
+     background: rgba(217, 130, 43, 0.15);
+     border: 1px solid #D9822B;
+     color: #E5943C;
+     padding: 4px 10px;
+     border-radius: 6px;
+     cursor: pointer;
+     font-weight: 600;
+   }
+   ```
+
+4. Logic (in `src/app.js`):
+   ```javascript
+   let lastLoggedExpenseId = null;
+   let toastTimer = null;
+
+   function showUndoToast(title, amount, expenseId) {
+     lastLoggedExpenseId = expenseId;
+     const toast = document.getElementById('toast-undo-container');
+     const msg = document.getElementById('toast-undo-message');
+     msg.textContent = `✓ Logged "${title}" ₹${parseFloat(amount).toFixed(2)}`;
+     toast.classList.remove('hidden');
+
+     clearTimeout(toastTimer);
+     toastTimer = setTimeout(() => {
+       toast.classList.add('hidden');
+       lastLoggedExpenseId = null;
+     }, 4500);
+   }
+
+   async function handleUndoLastExpense() {
+     if (!lastLoggedExpenseId) return;
+     await window.electronAPI.deleteExpense(lastLoggedExpenseId);
+     document.getElementById('toast-undo-container').classList.add('hidden');
+     lastLoggedExpenseId = null;
+     await loadDashboardData(); // Refresh UI
+   }
+
+   document.getElementById('toast-undo-btn').addEventListener('click', handleUndoLastExpense);
+   window.addEventListener('keydown', (e) => {
+     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && lastLoggedExpenseId) {
+       handleUndoLastExpense();
+     }
+   });
+   ```
+
+
+================================================================================
+FEATURE 2: Direct Clipboard Image Paste for Receipts (Ctrl+V)
+================================================================================
+
+📌 WHY IT MATTERS:
+--------------------------------------------------------------------------------
+- Seamless Digital Workflows: Most modern receipts are digital (Google Pay, Paytm,
+  Amazon invoices, Swiggy order confirmations). Users capture them using Windows
+  Snipping Tool (Win+Shift+S).
+- Current Friction: Users must save the snip as a temporary file on their hard drive,
+  click "Attach Receipt", navigate Windows Explorer folders, and select the file.
+- User Impact: Pressing Ctrl+V anywhere in Ledgerly immediately attaches the clipboard
+  screenshot to the active expense form or selected table row in under 1 second.
+
+🛠️ HOW TO IMPLEMENT:
+--------------------------------------------------------------------------------
+1. Files to Modify:
+   - `src/main.js` (IPC handler to save base64 image data directly)
+   - `src/preload.js` (Expose `saveReceiptBuffer` API)
+   - `src/receiptStorage.js` (Save buffer to disk)
+   - `src/app.js` (Window-level `paste` event listener)
+
+2. Main Process Handler (`src/main.js` & `src/receiptStorage.js`):
+   ```javascript
+   // In src/receiptStorage.js:
+   saveReceiptBuffer(buffer, extension = '.png') {
+     this.ensureDirectoryExists();
+     const uniqueFilename = `rcpt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}${extension}`;
+     const destinationPath = path.join(this.receiptsDir, uniqueFilename);
+     fs.writeFileSync(destinationPath, buffer);
+     return { success: true, filename: uniqueFilename, absolutePath: destinationPath };
+   }
+
+   // In src/main.js:
+   ipcMain.handle('save-receipt-buffer', async (event, bufferBase64) => {
+     const buffer = Buffer.from(bufferBase64, 'base64');
+     return receiptStorage.saveReceiptBuffer(buffer);
+   });
+   ```
+
+3. Renderer Paste Listener (`src/app.js`):
+   ```javascript
+   window.addEventListener('paste', async (e) => {
+     const items = e.clipboardData && e.clipboardData.items;
+     if (!items) return;
+
+     for (let i = 0; i < items.length; i++) {
+       if (items[i].type.indexOf('image') !== -1) {
+         const blob = items[i].getAsFile();
+         const reader = new FileReader();
+         reader.onload = async () => {
+           const base64Data = reader.result.split(',')[1];
+           const res = await window.electronAPI.saveReceiptBuffer(base64Data);
+           if (res.success) {
+             // Attach to active modal or express form
+             pendingReceiptFilename = res.filename;
+             showAttachmentBadge(res.filename);
+           }
+         };
+         reader.readAsDataURL(blob);
+         break;
+       }
+     }
+   });
+   ```
+
+
+================================================================================
+FEATURE 3: Smart Merchant Auto-Categorization & Keyword Learning
+================================================================================
+
+📌 WHY IT MATTERS:
+--------------------------------------------------------------------------------
+- Eliminate Redundant Clicks: 80% of daily transactions are with known vendors or
+  activities (e.g. Uber, Swiggy, Starbucks, Shell Petrol).
+- Current Friction: Selecting the category dropdown on every single entry slows down
+  the typing flow.
+- User Impact: As the user types "Swiggy", the category automatically switches to
+  "Food & Dining" without requiring a single mouse click or tab.
+
+🛠️ HOW TO IMPLEMENT:
+--------------------------------------------------------------------------------
+1. Files to Modify:
+   - `src/categoryMatcher.js` (Lightweight offline dictionary + dynamic memory)
+   - `src/app.js` (Bind `input` event on express and modal title fields)
+
+2. Dictionary & Matching Engine:
+   ```javascript
+   const KEYWORD_CATEGORY_MAP = {
+     'Food & Dining': ['swiggy', 'zomato', 'starbucks', 'chai', 'coffee', 'lunch', 'dinner', 'burger', 'pizza', 'blinkit', 'zepto', 'instamart', 'kirana', 'groceries', 'restaurant'],
+     'Transportation': ['uber', 'ola', 'rapido', 'petrol', 'fuel', 'diesel', 'auto', 'cab', 'metro', 'toll', 'fastag', 'parking'],
+     'Utilities & Bills': ['bescom', 'electricity', 'wifi', 'broadband', 'airtel', 'jio', 'gas', 'cylinder', 'lpg', 'maid', 'cook', 'rent'],
+     'Subscriptions & Software': ['netflix', 'spotify', 'prime', 'youtube', 'github', 'chatgpt', 'apple', 'icloud'],
+     'Healthcare & Wellness': ['pharmacy', 'medicine', 'apollo', 'doctor', 'clinic', 'gym', 'cult']
+   };
+
+   function predictCategory(titleText) {
+     if (!titleText) return null;
+     const lower = titleText.toLowerCase();
+     for (const [category, keywords] of Object.entries(KEYWORD_CATEGORY_MAP)) {
+       if (keywords.some(kw => lower.includes(kw))) {
+         return category;
+       }
+     }
+     return null;
+   }
+   ```
+
+3. UI Attachment (`src/app.js`):
+   ```javascript
+   const titleInput = document.getElementById('express-title');
+   const categorySelect = document.getElementById('express-category');
+
+   titleInput.addEventListener('input', (e) => {
+     const predicted = predictCategory(e.target.value);
+     if (predicted) {
+       categorySelect.value = predicted;
+     }
+   });
+   ```
+
+
+================================================================================
+FEATURE 4: Natural Language Single-Bar Express Entry ("1-Box Magic")
+================================================================================
+
+📌 WHY IT MATTERS:
+--------------------------------------------------------------------------------
+- True < 2-Second Logging: Moving between Title, Amount, Category, and Split checkboxes
+  creates cognitive friction.
+- User Impact: A single universal text box parses full phrases like:
+  "Swiggy 350 lunch with Priya upi" -> Title: Swiggy, Amount: 350, Category: Food,
+  Split: Priya, Payment: UPI.
+
+🛠️ HOW TO IMPLEMENT:
+--------------------------------------------------------------------------------
+1. Files to Modify:
+   - Create `src/nlpParser.js` (Offline deterministic regex tokenizer)
+   - `src/index.html` (Add single omni-input and reactive token preview pills)
+   - `src/app.js` (Wire real-time parsing)
+
+2. Core Tokenizer (`src/nlpParser.js`):
+   - Pass 1 (Amount): Regex `/(?:₹|rs\.?)?\s*(\b\d+(?:\.\d{1,2})?k?\b)/i`
+   - Pass 2 (Date): Detects `yesterday`, `today`, `fri`, `last week`
+   - Pass 3 (Split): Matches `with <MemberName>`, `shared`, `joint`
+   - Pass 4 (Payment): Detects `upi`, `gpay`, `cc`, `cash`, `card`
+   - Pass 5 (Category): Matches keywords from Category dictionary
+   - Pass 6 (Title): Remaining string becomes Title.
+
+3. Live Token Preview Component (`src/index.html`):
+   ```html
+   <div class="nlp-token-preview-bar" id="nlp-preview-bar">
+     <span class="token-pill pill-amt" id="pill-amt">₹0.00</span>
+     <span class="token-pill pill-title" id="pill-title">Title</span>
+     <span class="token-pill pill-cat" id="pill-cat">Category</span>
+     <span class="token-pill pill-split" id="pill-split">Personal</span>
+   </div>
+   ```
+
+
+================================================================================
+FEATURE 5: Solo Workspace vs. Household Mode Toggle
+================================================================================
+
+📌 WHY IT MATTERS:
+--------------------------------------------------------------------------------
+- Personalization without Clutter: Solo users living alone do not need household
+  splitting columns, member debt streams, or shared checkboxes.
+- User Impact: Toggling "Solo Mode" expands the Recent Transactions Ledger to 100%
+  width, removes member chips, and streamlines the interface.
+
+🛠️ HOW TO IMPLEMENT:
+--------------------------------------------------------------------------------
+1. Files to Modify:
+   - `src/storage.js` (Add `workspaceMode: 'solo' | 'household'` in profile settings)
+   - `src/styles.css` (CSS rules under body class `.mode-solo`)
+   - `src/app.js` (Toggle handler)
+
+2. CSS Adaptation (`src/styles.css`):
+   ```css
+   body.mode-solo .operational-two-col-grid {
+     grid-template-columns: 1fr; /* Full width ledger */
+   }
+   body.mode-solo .operational-split-card,
+   body.mode-solo .nav-item[data-tab="household"],
+   body.mode-solo .table-col-split {
+     display: none !important;
+   }
+   ```
+
+3. Toggle Control in Profile Settings:
+   ```javascript
+   function setWorkspaceMode(mode) {
+     if (mode === 'solo') {
+       document.body.classList.add('mode-solo');
+     } else {
+       document.body.classList.remove('mode-solo');
+     }
+     window.electronAPI.updateAccountPreferences({ workspaceMode: mode });
+   }
+   ```
+
+
+================================================================================
+FEATURE 6: Rapid Date Shorthands in Batch Spreadsheet
+================================================================================
+
+📌 WHY IT MATTERS:
+--------------------------------------------------------------------------------
+- Speeding Up Backlog Entry: Typing "2026-08-28" for 20 continuous rows is tedious.
+- User Impact: Typing simple 1-character abbreviations automatically resolves to
+  valid dates:
+  * `t` -> Today (e.g. 2026-08-29)
+  * `y` -> Yesterday (e.g. 2026-08-28)
+  * `-2` or `-3` -> 2 or 3 days ago
+  * `15` -> 15th of current month (e.g. 2026-08-15)
+
+🛠️ HOW TO IMPLEMENT:
+--------------------------------------------------------------------------------
+1. Files to Modify:
+   - `src/app.js` (Attach `blur` and `keydown` listener on batch date cells)
+
+2. Shorthand Resolver Function:
+   ```javascript
+   function resolveDateShorthand(inputVal) {
+     if (!inputVal) return new Date().toISOString().split('T')[0];
+     const clean = inputVal.trim().toLowerCase();
+     const today = new Date();
+
+     if (clean === 't' || clean === 'today') {
+       return today.toISOString().split('T')[0];
+     }
+     if (clean === 'y' || clean === 'yesterday') {
+       today.setDate(today.getDate() - 1);
+       return today.toISOString().split('T')[0];
+     }
+     if (/^-\d+$/.test(clean)) {
+       const daysAgo = parseInt(clean.replace('-', ''), 10);
+       today.setDate(today.getDate() - daysAgo);
+       return today.toISOString().split('T')[0];
+     }
+     if (/^\d{1,2}$/.test(clean)) {
+       const dayNum = parseInt(clean, 10);
+       const year = today.getFullYear();
+       const month = String(today.getMonth() + 1).padStart(2, '0');
+       return `${year}-${month}-${String(dayNum).padStart(2, '0')}`;
+     }
+     return inputVal; // Return original if already YYYY-MM-DD
+   }
+   ```
+
+
+================================================================================
+FEATURE 7: Global Desktop Quick-Add Floating Pill Widget (Ctrl+Alt+L)
+================================================================================
+
+📌 WHY IT MATTERS:
+--------------------------------------------------------------------------------
+- Never Lose Workflow Context: When working in VS Code, watching a video, or reading
+  an email, opening the full app window disrupts your train of thought.
+- User Impact: Pressing `Ctrl+Alt+L` summons a sleek, spotlight-style floating mini
+  input bar over any app. Type `Coffee 20` -> hit Enter -> pill vanishes instantly.
+
+🛠️ HOW TO IMPLEMENT:
+--------------------------------------------------------------------------------
+1. Files to Modify:
+   - `src/main.js` (Electron `globalShortcut` and secondary lightweight BrowserWindow)
+   - Create `src/quickPill.html` & `src/quickPill.js`
+
+2. Electron Main Window Setup (`src/main.js`):
+   ```javascript
+   const { globalShortcut } = require('electron');
+
+   let quickPillWindow;
+   function createQuickPillWindow() {
+     quickPillWindow = new BrowserWindow({
+       width: 580,
+       height: 60,
+       frame: false,
+       transparent: true,
+       alwaysOnTop: true,
+       skipTaskbar: true,
+       show: false,
+       webPreferences: { preload: path.join(__dirname, 'preload.js') }
+     });
+     quickPillWindow.loadFile(path.join(__dirname, 'quickPill.html'));
+   }
+
+   app.whenReady().then(() => {
+     createQuickPillWindow();
+     globalShortcut.register('CommandOrControl+Alt+L', () => {
+       if (quickPillWindow.isVisible()) {
+         quickPillWindow.hide();
+       } else {
+         quickPillWindow.show();
+         quickPillWindow.focus();
+       }
+     });
+   });
+   ```
+
+
+================================================================================
+FEATURE 8: Interactive "What-If" Spending Impact Simulator & Burnout Forecast
+================================================================================
+
+📌 WHY IT MATTERS:
+--------------------------------------------------------------------------------
+- Proactive Decision-Making: Most budgeting tools are post-mortem (they only show
+  what you already spent).
+- User Impact: A dynamic slider allows users to test spending scenarios *before*
+  opening their wallet:
+  "If I spend ₹1,800 on dinner tonight, my safe daily budget for the remaining
+  12 days drops from ₹650/day to ₹500/day."
+
+🛠️ HOW TO IMPLEMENT:
+--------------------------------------------------------------------------------
+1. Files to Modify:
+   - Create `src/foresightEngine.js`
+   - `src/index.html` (Add slider widget under Daily Budget Health card)
+   - `src/styles.css` & `src/app.js` (Reactive mathematical calculation)
+
+2. Mathematical Formula:
+   - Current Daily Pace:
+     P_curr = (Discretionary - Spent_MTD) / Days_Remaining
+   - Projected Subsequent Pace after purchase X:
+     P_proj = (Discretionary - (Spent_MTD + X)) / (Days_Remaining - 1)
+   - Daily Reduction:
+     Delta_P = P_curr - P_proj
+
+3. Simulator Implementation:
+   ```javascript
+   function calculateWhatIf(extraAmount) {
+     const now = new Date();
+     const year = now.getFullYear();
+     const month = now.getMonth();
+     const totalDays = new Date(year, month + 1, 0).getDate();
+     const daysRemaining = Math.max(1, totalDays - now.getDate() + 1);
+
+     const remainingDiscretionary = getRemainingDiscretionary();
+     const currentPace = remainingDiscretionary / daysRemaining;
+
+     const simulatedRemaining = Math.max(0, remainingDiscretionary - extraAmount);
+     const nextDays = Math.max(1, daysRemaining - 1);
+     const projectedPace = simulatedRemaining / nextDays;
+     const dailyDrop = currentPace - projectedPace;
+
+     return {
+       currentPace: currentPace.toFixed(0),
+       projectedPace: projectedPace.toFixed(0),
+       dailyDrop: dailyDrop.toFixed(0),
+       daysRemaining: nextDays
+     };
+   }
+   ```
+
+
+================================================================================
+FEATURE 9: Dynamic Color-Coded Budget Threshold Rings & Micro-Feedback
+================================================================================
+
+📌 WHY IT MATTERS:
+--------------------------------------------------------------------------------
+- Immediate Ambient Awareness: Users should understand their financial health at a
+  subconscious glance without reading multiple numbers.
+- User Impact: The sidebar circular gauge transitions dynamically:
+  * Soft Jade Emerald (0% - 60% spent): "Safe Pace • ₹450 unspent rolled over"
+  * Spiced Chai Amber (60% - 85% spent): "Approaching Threshold • Moderate Pace"
+  * Crimson Velvet (> 85% spent): "Pacing Overbudget • Reduce Non-Essentials"
+
+🛠️ HOW TO IMPLEMENT:
+--------------------------------------------------------------------------------
+1. Files to Modify:
+   - `src/app.js` (Update canvas gauge stroke colors and micro-copy text dynamically)
+   - `src/styles.css` (Smooth color transition effects)
+
+2. Threshold Logic (`src/app.js`):
+   ```javascript
+   function updateAmbientBudgetGauge(percentSpent, rolloverBalance) {
+     let ringColor = '#10B981'; // Emerald
+     let statusCopy = '🌿 On Track & Safe';
+
+     if (percentSpent > 85 || rolloverBalance < -100) {
+       ringColor = '#E11D48'; // Crimson
+       statusCopy = '⚠️ Over Pace • Slow Down';
+     } else if (percentSpent > 60 || rolloverBalance < 0) {
+       ringColor = '#D9822B'; // Spiced Chai Amber
+       statusCopy = '⚡ Moderate Pace';
+     }
+
+     drawCircularGauge('salaryRingCanvas', percentSpent, ringColor);
+     document.getElementById('sidebar-budget-status-copy').textContent = statusCopy;
+   }
+   ```
+
+================================================================================
+END OF BLUEPRINT — READY FOR COPY & IMPLEMENTATION
+================================================================================

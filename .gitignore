@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Agent & AI development tools, skills, and meta-frameworks
+.agent/
+.gemini/
+.gsd/
+get-shit-done-for-antigravity/
+adapters/
+GSD-STYLE.md
+PROJECT_RULES.md
+docs/runbook.md
+docs/model-selection-playbook.md
+docs/token-optimization-guide.md
+scripts/validate-*
+scripts/setup_search.*
+scripts/search_repo.*
+
+# Scratch, test runs, and temporary data
+scratch/
+
+# Build and distribution outputs
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Local environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Operating system files
+.DS_Store
+Thumbs.db
