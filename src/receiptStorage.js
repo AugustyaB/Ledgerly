@@ -1,6 +1,5 @@
 const path = require('path');
 const fs = require('fs');
-const { app } = require('electron');
 
 class ReceiptStorage {
   constructor(customReceiptsDir) {
@@ -8,7 +7,7 @@ class ReceiptStorage {
     try {
       const { app } = require('electron');
       userDataPath = (app && typeof app.getPath === 'function') ? app.getPath('userData') : null;
-    } catch (e) {
+    } catch {
       userDataPath = null;
     }
 

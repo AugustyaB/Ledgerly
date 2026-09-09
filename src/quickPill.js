@@ -1,3 +1,6 @@
+/* global hydrateIcons */
+'use strict';
+
 let currentParsed = null;
 
 document.addEventListener('DOMContentLoaded', () => {

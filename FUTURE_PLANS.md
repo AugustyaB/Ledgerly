@@ -4,19 +4,62 @@ This document serves as the persistent registry of long-term ideas, feature pros
 
 ---
 
-## 🎯 Priority Future Focus Items
+## 📌 Current Milestone Status: Version 0.4 (Major Restructuring Cycle)
 
-### Version 1.4: Web App for Android & iPhones
-- [ ] **Architecture Research**: Understand how to build responsive mobile web applications for Android and iOS devices.
-- [ ] **Android Web App**: Develop and optimize the web application for Android.
-- [ ] **iPhone Web App**: Develop and optimize the web application for iPhones.
-- [ ] **Camera Integration**: Integrate camera hardware access for both Android and iOS versions to capture pictures of bills and receipts.
+### Completed Subsections:
+- [x] **v0.4.1 (Phase 1)**: Security Hardening Baseline — CSP baseline, PBKDF2 (210K rounds), formula sanitization, atomic writes.
+- [x] **v0.4.2 (Phase 2)**: Tooling, Type Contracts & Constants — ESLint flat config, Prettier, JSDoc `types.js`, frozen constants.
+- [x] **v0.4.3 (Phase 3)**: Backend Domain Decomposition — Disassembled monolithic `storage.js` into 8 services in `src/services/` with a facade.
+- [x] **v0.4.4 (Phase 4)**: Frontend Modular UI Decomposition — Native ES Modules, `AppState`, `AppRouter`, 8 view modules, 3 components, 0 inline events, CSP `script-src 'self'`, `app.js` reduced from 4,862 to 567 lines (88.3%).
+- [x] **v0.4.5 (Phase 5)**: IPC Runtime Schema Validation & Error Contract Standardization — Zero-dependency native validator engine (`schemaValidator.js`), `wrapIPC` boundary guard (`ipcGuard.js`), standardized `{ success, data, error, code, details }` wire envelopes, dual array/envelope compatibility in `preload.js`, 39 automated tests.
+- [x] **v0.4.6 (Phase 6)**: Global UI Error Boundaries, Crash Traps & Audit Defect Remediation — `ErrorBoundary.js`, section fallback cards, `crashLogger.js` (5MB rotation), uncaughtException/unhandledRejection traps, importer safeguards, resolved BUG-001..004, 11/11 automated resilience tests.
+- [x] **v0.4.7 (Phase 7)**: Enterprise Resilience, Tier 2 Reconciliation UX & Offline Conflict Engines — DatabaseAuditor self-healing integrity, DiagnosticExporter sanitized telemetry, SyncEngine 3-way merge, Ctrl+Z undo stack, fuzzy deduplication, proactive bill due banner, zero-eval calculator (12/12 automated resilience tests). **Concludes Version 0.4 Milestone.**
 
-### Version 1.5: Smart Storage System
-- [ ] **Mobile-Desktop Connection**: Establish a secure connection between mobile phone apps and the desktop application.
-- [ ] **Syncing Logic**: Set up reliable cross-device data synchronization logic.
-- [ ] **ML Bill Scanner**: Use a Machine Learning (ML) model to scan through bill photos and recognize financial details automatically.
-- [ ] **Automated Ingestion**: Automatically upload and persist the extracted bill data directly into app storage.
+---
+
+## 🛡️ Subsections of Version 0.4 (Completed Milestone)
+
+### Version 0.4.6 (Phase 6): Global UI Error Boundaries, Main Process Exception Traps & Audit Defect Remediation — [COMPLETED]
+- [x] **Global Renderer Error Traps**: Configure `window.onerror` and `window.addEventListener('unhandledrejection')` listeners to intercept unhandled promise rejections and script runtime exceptions.
+- [x] **Graceful Section Fallback Cards (UI Error Boundaries)**: When an unexpected error occurs within an individual view, render an isolated fallback card (`"Something went wrong loading this section"`) with a "Reload Section" button, preventing application whiteout or frozen states.
+- [x] **Main Process Crash Interceptors**: Set up `process.on('uncaughtException')` and `process.on('unhandledRejection')` in `main.js` that write timestamped diagnostic traces to a local `crash.log` file in user data directory and trigger non-fatal warning dialogs.
+- [x] **Streaming & Large File Memory Protections**: Add 50MB file size guard and 25,000-row processing caps in `fileImporter.js` to prevent memory exhaustion and UI thread lockup.
+- [x] **Audit Defect Fix — BUG-001 (P0 Blocker)**: Fix `fileImporter.js` regex stripping decimal points from transaction amounts ($78.45 -> $7845).
+- [x] **Audit Defect Fix — BUG-002 (P1 High)**: Enable `process.env.LEDGERLY_DB_PATH` in `JsonDatabase.js` for isolated test environments.
+- [x] **Audit Defect Fix — BUG-003 (P2 Medium)**: Eliminate ESLint syntax errors and undeclared globals across `nlpParser.js`, `quickPill.js`, `receiptStorage.js`, and `fileImporter.js`.
+- [x] **Audit Defect Fix — BUG-004 (P2 Medium)**: Standardize test assertions on strict `node:assert` instead of non-throwing `console.assert()`.
+
+### Version 0.4.7 (Phase 7): Enterprise Resilience, Tier 2 Reconciliation UX & Offline Conflict Engines — [COMPLETED]
+- [x] **Smart Statement Reconciliation & Deduplication (Audit Tier 2)**: Detect potential duplicate transactions (within ±2 days and ₹0.01 tolerance) in `ImportView.js` staging preview with interactive skip toggle.
+- [x] **Automated Recurring Bill & Salary Scheduler (Audit Tier 2)**: Launch-time due date inspection for recurring bills (`check-pending-bills`) and 1-click execution (`execute-bill-payment`) with proactive Dashboard cockpit banner.
+- [x] **Global Undo / Redo Mechanism (Audit Tier 2)**: 10-item in-memory transaction action stack in `AppState.js` with `Ctrl+Z` restoration toast.
+- [x] **Advanced Omni-Search & Calculator (Audit Tier 2)**: Instant math evaluation via zero-eval Shunting-Yard parser and contextual note queries in `CommandPalette.js`.
+- [x] **Startup Database Integrity Auditor**: Automated integrity verification on app boot (`DatabaseAuditor.js`) that checks JSON schema validity, repairs orphaned notes and corrupted amounts/dates, and manages `.pre-audit.bak` snapshots.
+- [x] **Self-Diagnostic Export Bundle**: Hermetic diagnostic exporter (`DiagnosticExporter.js`) bundling system specs, schema stats, and sanitized `crash.log` with path/credential masking.
+- [x] **Offline Replication Foundation**: Deterministic sync engine (`SyncEngine.js`) implementing vector clocks, LWW tie-breaking, and deterministic 3-way merge resolution.
+
+---
+
+## 🎯 Subsequent Feature Milestones (Post-v0.4)
+
+### Version 0.5+: Mobile Web Companion & Local LAN Peer Sync (Audit Tier 3)
+- [ ] **Local LAN Peer Sync (Zero Cloud)**: Embedded HTTP/WebSocket server in Electron allowing smartphones on home/office Wi-Fi to pair via QR code and log transactions directly to the desktop database.
+- [ ] **Mobile Experience & Touch PWA**: Ultra-lightweight mobile web client with offline IndexedDB queueing that flushes upon reconnecting to home Wi-Fi.
+- [ ] **Local Machine Learning Receipt OCR Engine**: Bundled WebAssembly Tesseract OCR worker extracting merchant, date, and total locally without cloud vision APIs.
+- [ ] **Transparent Database Vault Encryption**: AES-256-GCM master password encryption protecting `expenses_db.json` from physical device theft.
+- [ ] **Hardware Camera Access**: Direct camera capture for snapping receipts and physical bills on mobile.
+- [ ] **Local Network Sync**: Secure peer-to-peer or local network pairing between desktop Ledgerly and mobile devices.
+
+### Version 1.0.0: Official Production Release & Ambient Intelligence
+- [ ] **Multi-Purpose Windows Installer & Maintenance Suite**: Interactive wizard providing clean installation, self-healing file repair without user data loss, safe uninstallation with data retention prompts, and embedded GitHub installation guidance.
+- [ ] **Production Release Candidate**: Signed binaries, auto-updater integration, desktop & Start Menu shortcuts, and production certification.
+- [ ] **Local Machine Learning Bill Scanner**: On-device OCR model to extract merchant, date, total, and line items from receipt photos automatically without cloud dependencies.
+- [ ] **Automated Transaction Ingestion**: Automatically populate and stage scanned bill data into the express review queue.
+- [ ] **Predictive Burn Rate & Category Forecasting**: Advanced time-series spending projections.
+
+---
+
+## 🎨 Brand, UI & Ambient Intelligence Backlog
 
 ### 1. 🎨 Bespoke App Logo & Brand Identity Customization
 - [ ] **Custom Vector/SVG Brand Mark**: Design a bespoke Ledgerly vector logo replacing the temporary credit card icon badge.
@@ -66,6 +109,28 @@ This document serves as the persistent registry of long-term ideas, feature pros
 - [ ] **Enhanced PDF & Statement Parsing**: Expand the local file importer with automated bank statement recognition (SBI, HDFC, ICICI, etc.).
 - [ ] **Receipt OCR Engine**: Add offline local OCR for physical bill and receipt scanning.
 
+### 10. 📦 Multi-Purpose Windows Installer & Maintenance Suite
+- [ ] **Interactive Multi-Mode Setup Wizard (Install, Repair, Uninstall)**:
+  - Custom NSIS / Electron-Builder setup wizard providing clear mode selection when an existing installation is detected:
+    - **Install / Upgrade**: Standard per-user (`AppData\Local\Programs`) or system-wide (`Program Files`) installation, custom directory path selection, Start Menu & Desktop shortcut creation, and protocol/file associations.
+    - **Repair Installation**: Automated file integrity verification for corrupted, damaged, or missing binaries/assets.
+    - **Uninstall Ledgerly**: Clean removal of application runtime files and system hooks.
+- [ ] **Self-Healing Binary & Asset Repair Engine**:
+  - Validates checksums/hashes of application runtime files, assets, and dependencies against the release manifest.
+  - Re-extracts and restores missing or corrupted files without requiring a manual re-download.
+  - **Zero Data Loss Guarantee**: Strictly isolates repair operations to program files (`Program Files` / `AppData\Local\Programs`), ensuring user databases (`%APPDATA%\Ledgerly\expenses_db.json`), receipt archives, and configuration remain 100% untouched.
+  - Registers Windows "Modify / Repair" entry in *Installed Apps* (Windows Settings) and *Programs and Features* (Control Panel).
+- [ ] **Safe Uninstallation with Data Retention Safeguard**:
+  - Interactive uninstaller dialog: `"Would you like to keep your personal financial records, receipts, and backups, or completely remove all data?"`
+  - Prevents tragic accidental financial data loss during reinstallation or PC migration while still providing a complete purge option when requested.
+- [ ] **Integrated Documentation & GitHub Guidance**:
+  - Directions and direct clickable links to the official GitHub repository embedded in the installer welcome, maintenance, and completion pages:
+    - 📖 **Installation Guide & Prerequisites**: Windows compatibility, WebView2/Electron prerequisites.
+    - 🛠️ **Troubleshooting & Offline Recovery**: Step-by-step guides for manual file recovery, backup restoration, and database repair.
+    - 📝 **Release Notes & Documentation**: Version changelog, feature walkthroughs, and user manuals.
+    - 🐞 **GitHub Issue Tracker**: Direct link for filing bug reports or requesting features.
+  - Post-install options: `[ Launch Ledgerly ]` and `[ Open GitHub Installation & User Guide ]`.
+
 ---
 
-*Last Updated: 2026-09-04*
+*Last Updated: 2026-09-08*

@@ -35,7 +35,6 @@ class NLPParser {
 
     let workingStr = input.trim();
     let detectedAmount = null;
-    let amountTokenStr = '';
     let detectedDate = new Date().toISOString().split('T')[0];
     let dateTokenStr = 'Today';
     let detectedPayment = 'UPI / GPay';
@@ -43,7 +42,7 @@ class NLPParser {
     let splitWithMembers = [];
     let isHousehold = false;
     let splitTokenStr = '';
-    let detectedCategory = null;
+    let detectedCategory;
 
     // -------------------------------------------------------------------------
     // PASS 1: Amount Extraction (e.g. ₹350, 350.50, 1.2k, rs 500, $25)
@@ -51,7 +50,6 @@ class NLPParser {
     const amountRegex = /(?:₹|rs\.?|\$)?\s*(\b\d+(?:\.\d{1,2})?(?:k|K)?\b)/;
     const amountMatch = workingStr.match(amountRegex);
     if (amountMatch) {
-      amountTokenStr = amountMatch[0];
       let numValStr = amountMatch[1].toLowerCase();
       if (numValStr.endsWith('k')) {
         detectedAmount = parseFloat(numValStr.replace('k', '')) * 1000;
