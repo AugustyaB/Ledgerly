@@ -8,6 +8,7 @@ const NLPParser = require('./nlpParser');
 const ForesightEngine = require('./foresightEngine');
 const { CategoryMatcher } = require('./categoryMatcher');
 const DocumentNormalizer = require('./services/DocumentNormalizer');
+const ReceiptTier1Engine = require('./services/ReceiptTier1Engine');
 const XLSX = require('xlsx');
 const { wrapIPC } = require('./validation/ipcGuard');
 const { crashLogger } = require('./logger/crashLogger');
@@ -25,6 +26,7 @@ const {
   validateBudgetGoal,
   validateWorkspaceMode,
   validateDocumentNormalizeInput,
+  validateReceiptScanInput,
   validateId,
   isPlainObject
 } = require('./validation/schemaValidator');
@@ -61,6 +63,7 @@ let fileImporter;
 let nlpParser;
 let categoryMatcher;
 let documentNormalizer;
+let receiptTier1Engine;
 
 function sanitizeSpreadsheetCell(val) {
   const str = String(val === null || val === undefined ? '' : val);
@@ -131,8 +134,9 @@ function createWindow() {
   }
   receiptStorage = new ReceiptStorage();
   documentNormalizer = new DocumentNormalizer();
-  fileImporter = new FileImporter();
   categoryMatcher = new CategoryMatcher(storage.getCategoryKeywords());
+  receiptTier1Engine = new ReceiptTier1Engine({ normalizer: documentNormalizer, categoryMatcher });
+  fileImporter = new FileImporter({ tier1Engine: receiptTier1Engine });
   nlpParser = new NLPParser(storage.getCategoryKeywords());
 
   mainWindow = new BrowserWindow({
@@ -585,6 +589,13 @@ ipcMain.handle('normalize-document', wrapIPC('normalize-document', (input, optio
 
 ipcMain.handle('get-native-addon-status', wrapIPC('get-native-addon-status', null, async () => {
   return documentNormalizer.getNativeAddonStatus();
+}));
+
+// Tier 1 Fast-Lite Receipt Document Intelligence (Phase 0.5.3)
+ipcMain.handle('scan-receipt-document', wrapIPC('scan-receipt-document', (input, options) => {
+  return validateReceiptScanInput(input, options);
+}, async (event, input, options) => {
+  return receiptTier1Engine.processDocument(input, options);
 }));
 
 ipcMain.handle('confirm-import', wrapIPC('confirm-import', (expenses) => {

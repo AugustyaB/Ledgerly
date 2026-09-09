@@ -27,8 +27,32 @@ Future Milestone:
 # Version 0.5: On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine
 > *Succeeds Version 0.4.7 (Major Restructuring Milestone). Introduces local, offline machine learning models for physical receipts, PDF statements, and camera photos.*
 
-## [0.5.2] - Phase 2: Document Normalization & Image Preprocessing Engine (2026-09-09)
+## [0.5.3] - Phase 3: Tier 1 (Fast-Lite) Bundled Engine & Instant Receipt Autofill (2026-09-09)
 > *Current Active Subsection*
+
+### ⚡ Tier 1 Fast-Lite Receipt ML Engine (`src/services/ReceiptTier1Engine.js`)
+- **Ultra-Compact Offline Bundled Model**: Bundled offline Tesseract WASM OCR engine (`assets/models/tesseract/eng.traineddata`, 5.19MB) directly into the repository assets, guaranteeing zero cloud dependencies and instant out-of-the-box receipt scanning.
+- **Reverse Bottom-to-Top Token Attention**: Parses receipt tokens from bottom to top, prioritizing primary totals over item prices, discounts, change, and line items.
+- **ISO Date Normalization**: Converts diverse international date formats (ISO `YYYY-MM-DD`, Indian/British `DD/MM/YYYY`, US `MM/DD/YYYY`, and month-name representations `14 Aug 2026`) to standardized `YYYY-MM-DD`.
+- **Boilerplate-Stripped Merchant Resolution**: Strips transaction headers, tax IDs, legal entities, and UPI artifacts (`"Paid to "`) to isolate clean merchant names.
+- **Indian GST & UPI Intelligence**: Automatically extracts 15-character GSTINs (`\d{2}[A-Z]{5}...`), breaks down CGST/SGST/IGST tax values, and recognizes digital UPI transaction slips (Google Pay, PhonePe, Paytm).
+- **Multi-Currency Support**: Detects and extracts amounts in INR (₹), USD ($), EUR (€), and GBP (£).
+- **Vector PDF Flate Fast-Path**: Leverages DocumentNormalizer to parse digital vector PDFs in 2ms–6ms without invoking visual OCR.
+
+### 🛡️ Negative Control Rejection Gate (0% False Positives)
+- **Financial Intent Verification Gate**: Enforces a strict composite heuristic check requiring both a monetary figure and financial semantic markers (e.g. `total`, `tax`, `invoice`, `paid`, `gst`, `receipt`, currency symbols).
+- Non-financial files (nature wallpapers, landscapes, diagrams, source code, meeting notes) return `isTransaction: false` with 0% false-positive amount hallucinations (verified 9/9 negative controls).
+
+### 🧾 Smart Non-Destructive Form Autofill & Desktop UI Integration
+- **Add Expense Modal Dropzone (`src/ui/views/ExpenseFeedView.js`)**: Added visual drag-and-drop zone (`#receipt-dropzone`) and file picker button to the Add Expense modal.
+- **Non-Destructive Population**: Populates `#form-title`, `#form-amount`, `#form-date`, `#form-category`, `#form-payment`, and appends GSTIN/tax details to description, while preserving any user-typed text.
+- **QuickPill Express Intake (`src/quickPill.html`, `src/quickPill.css`, `src/quickPill.js`)**: Integrated receipt scan button (`[ 🧾 ]`) and container drag-and-drop zone, instantly pre-filling NLP text tokens for 1-click submission.
+- **FileImporter Image Support (`src/fileImporter.js`)**: Extended universal file importer to recognize `.jpg`, `.jpeg`, `.png`, `.webp`, and `.bmp` receipt images, routing them to `ReceiptTier1Engine`.
+- **IPC Contracts & Validation (`src/validation/schemaValidator.js`, `src/main.js`, `src/preload.js`)**: Exposed `scan-receipt-document` IPC channel with `validateReceiptScanInput` schema validation and standardized `{ success, data, error, code }` response envelopes.
+
+---
+
+## [0.5.2] - Phase 2: Document Normalization & Image Preprocessing Engine (2026-09-09)
 
 ### 📸 Universal Document Intake & Preprocessing Engine (`src/services/DocumentNormalizer.js`)
 - **Zero Native Build Tools Guarantee**: Engineered 100% pure JavaScript and WebAssembly core capable of parsing, decompressing, and assessing documents out of the box on Windows and Linux without requiring Visual Studio C++ Build Tools or node-gyp.

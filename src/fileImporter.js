@@ -5,8 +5,9 @@ const { VALIDATION_LIMITS } = require('./constants');
 const DocumentNormalizer = require('./services/DocumentNormalizer');
 
 class FileImporter {
-  constructor() {
-    this._normalizer = new DocumentNormalizer();
+  constructor(options = {}) {
+    this._normalizer = options.normalizer || new DocumentNormalizer();
+    this._tier1Engine = options.tier1Engine || null;
     // Defined aliases based on specifications
     this.aliases = {
       date: ['date', 'transaction date', 'posted date', 'trans date', 'posting date'],
@@ -46,8 +47,14 @@ class FileImporter {
           return this._parseJSON(filePath);
         case '.pdf':
           return this._parsePDF(filePath);
+        case '.jpg':
+        case '.jpeg':
+        case '.png':
+        case '.webp':
+        case '.bmp':
+          return this._parseReceiptImage(filePath);
         default:
-          return this._errorResponse('Unsupported file extension. Supported formats: CSV, XLS, XLSX, OFX, QFX, JSON, PDF', 'unknown');
+          return this._errorResponse('Unsupported file extension. Supported formats: CSV, XLS, XLSX, OFX, QFX, JSON, PDF, JPG, PNG, WEBP, BMP', 'unknown');
       }
     } catch (error) {
       return this._errorResponse(`Error reading file: ${error.message}`, 'unknown');
@@ -478,6 +485,45 @@ class FileImporter {
       return { success: true, expenses, errors: [], warnings, format: 'pdf' };
     } catch (e) {
       return this._errorResponse(e.message, 'pdf');
+    }
+  }
+
+  async _parseReceiptImage(filePath) {
+    try {
+      if (!this._tier1Engine) {
+        const ReceiptTier1Engine = require('./services/ReceiptTier1Engine');
+        this._tier1Engine = new ReceiptTier1Engine({ normalizer: this._normalizer });
+      }
+
+      const scanResult = await this._tier1Engine.processDocument(filePath);
+      if (!scanResult.success || !scanResult.data) {
+        return this._errorResponse(scanResult.error || 'Failed to scan receipt image.', 'receipt_image');
+      }
+
+      const data = scanResult.data;
+      if (!data.isTransaction || data.total === null) {
+        return this._errorResponse(data.message || 'No financial transactions detected in this receipt image.', 'receipt_image');
+      }
+
+      const expense = {
+        title: data.merchant || 'Receipt Expense',
+        amount: data.total,
+        date: data.date || new Date().toISOString().split('T')[0],
+        category: data.category || 'Miscellaneous',
+        paymentMethod: data.paymentMethod || 'UPI / GPay',
+        description: `Tier 1 Scan: ${data.merchant} (${data.gstin ? 'GSTIN ' + data.gstin : 'Attached Receipt'})`,
+        tags: ['receipt-scan', 'tier1-fast-lite']
+      };
+
+      return {
+        success: true,
+        expenses: [expense],
+        errors: [],
+        warnings: [`Scanned via Tier 1 Fast-Lite Engine (${Math.round(data.confidence * 100)}% confidence)`],
+        format: 'receipt_image'
+      };
+    } catch (err) {
+      return this._errorResponse(`Receipt image parse error: ${err.message}`, 'receipt_image');
     }
   }
 }

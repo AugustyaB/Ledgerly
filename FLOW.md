@@ -1,7 +1,7 @@
 # 🔄 Ledgerly — System Architecture & Application Flow (`FLOW.md`)
 
 > **Version Cycle**: `0.5` — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine*  
-> **Current State**: `v0.5.1` (Phase 1: Dataset Sourcing & Base Model Discovery Complete)  
+> **Current State**: `v0.5.3` (Phase 3: Tier 1 Fast-Lite Bundled Engine & Instant Receipt Autofill Complete)  
 > **Preceding Version**: `0.4.7` (Major Restructuring & Enterprise Resilience Milestone)  
 > **Status**: **ACTIVE & CANONICAL**  
 > **Scope**: Complete end-to-end data lifecycle, component interaction, IPC contracts, state management, and ML document intelligence pipeline across Version 0.5 subsections (v0.5.1 to v0.5.7).
@@ -306,6 +306,29 @@ The application implements a multi-tier resilience strategy distributed across c
 | - Spotlight Zero-Eval Calculator: safeEvaluateMath() Shunting-Yard parser & notes search   |
 | - 12/12 automated resilience unit tests passing in scratch/test_phase7_resilience.js      |
 +-----------------------------------------------------------------------------------------+
+                                            |
+                                            v
++-----------------------------------------------------------------------------------------+
+| [PHASE 0.5.2: DOCUMENT NORMALIZATION & IMAGE PREPROCESSING ENGINE - COMPLETE]           |
+| - Magic byte sniffing (PDF, JPEG, PNG, WebP, BMP, TIFF)                                 |
+| - Adaptive 1200-2400px detail density scaling based on Laplacian edge transitions       |
+| - Early blur rejection gate (Laplacian variance < 32.0 -> ERR_IMAGE_BLURRY)             |
+| - Adaptive thermal receipt contrast booster (P5/P95 histogram stretching)               |
+| - Digital vector PDF fast-path (<10ms Flate decompression) + multi-page selection        |
+| - Encrypted PDF trap (ERR_PDF_ENCRYPTED) & zero-native build tool guarantee             |
++-----------------------------------------------------------------------------------------+
+                                            |
+                                            v
++-----------------------------------------------------------------------------------------+
+| [PHASE 0.5.3: TIER 1 FAST-LITE RECEIPT ENGINE & INSTANT AUTOFILL - COMPLETE]            |
+| - Bundled offline Tesseract WASM OCR (assets/models/tesseract/eng.traineddata, 5.19MB)   |
+| - Reverse bottom-to-top token attention parser for grand totals & merchant resolution   |
+| - Indian GSTIN (15-char) & tax split (CGST/SGST/IGST) + UPI payment slip extraction     |
+| - Multi-currency support (INR ₹, USD $, EUR €, GBP £) & ISO date normalization           |
+| - 0% false-positive financial intent rejection gate (9/9 negative controls cleanly rejected)|
+| - Smart non-destructive autofill in ExpenseFeedView modal & QuickPill drag-and-drop     |
+| - 50/50 automated test assertions passing in scratch/test_receipt_tier1.js              |
++-----------------------------------------------------------------------------------------+
 ```
 
 ---
@@ -317,6 +340,7 @@ The application implements a multi-tier resilience strategy distributed across c
 > - The leading **`0`** denotes that Ledgerly is currently within its **Alpha Build Phase** (`0.x.x`) of active architecture and feature building. The official **`v1.0.0`** release will mark the production-ready build for user download and deployment.
 > - The version **`0.4`** represents the **overall phase structure** (*Major Codebase Restructuring Improving Its Readability*).
 > - Each phase represents a specific **subsection of version 0.4** (`0.4.1` through `0.4.7`).
+> - The version **`0.5`** represents the **on-device machine learning document intelligence cycle** (`0.5.1` through `0.5.7`).
 
 | Version / Sub-version | Milestone / Phase Name | Key Architectural Shift |
 |---|---|---|
@@ -334,4 +358,5 @@ The application implements a multi-tier resilience strategy distributed across c
 | **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine** | **Local, zero-cloud ML models for camera photos, PDF statements, and receipts** |
 | ↳ **v0.5.1** (Phase 1) | Dataset Sourcing & Base Model Discovery | Standardized schema (SROIE, CORD, Indian GST & UPI), 54-sample negative control gate, 3-tier model profiling |
 | ↳ **v0.5.2** (Phase 2) | Document Normalization & Image Preprocessing | Magic byte sniffing, EXIF rotation, adaptive 1200-2400px density scaling, blur rejection gate, thermal contrast boosting, vector PDF fast-path (<10ms) |
+| ↳ **v0.5.3** (Phase 3) | Tier 1 (Fast-Lite) Bundled Engine & Instant Receipt Autofill | Offline Tesseract WASM (5.19MB), reverse token attention, smart non-destructive autofill, UPI & GST breakdown, negative transaction gate |
 | **v1.0.0** | **Official Production Release** | Production-ready deployment for user download |

@@ -74,4 +74,86 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   submitBtn.addEventListener('click', handleSubmit);
+
+  // Receipt Upload & Scan Integration (Phase 0.5.3)
+  const receiptBtn = document.getElementById('pill-receipt-btn');
+  const container = document.getElementById('quick-pill-container');
+
+  const processReceiptPath = async (filePath) => {
+    if (!filePath || !window.electronAPI?.scanReceiptDocument) return;
+
+    inputEl.placeholder = 'Scanning receipt with Tier 1 Fast-Lite...';
+    try {
+      const scanRes = await window.electronAPI.scanReceiptDocument(filePath);
+      if (scanRes?.success && scanRes.data?.isTransaction && scanRes.data.total !== null) {
+        const d = scanRes.data;
+        let savedFilename = null;
+        if (window.electronAPI.saveReceipt) {
+          const saveRes = await window.electronAPI.saveReceipt(filePath);
+          if (saveRes?.success) savedFilename = saveRes.filename;
+        }
+
+        currentParsed = {
+          success: true,
+          amount: d.total,
+          title: d.merchant || 'Receipt Expense',
+          date: d.date || new Date().toISOString().split('T')[0],
+          category: d.category || 'Miscellaneous',
+          paymentMethod: d.paymentMethod || 'UPI / GPay',
+          receiptFilename: savedFilename,
+          rawInput: `Receipt: ${d.merchant} (₹${d.total})`,
+          isHouseholdExpense: false,
+          splitWith: [],
+          tokens: {
+            amountStr: `₹${d.total.toFixed(2)}`,
+            splitStr: 'Personal'
+          }
+        };
+
+        inputEl.value = `${d.merchant || 'Expense'} ₹${d.total}`;
+        amtEl.textContent = `₹${d.total.toFixed(2)}`;
+        catEl.textContent = d.category || 'Miscellaneous';
+        splitEl.textContent = 'Personal';
+        inputEl.focus();
+      } else {
+        inputEl.placeholder = 'No financial data detected in file.';
+        setTimeout(() => {
+          inputEl.placeholder = "Type: e.g. 'Coffee 20' or 'Swiggy 350 with Priya'...";
+        }, 3000);
+      }
+    } catch (err) {
+      console.warn('[QuickPill] Receipt scan error:', err);
+      inputEl.placeholder = "Type: e.g. 'Coffee 20'...";
+    }
+  };
+
+  if (receiptBtn) {
+    receiptBtn.addEventListener('click', async () => {
+      if (!window.electronAPI?.selectReceiptFile) return;
+      const res = await window.electronAPI.selectReceiptFile();
+      if (res?.success && res.filePath) {
+        await processReceiptPath(res.filePath);
+      }
+    });
+  }
+
+  if (container) {
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      container.style.borderColor = '#E5943C';
+    });
+    container.addEventListener('dragleave', () => {
+      container.style.borderColor = '#D9822B';
+    });
+    container.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      container.style.borderColor = '#D9822B';
+      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.path) {
+          await processReceiptPath(file.path);
+        }
+      }
+    });
+  }
 });

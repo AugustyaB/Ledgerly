@@ -1201,6 +1201,10 @@ export class ExpenseFeedView {
    * Bind receipt attachment file picker and remove button.
    * @private
    */
+  /**
+   * Bind receipt attachment file picker, dropzone, and remove button.
+   * @private
+   */
   #bindReceiptLightbox() {
     const bindEl = (id, event, handler) => {
       const el = document.getElementById(id);
@@ -1210,21 +1214,45 @@ export class ExpenseFeedView {
       }
     };
 
-    // Attach receipt button
+    // Attach receipt button click
     bindEl('btn-select-receipt', 'click', async () => {
-      if (!this.api?.selectReceiptFile || !this.api?.saveReceipt) return;
+      if (!this.api?.selectReceiptFile) return;
       const res = await this.api.selectReceiptFile();
       if (res?.success && res.filePath) {
-        const saveRes = await this.api.saveReceipt(res.filePath);
-        if (saveRes?.success) {
-          const filenameInput = /** @type {HTMLInputElement} */ (document.getElementById('form-receipt-filename'));
-          const statusText = document.getElementById('receipt-status-text');
-          if (filenameInput) filenameInput.value = saveRes.filename;
-          if (statusText) statusText.textContent = `Attached: ${saveRes.filename}`;
-          showToast(`Attached receipt: ${saveRes.filename}`);
-        }
+        await this.#handleReceiptFile(res.filePath);
       }
     });
+
+    // Receipt Dropzone drag-and-drop
+    const dropzone = document.getElementById('receipt-dropzone');
+    if (dropzone) {
+      const onDragOver = (e) => {
+        e.preventDefault();
+        dropzone.classList.add('drag-active');
+      };
+      const onDragLeave = () => {
+        dropzone.classList.remove('drag-active');
+      };
+      const onDrop = async (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('drag-active');
+        if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+          const file = e.dataTransfer.files[0];
+          if (file.path) {
+            await this.#handleReceiptFile(file.path);
+          }
+        }
+      };
+
+      dropzone.addEventListener('dragover', onDragOver);
+      dropzone.addEventListener('dragleave', onDragLeave);
+      dropzone.addEventListener('drop', onDrop);
+      this.#cleanups.push(() => {
+        dropzone.removeEventListener('dragover', onDragOver);
+        dropzone.removeEventListener('dragleave', onDragLeave);
+        dropzone.removeEventListener('drop', onDrop);
+      });
+    }
 
     // Remove receipt button
     bindEl('btn-remove-receipt', 'click', () => {
@@ -1235,5 +1263,126 @@ export class ExpenseFeedView {
       document.getElementById('receipt-preview-box')?.classList.add('hidden');
       showToast('Receipt attachment removed');
     });
+  }
+
+  /**
+   * Processes a receipt file: saves to disk and scans with Tier 1 ML engine.
+   * @private
+   * @param {string} filePath 
+   */
+  async #handleReceiptFile(filePath) {
+    if (!filePath || !this.api?.saveReceipt) return;
+
+    const statusText = document.getElementById('receipt-status-text');
+    if (statusText) statusText.textContent = 'Scanning receipt with Tier 1 Fast-Lite...';
+
+    const saveRes = await this.api.saveReceipt(filePath);
+    if (!saveRes?.success) {
+      if (statusText) statusText.textContent = 'Failed to attach receipt.';
+      showToast(saveRes?.error || 'Failed to attach receipt image.');
+      return;
+    }
+
+    const filenameInput = /** @type {HTMLInputElement|null} */ (document.getElementById('form-receipt-filename'));
+    if (filenameInput) filenameInput.value = saveRes.filename;
+    if (statusText) statusText.textContent = `Attached: ${saveRes.filename}`;
+
+    // Show preview thumbnail if available
+    const previewBox = document.getElementById('receipt-preview-box');
+    const previewImg = /** @type {HTMLImageElement|null} */ (document.getElementById('receipt-preview-img'));
+    if (previewBox && previewImg && this.api?.getReceiptPath) {
+      const absPathRes = await this.api.getReceiptPath(saveRes.filename);
+      const absPath = typeof absPathRes === 'string' ? absPathRes : absPathRes?.data;
+      if (absPath) {
+        previewImg.src = `file://${absPath.replace(/\\/g, '/')}`;
+        previewBox.classList.remove('hidden');
+      }
+    }
+
+    // Tier 1 Fast-Lite On-Device Document Intelligence Scan
+    if (this.api?.scanReceiptDocument) {
+      try {
+        const scanRes = await this.api.scanReceiptDocument(filePath);
+        if (scanRes?.success && scanRes.data) {
+          const data = scanRes.data;
+          if (data.isTransaction && data.total !== null) {
+            this.#autofillExpenseForm(data);
+            if (statusText) {
+              statusText.textContent = `Attached: ${saveRes.filename} (Scanned: ₹${data.total.toFixed(2)})`;
+            }
+            showToast(`Receipt scanned: ₹${data.total.toFixed(2)} at ${data.merchant}`);
+          } else {
+            if (statusText) {
+              statusText.textContent = `Attached: ${saveRes.filename} (No receipt data detected)`;
+            }
+            showToast(data.message || 'No financial transactions detected in file.');
+          }
+        }
+      } catch (scanErr) {
+        console.warn('[ExpenseFeedView] Receipt scan exception:', scanErr);
+      }
+    } else {
+      showToast(`Attached receipt: ${saveRes.filename}`);
+    }
+  }
+
+  /**
+   * Smartly autofills empty or default fields in the expense modal form.
+   * @private
+   * @param {Object} data - Scanned receipt metadata
+   */
+  #autofillExpenseForm(data) {
+    if (typeof document === 'undefined' || !data) return;
+
+    const titleEl = /** @type {HTMLInputElement|null} */ (document.getElementById('form-title'));
+    const amountEl = /** @type {HTMLInputElement|null} */ (document.getElementById('form-amount'));
+    const dateEl = /** @type {HTMLInputElement|null} */ (document.getElementById('form-date'));
+    const categoryEl = /** @type {HTMLSelectElement|null} */ (document.getElementById('form-category'));
+    const paymentEl = /** @type {HTMLSelectElement|null} */ (document.getElementById('form-payment'));
+    const descEl = /** @type {HTMLTextAreaElement|null} */ (document.getElementById('form-description'));
+
+    if (titleEl && (!titleEl.value.trim() || titleEl.value.toLowerCase() === 'new expense')) {
+      if (data.merchant && data.merchant !== 'Unknown Merchant') {
+        titleEl.value = data.merchant;
+      }
+    }
+
+    if (amountEl && (!amountEl.value || parseFloat(amountEl.value) === 0)) {
+      if (data.total !== null && data.total !== undefined) {
+        amountEl.value = String(data.total);
+      }
+    }
+
+    if (dateEl && !dateEl.value && data.date) {
+      dateEl.value = data.date;
+    }
+
+    if (categoryEl && data.category) {
+      for (let i = 0; i < categoryEl.options.length; i++) {
+        if (categoryEl.options[i].value.toLowerCase() === data.category.toLowerCase()) {
+          categoryEl.selectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (paymentEl && data.paymentMethod) {
+      for (let i = 0; i < paymentEl.options.length; i++) {
+        if (paymentEl.options[i].value.toLowerCase().includes(data.paymentMethod.toLowerCase()) ||
+            data.paymentMethod.toLowerCase().includes(paymentEl.options[i].value.toLowerCase())) {
+          paymentEl.selectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (descEl && !descEl.value.trim()) {
+      const notes = [];
+      if (data.gstin) notes.push(`GSTIN: ${data.gstin}`);
+      if (data.cgst || data.sgst) notes.push(`CGST: ₹${data.cgst || 0}, SGST: ₹${data.sgst || 0}`);
+      if (notes.length > 0) {
+        descEl.value = notes.join(' | ');
+      }
+    }
   }
 }

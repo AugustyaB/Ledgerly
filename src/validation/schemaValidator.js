@@ -643,6 +643,30 @@ function validateDocumentNormalizeInput(input, options) {
   return { valid: errors.length === 0, errors };
 }
 
+/**
+ * Validates receipt document scan input parameters (Phase 0.5.3).
+ * 
+ * @param {any} input - Target file path string, Buffer, or normalized document.
+ * @param {any} [options] - Scan options.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateReceiptScanInput(input, options) {
+  const errors = [];
+  if (typeof input !== 'string' && !Buffer.isBuffer(input) && !(input instanceof Uint8Array) && (typeof input !== 'object' || input === null)) {
+    errors.push('Receipt scan input must be a valid file path string, Buffer, or normalized document object.');
+  } else if (typeof input === 'string' && !input.trim()) {
+    errors.push('Receipt scan file path cannot be an empty string.');
+  }
+
+  if (options !== undefined && options !== null) {
+    if (!isPlainObject(options)) {
+      errors.push('Options must be a plain object.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 // ============================================================================
 // 3. Envelope Formatters
 // ============================================================================
@@ -711,6 +735,7 @@ module.exports = {
   validateBudgetGoal,
   validateWorkspaceMode,
   validateDocumentNormalizeInput,
+  validateReceiptScanInput,
   formatSuccess,
   formatError
 };
