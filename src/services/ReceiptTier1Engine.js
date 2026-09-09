@@ -181,9 +181,9 @@ class ReceiptTier1Engine {
       let isVectorFastPath = false;
 
       // 2. Extract text stream (Vector PDF vs OCR Image)
-      if (docData.isPdf && docData.hasFastPath && docData.fastPathText) {
-        rawText = docData.fastPathText;
-        isVectorFastPath = true;
+      if (docData.fastPathText || docData.rawText || docData.text) {
+        rawText = docData.fastPathText || docData.rawText || docData.text;
+        isVectorFastPath = Boolean(docData.isPdf && docData.hasFastPath);
       } else if (docData.processedBuffer || docData.documentBuffer) {
         const imageBuf = docData.processedBuffer || docData.documentBuffer;
         rawText = await this._extractOcrText(imageBuf);

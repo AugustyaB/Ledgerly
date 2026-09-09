@@ -661,6 +661,12 @@ function validateReceiptScanInput(input, options) {
   if (options !== undefined && options !== null) {
     if (!isPlainObject(options)) {
       errors.push('Options must be a plain object.');
+    } else {
+      const targetEngine = options.engine || options.preferredEngine;
+      const ALLOWED_ENGINES = ['tier1-fastlite', 'tier2-visionpro', 'tier3-regional-in', 'auto'];
+      if (targetEngine !== undefined && targetEngine !== null && !ALLOWED_ENGINES.includes(targetEngine)) {
+        errors.push(`Invalid engine "${targetEngine}". Must be one of: ${ALLOWED_ENGINES.join(', ')}.`);
+      }
     }
   }
 

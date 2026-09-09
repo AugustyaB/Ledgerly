@@ -1399,6 +1399,12 @@
       <form id="expense-form">
         <input type="hidden" id="form-expense-id">
         <div class="modal-body">
+          <!-- Digital UPI Payment Purpose Prompt (Phase 0.5.5) -->
+          <div id="form-upi-prompt" class="hidden" style="margin-bottom: 14px; padding: 10px 14px; background: rgba(217, 130, 43, 0.12); border: 1px solid var(--accent-color, #D9822B); border-radius: var(--radius-md); font-size: 0.85rem; color: #F1F5F9; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <span id="form-upi-prompt-text">💡 <strong>UPI Payment detected:</strong> What was this expense for?</span>
+            <button type="button" id="btn-upi-save-later" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; white-space: nowrap; height: auto;">Tag 'Pending Purpose'</button>
+          </div>
+
           <div class="form-group">
             <label>Expense Title *</label>
             <input type="text" id="form-title" placeholder="e.g., Kirana / Groceries, Electricity Bill" required>
@@ -1425,7 +1431,13 @@
             <div class="form-group">
               <label>Payment Method</label>
               <select id="form-payment">
-                <option value="UPI / GPay">UPI / GPay / PhonePe</option>
+                <option value="UPI / GPay">UPI / GPay</option>
+                <option value="PhonePe">PhonePe</option>
+                <option value="Google Pay">Google Pay</option>
+                <option value="Paytm">Paytm</option>
+                <option value="BHIM">BHIM</option>
+                <option value="CRED">CRED</option>
+                <option value="Amazon Pay">Amazon Pay</option>
                 <option value="Credit Card">Credit Card</option>
                 <option value="Debit Card">Debit Card</option>
                 <option value="Net Banking">Net Banking</option>

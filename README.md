@@ -136,12 +136,12 @@ For full architectural diagrams and lifecycle sequences, see [`FLOW.md`](FLOW.md
 | ↳ **v0.4.5** (Phase 5) | IPC Runtime Schema Validation Layer & Error Contracts | ✅ Complete |
 | ↳ **v0.4.6** (Phase 6) | Global UI Error Boundaries, Crash Traps & Audit Defect Remediation | ✅ Complete |
 | ↳ **v0.4.7** (Phase 7) | Enterprise Resilience, Startup DB Integrity & Offline Conflict Engine | ✅ Complete |
-| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Engine** | 🔄 **In Progress (v0.5.4 Complete)** |
+| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Engine** | 🔄 **In Progress (v0.5.5 Complete)** |
 | ↳ **v0.5.1** (Phase 1) | Dataset Sourcing, Multi-Tier Benchmarking & Negative Rejection Gate | ✅ Complete |
 | ↳ **v0.5.2** (Phase 2) | Image Normalization & Document Preprocessing Engine | ✅ Complete |
 | ↳ **v0.5.3** (Phase 3) | Tier 1 Fast-Lite Bundled Engine & Instant Receipt Autofill | ✅ Complete |
 | ↳ **v0.5.4** (Phase 4) | Handy-Style Settings Hub Model Manager & On-Demand Downloader | ✅ Complete |
-| ↳ **v0.5.5** (Phase 5) | Multi-Engine Inference Runtime & Table Layout Parsing | 📋 Planned |
+| ↳ **v0.5.5** (Phase 5) | Multi-Engine Inference Runtime & Table Layout Parsing | ✅ Complete |
 | ↳ **v0.5.6** (Phase 6) | Ingestion Workflow & Scanned Bill Review Queue UI | 📋 Planned |
 | ↳ **v0.5.7** (Phase 7) | Subsystem Integration, Documentation & Production Packaging | 📋 Planned |
 | **v0.6+** | Mobile Collector Companion & Local LAN Peer Sync | 🚀 Roadmap |

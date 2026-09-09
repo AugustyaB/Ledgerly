@@ -9,6 +9,9 @@ const ForesightEngine = require('./foresightEngine');
 const { CategoryMatcher } = require('./categoryMatcher');
 const DocumentNormalizer = require('./services/DocumentNormalizer');
 const ReceiptTier1Engine = require('./services/ReceiptTier1Engine');
+const ReceiptTier2VisionEngine = require('./services/ReceiptTier2VisionEngine');
+const ReceiptTier3RegionalEngine = require('./services/ReceiptTier3RegionalEngine');
+const DocumentIntelligenceService = require('./services/DocumentIntelligenceService');
 const ModelManager = require('./services/ModelManager');
 const XLSX = require('xlsx');
 const { wrapIPC } = require('./validation/ipcGuard');
@@ -66,6 +69,9 @@ let nlpParser;
 let categoryMatcher;
 let documentNormalizer;
 let receiptTier1Engine;
+let receiptTier2VisionEngine;
+let receiptTier3RegionalEngine;
+let documentIntelligenceService;
 let modelManager;
 
 function sanitizeSpreadsheetCell(val) {
@@ -138,10 +144,6 @@ function createWindow() {
   receiptStorage = new ReceiptStorage();
   documentNormalizer = new DocumentNormalizer();
   categoryMatcher = new CategoryMatcher(storage.getCategoryKeywords());
-  receiptTier1Engine = new ReceiptTier1Engine({ normalizer: documentNormalizer, categoryMatcher });
-  fileImporter = new FileImporter({ tier1Engine: receiptTier1Engine });
-  nlpParser = new NLPParser(storage.getCategoryKeywords());
-
   const modelsDir = path.join(app && typeof app.getPath === 'function' ? app.getPath('userData') : process.cwd(), 'models');
   modelManager = new ModelManager({
     modelsDir,
@@ -152,6 +154,32 @@ function createWindow() {
       }
     }
   });
+
+  receiptTier1Engine = new ReceiptTier1Engine({ normalizer: documentNormalizer, categoryMatcher });
+  receiptTier2VisionEngine = new ReceiptTier2VisionEngine({
+    normalizer: documentNormalizer,
+    categoryMatcher,
+    modelDir: path.join(modelsDir, 'tier2-visionpro'),
+    appRoot: path.resolve(__dirname, '..')
+  });
+  receiptTier3RegionalEngine = new ReceiptTier3RegionalEngine({
+    normalizer: documentNormalizer,
+    categoryMatcher,
+    modelDir: path.join(modelsDir, 'tier3-regional-in'),
+    appRoot: path.resolve(__dirname, '..')
+  });
+
+  documentIntelligenceService = new DocumentIntelligenceService({
+    normalizer: documentNormalizer,
+    categoryMatcher,
+    modelManager,
+    tier1Engine: receiptTier1Engine,
+    tier2Engine: receiptTier2VisionEngine,
+    tier3Engine: receiptTier3RegionalEngine
+  });
+
+  fileImporter = new FileImporter({ tier1Engine: documentIntelligenceService });
+  nlpParser = new NLPParser(storage.getCategoryKeywords());
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -605,16 +633,23 @@ ipcMain.handle('get-native-addon-status', wrapIPC('get-native-addon-status', nul
   return documentNormalizer.getNativeAddonStatus();
 }));
 
-// Tier 1 Fast-Lite Receipt Document Intelligence (Phase 0.5.3)
+// Multi-Engine On-Device ML Document Intelligence Runtime (Phase 0.5.5)
 ipcMain.handle('scan-receipt-document', wrapIPC('scan-receipt-document', (input, options) => {
   return validateReceiptScanInput(input, options);
 }, async (event, input, options) => {
-  return receiptTier1Engine.processDocument(input, options);
+  if (!documentIntelligenceService) {
+    return receiptTier1Engine.processDocument(input, options);
+  }
+  return documentIntelligenceService.processDocument(input, options);
 }));
 
 // On-Device ML Model Manager & Downloader Engine (Phase 0.5.4)
 ipcMain.handle('list-models', wrapIPC('list-models', null, async (event, currency) => {
   return modelManager ? modelManager.listModels(currency) : [];
+}));
+
+ipcMain.handle('get-active-model', wrapIPC('get-active-model', null, async () => {
+  return modelManager ? modelManager.getActiveModelId() : 'tier1-fastlite';
 }));
 
 ipcMain.handle('download-model', wrapIPC('download-model', (modelId, options) => {
