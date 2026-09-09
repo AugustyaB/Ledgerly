@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:; font-src 'self'; connect-src 'none';">
   <title>Ledgerly</title>
   <link rel="stylesheet" href="styles.css">
   <!-- Chart.js for analytics charts -->
@@ -14,7 +15,7 @@
   <!-- Frameless Desktop Window Titlebar -->
   <div class="window-titlebar">
     <div class="titlebar-brand" id="titlebar-logo-btn" role="button" tabindex="0" title="Click to toggle Privacy Mode (or press P)">
-      <div class="brand-icon" id="brand-logo-icon"><i data-icon="credit-card" data-icon-size="14"></i></div>
+      <div class="brand-icon" id="brand-logo-icon"><img src="../assets/icon-taskbar.png" alt="Ledgerly" class="titlebar-brand-img"></div>
       <span class="brand-name">Ledgerly<span class="title-accent-dot">.</span></span>
       <span class="privacy-lock-indicator hidden" id="privacy-lock-badge"><i data-icon="lock" data-icon-size="12"></i></span>
     </div>
@@ -238,7 +239,7 @@
         <div class="top-profile-bar">
           <!-- Left: Interactive In-Dashboard Privacy Mode Brand Button -->
           <div class="dashboard-brand-privacy-btn" id="dashboard-brand-privacy-btn" role="button" tabindex="0" title="Click to toggle Stealth Mode (or press P)">
-            <div class="dashboard-brand-icon" id="dashboard-brand-icon"><i data-icon="credit-card" data-icon-size="18"></i></div>
+            <div class="dashboard-brand-icon" id="dashboard-brand-icon"><img src="../assets/icon-taskbar.png" alt="Ledgerly" class="dashboard-brand-img"></div>
             <div class="dashboard-brand-text">
               <span class="dashboard-brand-name">Ledgerly<span class="title-accent-dot">.</span></span>
               <span class="dashboard-privacy-badge" id="dashboard-privacy-badge"><i data-icon="eye" data-icon-size="12"></i> Normal</span>
@@ -255,7 +256,7 @@
         <!-- Right: Notifications Center & Relocated Workspace Switcher -->
         <div class="top-header-right-actions">
           
-          <!-- Notifications Center (v1.2 Active Alert Center) -->
+          <!-- Notifications Center (v0.2 Active Alert Center) -->
           <div class="notifications-wrapper" style="position: relative;">
             <button type="button" class="btn-icon-bell" id="btn-open-notifications" title="Notifications & Upcoming Alerts">
               <i data-icon="bell" data-icon-size="16"></i>
@@ -279,12 +280,13 @@
               </div>
 
               <!-- Filter Tabs -->
-              <div class="notif-filter-bar" style="display: flex; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border-color); background: rgba(0, 0, 0, 0.15);">
+              <div class="notif-filter-bar" style="display: flex; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border-color); background: rgba(0, 0, 0, 0.15); overflow-x: auto;">
                 <button type="button" class="notif-filter-chip active" data-notif-filter="all">All</button>
                 <button type="button" class="notif-filter-chip" data-notif-filter="unread">Unread</button>
                 <button type="button" class="notif-filter-chip" data-notif-filter="budget">Budget</button>
                 <button type="button" class="notif-filter-chip" data-notif-filter="bill">Bills</button>
                 <button type="button" class="notif-filter-chip" data-notif-filter="payday">Payday</button>
+                <button type="button" class="notif-filter-chip" data-notif-filter="reminder">Reminders</button>
               </div>
 
               <!-- Dynamic Notification List -->
@@ -347,8 +349,8 @@
           <button class="btn btn-secondary" id="btn-import-file" title="Import CSV, XLS, XLSX, OFX, QFX, JSON, or PDF">
             <i data-icon="download" data-icon-size="14"></i> Import Data
           </button>
-          <button class="btn btn-secondary" id="btn-open-salary-modal">
-            <i data-icon="settings" data-icon-size="14"></i> Salary Budget
+          <button class="btn btn-secondary" id="btn-open-settings-header" title="Open General Settings & Salary Allocations">
+            <i data-icon="settings" data-icon-size="14"></i> Settings
           </button>
           <button class="btn btn-secondary" id="btn-export-excel" title="Export formatted Excel spreadsheet">
             <i data-icon="file-text" data-icon-size="14"></i> Export Excel
@@ -365,30 +367,36 @@
       <!-- Dashboard View Workspace -->
       <div id="view-dashboard" class="workspace-view">
         
-        <!-- Row 1: Executive KPI Cards (4 Grid Cards) -->
+        <!-- Proactive Recurring Bill Due Banner (Phase 7) -->
+        <div id="dashboard-due-bills-banner" class="hidden"></div>
+
+        <!-- Row 1 & 2: Executive 8-KPI Grid (Two Balanced 4-Card Rows) -->
         <section class="metrics-grid">
-          <div class="metric-card">
+          <!-- Card 1: Total Outflow -->
+          <div class="metric-card" id="card-total-spent">
             <div class="metric-header">
-              <span>Total Outflow (Month)</span>
-              <div class="metric-icon-box icon-amber"><i data-icon="wallet" data-icon-size="18"></i></div>
+              <span>Total Outflow</span>
+              <div class="metric-icon-box icon-amber"><i data-icon="wallet" data-icon-size="16"></i></div>
             </div>
             <div class="metric-value" id="metric-total-spent">₹0.00</div>
-            <div class="metric-footer" id="metric-spent-subtitle">Across selected scope</div>
+            <div class="metric-footer" id="metric-spent-subtitle">This month</div>
           </div>
 
-          <div class="metric-card">
+          <!-- Card 2: Discretionary Remaining -->
+          <div class="metric-card" id="card-budget-remaining">
             <div class="metric-header">
-              <span>Discretionary Remaining</span>
-              <div class="metric-icon-box icon-emerald"><i data-icon="shield-check" data-icon-size="18"></i></div>
+              <span>Remaining Buffer</span>
+              <div class="metric-icon-box icon-emerald"><i data-icon="shield-check" data-icon-size="16"></i></div>
             </div>
             <div class="metric-value" id="metric-budget-remaining">₹0.00</div>
-            <div class="metric-footer" id="metric-budget-subtitle">Safe buffer remaining</div>
+            <div class="metric-footer" id="metric-budget-subtitle">Safe buffer</div>
           </div>
 
+          <!-- Card 3: Daily Budget Health -->
           <div class="metric-card" id="card-daily-pace" style="position: relative; cursor: help;">
             <div class="metric-header">
-              <span>Daily Budget Health</span>
-              <div class="metric-icon-box icon-blue"><i data-icon="calendar" data-icon-size="18"></i></div>
+              <span>Daily Pace</span>
+              <div class="metric-icon-box icon-blue"><i data-icon="calendar" data-icon-size="16"></i></div>
             </div>
             <div class="metric-value" id="daily-pace-metric-val">₹0.00<span style="font-size: 13px; font-weight: 500; color: var(--text-muted);">/day</span></div>
             <div class="metric-footer" id="daily-pace-metric-subtitle">
@@ -401,25 +409,85 @@
             </div>
           </div>
 
-          <div class="metric-card">
+          <!-- Card 4: Projected Month-End Forecast -->
+          <div class="metric-card" id="card-projected-balance">
             <div class="metric-header">
-              <span>Active Contributors</span>
-              <div class="metric-icon-box icon-purple"><i data-icon="users" data-icon-size="18"></i></div>
+              <span>Forecast</span>
+              <div class="metric-icon-box icon-cyan"><i data-icon="trending-up" data-icon-size="16"></i></div>
             </div>
-            <div class="metric-value" id="metric-active-members">0</div>
-            <div class="metric-footer" id="metric-members-subtitle">0 stored records</div>
+            <div class="metric-value" id="metric-projected-val">₹0.00</div>
+            <div class="metric-footer" id="metric-projected-subtitle">
+              <span class="pace-badge badge-emerald" id="metric-projected-badge">Surplus</span>
+            </div>
+          </div>
+
+          <!-- Card 5: Days Until Payday Countdown -->
+          <div class="metric-card" id="card-payday-countdown">
+            <div class="metric-header">
+              <span>Payday Clock</span>
+              <div class="metric-icon-box icon-indigo"><i data-icon="clock" data-icon-size="16"></i></div>
+            </div>
+            <div class="metric-value" id="metric-payday-countdown-val">— Days</div>
+            <div class="metric-footer" id="metric-payday-subtitle">
+              <div class="payday-mini-track">
+                <div class="payday-mini-bar" id="metric-payday-progress-bar" style="width: 50%;"></div>
+              </div>
+              <span id="metric-payday-cycle-label">Active cycle</span>
+            </div>
+          </div>
+
+          <!-- Card 6: Primary Expense Driver -->
+          <div class="metric-card" id="card-top-category">
+            <div class="metric-header">
+              <span>Top Category</span>
+              <div class="metric-icon-box icon-rose"><i data-icon="pie-chart" data-icon-size="16"></i></div>
+            </div>
+            <div class="metric-value" id="metric-top-category-name" style="font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">—</div>
+            <div class="metric-footer" id="metric-top-category-subtitle">—</div>
+          </div>
+
+          <!-- Card 7: Savings Protection Meter -->
+          <div class="metric-card" id="card-savings-meter">
+            <div class="metric-header">
+              <span>Savings Goal</span>
+              <div class="metric-icon-box icon-emerald"><i data-icon="shield" data-icon-size="16"></i></div>
+            </div>
+            <div class="metric-value" id="metric-savings-meter-val">₹0.00</div>
+            <div class="metric-footer" id="metric-savings-meter-subtitle">
+              <span class="pace-badge badge-emerald" id="metric-savings-meter-badge">100% Intact</span>
+            </div>
+          </div>
+
+          <!-- Card 8: Contextual (Household Net vs Solo Velocity) -->
+          <div class="metric-card" id="card-contextual-metric">
+            <div class="metric-header">
+              <span id="metric-contextual-title">Household Balance</span>
+              <div class="metric-icon-box icon-purple" id="metric-contextual-icon-box"><i data-icon="users" data-icon-size="16" id="metric-contextual-icon"></i></div>
+            </div>
+            <div class="metric-value" id="metric-contextual-val" style="font-size: 20px;">—</div>
+            <div class="metric-footer" id="metric-contextual-subtitle">Checking status...</div>
           </div>
         </section>
 
+        <!-- Collapsible "What-If" Spending Simulator Toggle & Card -->
+        <div class="what-if-toggle-bar" id="what-if-toggle-bar">
+          <button type="button" class="btn-what-if-toggle" id="btn-toggle-what-if" title="Toggle What-If Simulator">
+            <span style="display: inline-flex; align-items: center; gap: 8px;">
+              <i data-icon="activity" data-icon-size="14" style="color: var(--accent-primary);"></i>
+              <strong style="font-size: 13px;">What-If Simulator</strong>
+            </span>
+            <span class="what-if-toggle-caret" id="what-if-toggle-caret"><i data-icon="chevron-down" data-icon-size="14"></i></span>
+          </button>
+        </div>
+
         <!-- Interactive "What-If" Spending Impact Simulator & Burnout Forecast (Phase 5) -->
-        <section class="what-if-simulator-card" id="what-if-simulator-card">
+        <section class="what-if-simulator-card collapsed" id="what-if-simulator-card">
           <div class="what-if-header">
             <div class="what-if-title-group">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span class="what-if-icon"><i data-icon="activity" data-icon-size="16"></i></span>
-                <span class="what-if-title">"What-If" Spending Simulator & Burnout Forecast</span>
+                <span class="what-if-title">Purchase Impact Forecaster</span>
               </div>
-              <span class="what-if-subtitle">Slide to test a prospective purchase before opening your wallet to see its ripple effect on subsequent daily pace</span>
             </div>
             <div class="what-if-amount-badge">
               <span style="font-size: 11.5px; color: var(--text-muted);">Simulating:</span>
@@ -881,7 +949,7 @@
         </section>
       </div>
 
-      <!-- Screen: General Settings Workspace (v1.2 Phase 2) -->
+      <!-- Screen: General Settings Workspace (v0.2 Phase 2) -->
       <div id="view-settings" class="workspace-view hidden">
         <section class="table-card">
           <div class="table-toolbar" style="justify-content: space-between; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px;">
@@ -892,176 +960,370 @@
               <p style="font-size: 13px; color: var(--text-muted); margin: 4px 0 0 0;">Unified configuration for salary allocations, payday cycles, currency, and data management.</p>
             </div>
             <div style="display: flex; gap: 8px;">
-              <button type="button" class="btn btn-secondary" onclick="switchTab('dashboard')">
+              <button type="button" class="btn btn-secondary" id="btn-settings-back-dashboard">
                 <i data-icon="arrow-left" data-icon-size="14"></i> Dashboard
               </button>
             </div>
           </div>
+          
+          <!-- NEW: Master-Detail Two-Column Layout -->
+          <div class="settings-master-detail">
+            
+            <!-- LEFT: Vertical Navigation Sidebar (240px) -->
+            <nav class="settings-sidebar">
+              <div class="settings-nav-item active" data-settings-target="settings-salary-pane">
+                <i data-icon="wallet" data-icon-size="16"></i>
+                <span>Salary & Payday</span>
+              </div>
+              <div class="settings-nav-item" data-settings-target="settings-prefs-pane">
+                <i data-icon="globe" data-icon-size="16"></i>
+                <span>Currency & Defaults</span>
+              </div>
+              <div class="settings-nav-item" data-settings-target="settings-categories-pane">
+                <i data-icon="tag" data-icon-size="16"></i>
+                <span>Categories & Keywords</span>
+              </div>
+              <div class="settings-nav-item" data-settings-target="settings-data-pane">
+                <i data-icon="database" data-icon-size="16"></i>
+                <span>Data & Storage</span>
+              </div>
+              <div class="settings-nav-item" data-settings-target="settings-notif-pane">
+                <i data-icon="bell" data-icon-size="16"></i>
+                <span>Notifications & Alerts</span>
+              </div>
+            </nav>
+            
+            <!-- RIGHT: Content Panel -->
+            <div class="settings-content-panel" id="settings-content-panel">
+              <!-- Section 1: Salary & Payday Cycle -->
+              <section id="settings-salary-pane" class="settings-pane settings-section">
+                <form id="settings-salary-form">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    
+                    <!-- Left Column: Core Financial Allocations -->
+                    <div style="background: var(--bg-surface-elevated); padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                      <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                        <i data-icon="pie-chart" data-icon-size="16" style="color: var(--accent-primary);"></i> Monthly Income & Split
+                      </h3>
+                      <div class="form-group">
+                        <label>Net Monthly Income (<span class="global-curr-symbol">₹</span>) *</label>
+                        <input type="number" step="100" id="settings-salary-income" placeholder="60000.00" required>
+                      </div>
+                      <div class="form-group" style="margin-top: 10px;">
+                        <label>Fixed Monthly Commitments (<span class="global-curr-symbol">₹</span>) *</label>
+                        <input type="number" step="100" id="settings-salary-bills" placeholder="20000.00" required>
+                        <span style="font-size: 11px; color: var(--text-dim);">Rent, EMI, utilities & recurring commitments</span>
+                      </div>
+                      <div class="form-group" style="margin-top: 10px;">
+                        <label>Monthly Savings Target (<span class="global-curr-symbol">₹</span>) *</label>
+                        <input type="number" step="100" id="settings-salary-savings" placeholder="10000.00" required>
+                      </div>
+                    </div>
 
-          <!-- Settings Tab Navigation -->
-          <div class="settings-tabs-nav" style="display: flex; gap: 10px; margin: 18px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
-            <button type="button" class="btn btn-secondary settings-tab-btn active" data-tab-target="settings-salary-pane">
-              <i data-icon="wallet" data-icon-size="15"></i> Salary & Payday Cycles
-            </button>
-            <button type="button" class="btn btn-secondary settings-tab-btn" data-tab-target="settings-prefs-pane">
-              <i data-icon="sliders" data-icon-size="15"></i> Preferences & Currency
-            </button>
-            <button type="button" class="btn btn-secondary settings-tab-btn" data-tab-target="settings-data-pane">
-              <i data-icon="database" data-icon-size="15"></i> Backups & Data
-            </button>
-          </div>
+                    <!-- Right Column: Flexible Payday & Delay Buffer Adjuster -->
+                    <div style="background: var(--bg-surface-elevated); padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                      <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                        <i data-icon="calendar" data-icon-size="16" style="color: var(--accent-cyan);"></i> Payday Schedule & Buffer Adjuster
+                      </h3>
+                      
+                      <div class="form-group">
+                        <label>Recurring Payday (Day of Month) *</label>
+                        <select id="settings-salary-payday" required>
+                          <option value="1">1st of Month (Default)</option>
+                          <option value="5">5th of Month</option>
+                          <option value="10">10th of Month</option>
+                          <option value="15">15th of Month</option>
+                          <option value="20">20th of Month</option>
+                          <option value="25">25th of Month</option>
+                          <option value="28">28th of Month</option>
+                          <option value="30">30th of Month</option>
+                          <option value="31">Last Day of Month</option>
+                        </select>
+                        <span style="font-size: 11px; color: var(--text-dim);">When your salary is typically credited</span>
+                      </div>
 
-          <!-- Tab Pane 1: Salary & Payday Cycle -->
-          <div id="settings-salary-pane" class="settings-pane">
-            <form id="settings-salary-form">
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                
-                <!-- Left Column: Core Financial Allocations -->
-                <div style="background: var(--bg-surface-elevated); padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                      <div class="form-group" style="margin-top: 10px;">
+                        <label>Actual Payday for Current Cycle (Optional Override)</label>
+                        <input type="date" id="settings-salary-actual-date">
+                        <span style="font-size: 11px; color: var(--text-dim);">If credited on a different day this month</span>
+                      </div>
+
+                      <!-- Early / Late Payday Quick Adjuster -->
+                      <div class="form-group" style="margin-top: 12px;">
+                        <label>Anticipated Upcoming Payday Shift (Early vs Delayed)</label>
+                        <div class="payday-shift-chips-bar" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                          <button type="button" class="btn-shift-chip" data-shift="-3">-3d Early</button>
+                          <button type="button" class="btn-shift-chip" data-shift="-2">-2d Early</button>
+                          <button type="button" class="btn-shift-chip" data-shift="-1">-1d Early</button>
+                          <button type="button" class="btn-shift-chip active" data-shift="0">Standard</button>
+                          <button type="button" class="btn-shift-chip" data-shift="1">+1d Delay</button>
+                          <button type="button" class="btn-shift-chip" data-shift="2">+2d Delay</button>
+                          <button type="button" class="btn-shift-chip" data-shift="3">+3d Delay</button>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+                          <span style="font-size: 11px; color: var(--text-muted);">Exact Next Payday Override:</span>
+                          <input type="date" id="settings-salary-next-override" style="font-size: 12px; padding: 4px 8px; width: auto;">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Live Interactive Cycle Banner & Stretch Calculator -->
+                  <div id="settings-cycle-banner" style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-md); padding: 14px 18px; margin-top: 18px; display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                      <div style="font-size: 13px; font-weight: 700; color: var(--accent-cyan);" id="settings-cycle-title">Active Cycle: 1 Aug 2026 – 31 Aug 2026 (31 days)</div>
+                      <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;" id="settings-cycle-subtext">Remaining days: 17 • Calculated Daily Allowance: ₹967.74/day</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                      <i data-icon="save" data-icon-size="14"></i> Save Salary Settings
+                    </button>
+                  </div>
+                </form>
+              </section>
+
+              <div class="settings-section-divider"></div>
+
+              <!-- Section 2: Preferences -->
+              <section id="settings-prefs-pane" class="settings-pane settings-section">
+                <div style="max-width: 600px; background: var(--bg-surface-elevated); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
                   <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-                    <i data-icon="pie-chart" data-icon-size="16" style="color: var(--accent-primary);"></i> Monthly Income & Split
+                    <i data-icon="sliders" data-icon-size="16" style="color: var(--accent-primary);"></i> Application Preferences
                   </h3>
-                  <div class="form-group">
-                    <label>Net Monthly Income (<span class="global-curr-symbol">₹</span>) *</label>
-                    <input type="number" step="100" id="settings-salary-income" placeholder="60000.00" required>
-                  </div>
-                  <div class="form-group" style="margin-top: 10px;">
-                    <label>Fixed Monthly Commitments (<span class="global-curr-symbol">₹</span>) *</label>
-                    <input type="number" step="100" id="settings-salary-bills" placeholder="20000.00" required>
-                    <span style="font-size: 11px; color: var(--text-dim);">Rent, EMI, utilities & recurring commitments</span>
-                  </div>
-                  <div class="form-group" style="margin-top: 10px;">
-                    <label>Monthly Savings Target (<span class="global-curr-symbol">₹</span>) *</label>
-                    <input type="number" step="100" id="settings-salary-savings" placeholder="10000.00" required>
-                  </div>
-                </div>
 
-                <!-- Right Column: Flexible Payday & Delay Buffer Adjuster -->
-                <div style="background: var(--bg-surface-elevated); padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-                  <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-                    <i data-icon="calendar" data-icon-size="16" style="color: var(--accent-cyan);"></i> Payday Schedule & Buffer Adjuster
-                  </h3>
-                  
                   <div class="form-group">
-                    <label>Recurring Payday (Day of Month) *</label>
-                    <select id="settings-salary-payday" required>
-                      <option value="1">1st of Month (Default)</option>
-                      <option value="5">5th of Month</option>
-                      <option value="10">10th of Month</option>
-                      <option value="15">15th of Month</option>
-                      <option value="20">20th of Month</option>
-                      <option value="25">25th of Month</option>
-                      <option value="28">28th of Month</option>
-                      <option value="30">30th of Month</option>
-                      <option value="31">Last Day of Month</option>
+                    <label>Default Currency Symbol</label>
+                    <select id="settings-pref-currency">
+                      <option value="₹">₹ (INR - Indian Rupee)</option>
+                      <option value="$">$ (USD - US Dollar)</option>
+                      <option value="€">€ (EUR - Euro)</option>
+                      <option value="£">£ (GBP - British Pound)</option>
+                      <option value="¥">¥ (JPY - Japanese Yen)</option>
+                      <option value="C$">C$ (CAD - Canadian Dollar)</option>
                     </select>
-                    <span style="font-size: 11px; color: var(--text-dim);">When your salary is typically credited</span>
                   </div>
 
-                  <div class="form-group" style="margin-top: 10px;">
-                    <label>Actual Payday for Current Cycle (Optional Override)</label>
-                    <input type="date" id="settings-salary-actual-date">
-                    <span style="font-size: 11px; color: var(--text-dim);">If credited on a different day this month</span>
-                  </div>
-
-                  <!-- Early / Late Payday Quick Adjuster -->
                   <div class="form-group" style="margin-top: 12px;">
-                    <label>Anticipated Upcoming Payday Shift (Early vs Delayed)</label>
-                    <div class="payday-shift-chips-bar" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
-                      <button type="button" class="btn-shift-chip" data-shift="-3">-3d Early</button>
-                      <button type="button" class="btn-shift-chip" data-shift="-2">-2d Early</button>
-                      <button type="button" class="btn-shift-chip" data-shift="-1">-1d Early</button>
-                      <button type="button" class="btn-shift-chip active" data-shift="0">Standard</button>
-                      <button type="button" class="btn-shift-chip" data-shift="1">+1d Delay</button>
-                      <button type="button" class="btn-shift-chip" data-shift="2">+2d Delay</button>
-                      <button type="button" class="btn-shift-chip" data-shift="3">+3d Delay</button>
-                    </div>
-                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
-                      <span style="font-size: 11px; color: var(--text-muted);">Exact Next Payday Override:</span>
-                      <input type="date" id="settings-salary-next-override" style="font-size: 12px; padding: 4px 8px; width: auto;">
-                    </div>
+                    <label>Default Payment Method</label>
+                    <select id="settings-pref-payment">
+                      <option value="UPI / GPay">UPI / GPay / PhonePe</option>
+                      <option value="Credit Card">Credit Card</option>
+                      <option value="Debit Card">Debit Card</option>
+                      <option value="Net Banking">Net Banking</option>
+                      <option value="Cash">Cash</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group" style="margin-top: 12px;">
+                    <label>Workspace Mode</label>
+                    <select id="settings-pref-workspace-mode">
+                      <option value="solo">Solo Personal Mode (Strict Profile Isolation)</option>
+                      <option value="household">Shared Household Mode (Multi-User Collaboration)</option>
+                    </select>
+                  </div>
+                  
+                  <div class="form-group" style="margin-top: 16px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                      <input type="checkbox" id="settings-reduced-motion" style="width: 16px; height: 16px; accent-color: var(--accent-primary);">
+                      <span>Reduce motion & animations</span>
+                    </label>
+                    <span style="font-size: 11px; color: var(--text-dim); margin-top: 4px; display: block;">Disables transitions and micro-animations for accessibility or lower-spec hardware</span>
+                  </div>
+
+                  <div style="margin-top: 18px;">
+                    <button type="button" class="btn btn-primary" id="settings-save-prefs-btn">
+                      <i data-icon="save" data-icon-size="14"></i> Save Preferences
+                    </button>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <!-- Live Interactive Cycle Banner & Stretch Calculator -->
-              <div id="settings-cycle-banner" style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-md); padding: 14px 18px; margin-top: 18px; display: flex; align-items: center; justify-content: space-between;">
-                <div>
-                  <div style="font-size: 13px; font-weight: 700; color: var(--accent-cyan);" id="settings-cycle-title">Active Cycle: 1 Aug 2026 – 31 Aug 2026 (31 days)</div>
-                  <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;" id="settings-cycle-subtext">Remaining days: 17 • Calculated Daily Allowance: ₹967.74/day</div>
+              <div class="settings-section-divider"></div>
+              
+              <!-- Section 3: Categories & Keywords -->
+              <section id="settings-categories-pane" class="settings-pane settings-section">
+                <!-- Section 1: Category Manager -->
+                <div style="background: var(--bg-surface-elevated); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                  <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                    <i data-icon="tag" data-icon-size="16" style="color: var(--accent-primary);"></i> Expense Categories
+                  </h3>
+                  <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;">Manage the categories available when logging expenses. Custom categories appear in all dropdowns.</p>
+                  <div id="settings-category-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+                    <!-- Dynamically populated category chips -->
+                  </div>
+                  <form id="settings-add-category-form" style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="settings-new-category-input" placeholder="New category name..." style="flex: 1; font-size: 13px;">
+                    <button type="submit" class="btn btn-primary" style="white-space: nowrap;">
+                      <i data-icon="plus" data-icon-size="14"></i> Add Category
+                    </button>
+                  </form>
                 </div>
-                <button type="submit" class="btn btn-primary">
-                  <i data-icon="save" data-icon-size="14"></i> Save Salary Settings
-                </button>
-              </div>
-            </form>
-          </div>
+                
+                <!-- Section 2: Auto-Categorization Keywords -->
+                <div style="background: var(--bg-surface-elevated); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-top: 18px;">
+                  <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                    <i data-icon="sparkles" data-icon-size="16" style="color: var(--accent-cyan);"></i> Auto-Categorization Keywords
+                  </h3>
+                  <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;">Teach the NLP engine to automatically assign categories. When a keyword appears in an expense title, the corresponding category is suggested.</p>
+                  <div id="settings-keywords-table-wrap" style="max-height: 250px; overflow-y: auto; margin-bottom: 14px;">
+                    <table class="data-table" style="font-size: 12.5px;">
+                      <thead>
+                        <tr>
+                          <th>Keyword</th>
+                          <th>Auto-Assigns To</th>
+                          <th style="width: 50px;"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="settings-keywords-tbody">
+                        <!-- Dynamically populated -->
+                      </tbody>
+                    </table>
+                  </div>
+                  <form id="settings-add-keyword-form" style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="settings-new-keyword-input" placeholder="Keyword (e.g. swiggy, uber)..." style="flex: 1; font-size: 13px;">
+                    <select id="settings-keyword-category-select" style="font-size: 13px; width: 180px;">
+                      <!-- Populated dynamically from appState.categories -->
+                    </select>
+                    <button type="submit" class="btn btn-secondary" style="white-space: nowrap;">
+                      <i data-icon="plus" data-icon-size="14"></i> Add Rule
+                    </button>
+                  </form>
+                </div>
+              </section>
 
-          <!-- Tab Pane 2: Preferences -->
-          <div id="settings-prefs-pane" class="settings-pane hidden">
-            <div style="max-width: 600px; background: var(--bg-surface-elevated); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-              <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-                <i data-icon="sliders" data-icon-size="16" style="color: var(--accent-primary);"></i> Application Preferences
-              </h3>
+              <div class="settings-section-divider"></div>
+              
+              <!-- Section 4: Data & Storage -->
+              <section id="settings-data-pane" class="settings-pane settings-section">
+                <div style="max-width: 650px; background: var(--bg-surface-elevated); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                  <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                    <i data-icon="database" data-icon-size="16" style="color: var(--accent-primary);"></i> Data Backups & Exports
+                  </h3>
+                  <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 16px;">Ledgerly stores all records locally on your desktop. Export full backups anytime for peace of mind.</p>
+                  
+                  <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    <button type="button" class="btn btn-secondary" id="btn-settings-export-csv">
+                      <i data-icon="file-text" data-icon-size="14"></i> Export CSV
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="btn-settings-export-excel">
+                      <i data-icon="file-spreadsheet" data-icon-size="14"></i> Export Excel (.xlsx)
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="btn-settings-export-json">
+                      <i data-icon="download" data-icon-size="14"></i> Full JSON Backup
+                    </button>
+                  </div>
+                </div>
 
-              <div class="form-group">
-                <label>Default Currency Symbol</label>
-                <select id="settings-pref-currency">
-                  <option value="₹">₹ (INR - Indian Rupee)</option>
-                  <option value="$">$ (USD - US Dollar)</option>
-                  <option value="€">€ (EUR - Euro)</option>
-                  <option value="£">£ (GBP - British Pound)</option>
-                  <option value="¥">¥ (JPY - Japanese Yen)</option>
-                  <option value="C$">C$ (CAD - Canadian Dollar)</option>
-                </select>
-              </div>
+                <!-- Storage Diagnostics Card -->
+                <div style="background: var(--bg-surface-elevated); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-top: 18px;">
+                  <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                    <i data-icon="hard-drive" data-icon-size="16" style="color: var(--accent-cyan);"></i> Storage Diagnostics
+                  </h3>
+                  <div id="settings-storage-diagnostics" style="font-size: 12.5px; color: var(--text-muted); line-height: 2;">
+                    Loading diagnostics...
+                  </div>
+                  <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-run-db-audit" style="font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                      <i data-icon="shield-check" data-icon-size="14"></i> Run Integrity Audit
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-export-diagnostic-report" style="font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                      <i data-icon="download" data-icon-size="14"></i> Export Diagnostic Report
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-view-crash-logs" style="font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                      <i data-icon="file-text" data-icon-size="14"></i> View Crash Logs
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Danger Zone -->
+                <div style="background: rgba(251, 113, 133, 0.06); padding: 20px; border-radius: var(--radius-md); border: 1px solid rgba(251, 113, 133, 0.2); margin-top: 18px;">
+                  <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 10px; color: #FB7185; display: flex; align-items: center; gap: 8px;">
+                    <i data-icon="alert-triangle" data-icon-size="16"></i> Danger Zone
+                  </h3>
+                  <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;">These actions are destructive and cannot be undone. Exported backups first.</p>
+                  <button type="button" class="btn btn-secondary" id="settings-clear-all-expenses-btn" style="border-color: rgba(251, 113, 133, 0.4); color: #FB7185;">
+                    <i data-icon="trash-2" data-icon-size="14"></i> Clear All Expenses
+                  </button>
+                </div>
+              </section>
 
-              <div class="form-group" style="margin-top: 12px;">
-                <label>Default Payment Method</label>
-                <select id="settings-pref-payment">
-                  <option value="UPI / GPay">UPI / GPay / PhonePe</option>
-                  <option value="Credit Card">Credit Card</option>
-                  <option value="Debit Card">Debit Card</option>
-                  <option value="Net Banking">Net Banking</option>
-                  <option value="Cash">Cash</option>
-                </select>
-              </div>
+              <div class="settings-section-divider"></div>
 
-              <div class="form-group" style="margin-top: 12px;">
-                <label>Workspace Mode</label>
-                <select id="settings-pref-workspace-mode">
-                  <option value="solo">Solo Personal Mode (Strict Profile Isolation)</option>
-                  <option value="household">Shared Household Mode (Multi-User Collaboration)</option>
-                </select>
-              </div>
+              <!-- Section 5: Notifications & Alerts -->
+              <section id="settings-notif-pane" class="settings-pane settings-section">
+                <div style="background: var(--bg-surface-elevated); padding: 20px 24px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                    <div>
+                      <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin: 0 0 4px 0;">
+                        <i data-icon="bell" data-icon-size="16" style="color: var(--accent-primary);"></i> Notification & Alert Preferences
+                      </h3>
+                      <p style="font-size: 12.5px; color: var(--text-muted); margin: 0;">Configure proactive in-app check-ins, minimal native desktop alerts, and shared debt reminders.</p>
+                    </div>
+                  </div>
 
-              <div style="margin-top: 18px;">
-                <button type="button" class="btn btn-primary" id="settings-save-prefs-btn">
-                  <i data-icon="save" data-icon-size="14"></i> Save Preferences
-                </button>
-              </div>
-            </div>
-          </div>
+                  <form id="settings-notif-form">
+                    <!-- Native Windows Notifications -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                      <div style="max-width: 80%;">
+                        <strong style="font-size: 13.5px; color: var(--text-main); display: block; margin-bottom: 2px;">Native Windows Desktop Alerts</strong>
+                        <span style="font-size: 12px; color: var(--text-muted);">Strictly for critical deadlines: Bill Due Today & 100% Monthly Budget Reached.</span>
+                      </div>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="settings-notif-enable-native" checked>
+                        <span class="toggle-slider"></span>
+                      </label>
+                    </div>
 
-          <!-- Tab Pane 3: Backups & Maintenance -->
-          <div id="settings-data-pane" class="settings-pane hidden">
-            <div style="max-width: 650px; background: var(--bg-surface-elevated); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-              <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-                <i data-icon="database" data-icon-size="16" style="color: var(--accent-primary);"></i> Data Backups & Exports
-              </h3>
-              <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 16px;">Ledgerly stores all records locally on your desktop. Export full backups anytime for peace of mind.</p>
+                    <!-- Daily Evening Logging Nudge -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                      <div style="max-width: 80%;">
+                        <strong style="font-size: 13.5px; color: var(--text-main); display: block; margin-bottom: 2px;">Evening Logging Check-in</strong>
+                        <span style="font-size: 12px; color: var(--text-muted);">Notifies you in the evening if no expenses have been recorded today. Tap jumps directly to Express Entry.</span>
+                      </div>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="settings-notif-daily-nudge" checked>
+                        <span class="toggle-slider"></span>
+                      </label>
+                    </div>
 
-              <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                <button type="button" class="btn btn-secondary" onclick="exportData('csv')">
-                  <i data-icon="file-text" data-icon-size="14"></i> Export CSV
-                </button>
-                <button type="button" class="btn btn-secondary" onclick="exportData('xlsx')">
-                  <i data-icon="file-spreadsheet" data-icon-size="14"></i> Export Excel (.xlsx)
-                </button>
-                <button type="button" class="btn btn-secondary" onclick="exportData('json')">
-                  <i data-icon="download" data-icon-size="14"></i> Full JSON Backup
-                </button>
-              </div>
+                    <!-- Nudge Timing Selector -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                      <div style="max-width: 80%;">
+                        <strong style="font-size: 13.5px; color: var(--text-main); display: block; margin-bottom: 2px;">Daily Check-in Time</strong>
+                        <span style="font-size: 12px; color: var(--text-muted);">When to trigger the evening nudge if no expenses have been logged today.</span>
+                      </div>
+                      <div style="width: 170px;">
+                        <select id="settings-notif-nudge-time" class="form-control" style="font-size: 13px; padding: 6px 12px; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border-color); color: var(--text-main); width: 100%;">
+                          <option value="17:00">5:00 PM</option>
+                          <option value="18:00" selected>6:00 PM (Default)</option>
+                          <option value="19:00">7:00 PM</option>
+                          <option value="20:00">8:00 PM</option>
+                          <option value="21:00">9:00 PM</option>
+                          <option value="22:00">10:00 PM</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Overdue Debt & Bill Alerts (> 7 Days) -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                      <div style="max-width: 80%;">
+                        <strong style="font-size: 13.5px; color: var(--text-main); display: block; margin-bottom: 2px;">Overdue Balances & Bills Reminder</strong>
+                        <span style="font-size: 12px; color: var(--text-muted);">In-app alert for shared debts and utility bills pending for more than 7 days.</span>
+                      </div>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="settings-notif-overdue-alerts" checked>
+                        <span class="toggle-slider"></span>
+                      </label>
+                    </div>
+
+                    <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                      <button type="submit" class="btn btn-primary" id="settings-save-notif-btn">
+                        <i data-icon="save" data-icon-size="14"></i> Save Notification Preferences
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </section>
+
             </div>
           </div>
         </section>
@@ -1353,6 +1615,21 @@
       <div class="modal-body">
         <div id="import-summary-banner" style="background: rgba(56, 189, 248, 0.1); border: 1px solid var(--border-accent); border-radius: var(--radius-md); padding: 12px 16px; font-size: 13px; color: var(--text-main);">
           Found <strong id="import-count-text">0</strong> valid expense records ready to import.
+        </div>
+
+        <!-- Smart Statement Reconciliation & Deduplication Bar (Phase 7) -->
+        <div id="import-reconciliation-bar" class="hidden" style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-md); font-size: 12px; color: var(--accent-amber);">
+          <span id="import-duplicates-count-text" style="display: flex; align-items: center; gap: 6px;">
+            <i data-icon="alert-triangle" data-icon-size="14"></i> Found 0 potential duplicate transactions within ±2 days.
+          </span>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-sm btn-outline" id="btn-skip-duplicates" style="padding: 4px 10px; font-size: 11px; border-color: rgba(245, 158, 11, 0.4); color: var(--accent-amber);">
+              Skip Duplicates
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" id="btn-select-all-imports" style="padding: 4px 10px; font-size: 11px;">
+              Include All
+            </button>
+          </div>
         </div>
 
         <div id="import-warnings-box" class="hidden" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md); padding: 10px 14px; font-size: 12px; color: var(--accent-amber); margin-top: 10px;">
@@ -1680,6 +1957,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

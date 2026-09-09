@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
+const { VALIDATION_LIMITS } = require('./constants');
 
 class FileImporter {
   constructor() {
@@ -19,6 +20,13 @@ class FileImporter {
     try {
       if (!fs.existsSync(filePath)) {
         return this._errorResponse('File does not exist.', 'unknown');
+      }
+
+      const stats = fs.statSync(filePath);
+      const maxFileSize = VALIDATION_LIMITS?.MAX_IMPORT_FILE_SIZE || (50 * 1024 * 1024);
+      if (stats.size > maxFileSize) {
+        const sizeMB = (stats.size / (1024 * 1024)).toFixed(1);
+        return this._errorResponse(`File size (${sizeMB}MB) exceeds the maximum allowed import limit of 50MB.`, 'unknown');
       }
 
       const ext = path.extname(filePath).toLowerCase();
@@ -168,18 +176,29 @@ class FileImporter {
       const expenses = [];
       const warnings = [];
 
-      for (let i = headerRowIndex + 1; i < rows.length; i++) {
+      const maxRows = VALIDATION_LIMITS?.MAX_IMPORT_ROWS || 25000;
+      const totalDataRows = rows.length - (headerRowIndex + 1);
+      if (totalDataRows > maxRows) {
+        warnings.push(`File contains ${totalDataRows} data rows; truncated to first ${maxRows} transactions to prevent memory exhaustion.`);
+      }
+      const rowsToProcess = Math.min(rows.length, headerRowIndex + 1 + maxRows);
+
+      for (let i = headerRowIndex + 1; i < rowsToProcess; i++) {
         const row = rows[i];
         if (row.every(cell => cell.trim() === '')) continue; // Skip empty rows
 
         const getVal = (col) => col !== -1 && col < row.length ? row[col].trim() : '';
         
-        let amountStr = getVal(bestMapping.amountCol).replace(/[₹$Rs.INR,\s]/gi, '');
+        // Strip currency symbols, country strings, accounting parentheses, and formatting commas without stripping decimal points (BUG-001)
+        const rawVal = getVal(bestMapping.amountCol);
+        const amountStr = String(rawVal)
+          .replace(/(?:INR|USD|EUR|Rs\.?|[₹$€£,()])/gi, '')
+          .trim();
         let amount = parseFloat(amountStr);
         if (isNaN(amount)) continue; // skip invalid amounts
         
-        // Treat negative amounts as expenses
-        amount = Math.abs(amount);
+        // Treat negative amounts as expenses, rounded to 2 decimal places
+        amount = Math.abs(parseFloat(amount.toFixed(2)));
 
         const dateStr = getVal(bestMapping.dateCol);
         const title = getVal(bestMapping.titleCol);
@@ -242,17 +261,29 @@ class FileImporter {
       const expenses = [];
       const warnings = [];
 
-      for (let i = headerRowIndex + 1; i < rows.length; i++) {
+      const maxRows = VALIDATION_LIMITS?.MAX_IMPORT_ROWS || 25000;
+      const totalDataRows = rows.length - (headerRowIndex + 1);
+      if (totalDataRows > maxRows) {
+        warnings.push(`File contains ${totalDataRows} data rows; truncated to first ${maxRows} transactions to prevent memory exhaustion.`);
+      }
+      const rowsToProcess = Math.min(rows.length, headerRowIndex + 1 + maxRows);
+
+      for (let i = headerRowIndex + 1; i < rowsToProcess; i++) {
         const row = rows[i];
         if (row.length === 0) continue;
 
         const getVal = (col) => col !== -1 && col < row.length && row[col] ? row[col].toString().trim() : '';
 
-        let amountStr = getVal(bestMapping.amountCol).replace(/[₹$Rs.INR,\s]/gi, '');
+        // Strip currency symbols, country strings, accounting parentheses, and formatting commas without stripping decimal points (BUG-001)
+        const rawVal = getVal(bestMapping.amountCol);
+        const amountStr = String(rawVal)
+          .replace(/(?:INR|USD|EUR|Rs\.?|[₹$€£,()])/gi, '')
+          .trim();
         let amount = parseFloat(amountStr);
         if (isNaN(amount)) continue;
 
-        amount = Math.abs(amount);
+        // Treat negative amounts as expenses, rounded to 2 decimal places
+        amount = Math.abs(parseFloat(amount.toFixed(2)));
 
         const dateVal = getVal(bestMapping.dateCol);
         let dateStr = dateVal;
@@ -390,10 +421,6 @@ class FileImporter {
       // Not suitable for heavily formatted or FlateDecode streams in real world, but matches specs
       const expenses = [];
       const warnings = ['PDF parsing is experimental and relies on basic text extraction. Results may be inaccurate.'];
-
-      // Regex patterns
-      const dateRegex = /\b(\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4})\b/g;
-      const amountRegex = /\$?(\d+[,.]\d{2})/g;
 
       // Extract raw strings from PDF that might be text
       const textBlocks = content.match(/[\x20-\x7E]{5,}/g) || [];
