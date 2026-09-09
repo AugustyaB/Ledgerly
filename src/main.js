@@ -9,6 +9,7 @@ const ForesightEngine = require('./foresightEngine');
 const { CategoryMatcher } = require('./categoryMatcher');
 const DocumentNormalizer = require('./services/DocumentNormalizer');
 const ReceiptTier1Engine = require('./services/ReceiptTier1Engine');
+const ModelManager = require('./services/ModelManager');
 const XLSX = require('xlsx');
 const { wrapIPC } = require('./validation/ipcGuard');
 const { crashLogger } = require('./logger/crashLogger');
@@ -27,6 +28,7 @@ const {
   validateWorkspaceMode,
   validateDocumentNormalizeInput,
   validateReceiptScanInput,
+  validateModelActionInput,
   validateId,
   isPlainObject
 } = require('./validation/schemaValidator');
@@ -64,6 +66,7 @@ let nlpParser;
 let categoryMatcher;
 let documentNormalizer;
 let receiptTier1Engine;
+let modelManager;
 
 function sanitizeSpreadsheetCell(val) {
   const str = String(val === null || val === undefined ? '' : val);
@@ -138,6 +141,17 @@ function createWindow() {
   receiptTier1Engine = new ReceiptTier1Engine({ normalizer: documentNormalizer, categoryMatcher });
   fileImporter = new FileImporter({ tier1Engine: receiptTier1Engine });
   nlpParser = new NLPParser(storage.getCategoryKeywords());
+
+  const modelsDir = path.join(app && typeof app.getPath === 'function' ? app.getPath('userData') : process.cwd(), 'models');
+  modelManager = new ModelManager({
+    modelsDir,
+    appRoot: path.resolve(__dirname, '..'),
+    onActiveModelChanged: (modelId) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('active-model-changed', modelId);
+      }
+    }
+  });
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -596,6 +610,57 @@ ipcMain.handle('scan-receipt-document', wrapIPC('scan-receipt-document', (input,
   return validateReceiptScanInput(input, options);
 }, async (event, input, options) => {
   return receiptTier1Engine.processDocument(input, options);
+}));
+
+// On-Device ML Model Manager & Downloader Engine (Phase 0.5.4)
+ipcMain.handle('list-models', wrapIPC('list-models', null, async (event, currency) => {
+  return modelManager ? modelManager.listModels(currency) : [];
+}));
+
+ipcMain.handle('download-model', wrapIPC('download-model', (modelId, options) => {
+  return validateModelActionInput({ modelId, action: 'download' }, options);
+}, async (event, modelId, options) => {
+  if (!modelManager) throw new Error('ModelManager is not initialized.');
+  return modelManager.downloadModel(modelId, {
+    ...options,
+    onProgress: (progress) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('model-download-progress', progress);
+      }
+    }
+  });
+}));
+
+ipcMain.handle('cancel-model-download', wrapIPC('cancel-model-download', (modelId) => {
+  return validateModelActionInput({ modelId, action: 'cancel' });
+}, async (event, modelId) => {
+  if (!modelManager) throw new Error('ModelManager is not initialized.');
+  return modelManager.cancelDownload(modelId);
+}));
+
+ipcMain.handle('delete-model', wrapIPC('delete-model', (modelId) => {
+  return validateModelActionInput({ modelId, action: 'delete' });
+}, async (event, modelId) => {
+  if (!modelManager) throw new Error('ModelManager is not initialized.');
+  return modelManager.deleteModel(modelId);
+}));
+
+ipcMain.handle('set-active-model', wrapIPC('set-active-model', (modelId) => {
+  return validateModelActionInput({ modelId, action: 'setActive' });
+}, async (event, modelId) => {
+  if (!modelManager) throw new Error('ModelManager is not initialized.');
+  return modelManager.setActiveModel(modelId);
+}));
+
+ipcMain.handle('verify-model-integrity', wrapIPC('verify-model-integrity', (modelId) => {
+  return validateModelActionInput({ modelId, action: 'verify' });
+}, async (event, modelId) => {
+  if (!modelManager) throw new Error('ModelManager is not initialized.');
+  return modelManager.verifyModelIntegrity(modelId);
+}));
+
+ipcMain.handle('get-models-storage-usage', wrapIPC('get-models-storage-usage', null, async () => {
+  return modelManager ? modelManager.getStorageUsage() : { totalBytes: 0, totalMb: 0, modelsCount: 0 };
 }));
 
 ipcMain.handle('confirm-import', wrapIPC('confirm-import', (expenses) => {

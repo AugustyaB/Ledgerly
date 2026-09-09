@@ -27,8 +27,36 @@ Future Milestone:
 # Version 0.5: On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine
 > *Succeeds Version 0.4.7 (Major Restructuring Milestone). Introduces local, offline machine learning models for physical receipts, PDF statements, and camera photos.*
 
-## [0.5.3] - Phase 3: Tier 1 (Fast-Lite) Bundled Engine & Instant Receipt Autofill (2026-09-09)
+## [0.5.4] - Phase 4: Handy-Style Settings Hub Model Manager & On-Demand Downloader (2026-09-09)
 > *Current Active Subsection*
+
+### 🧠 Model Manager & Downloader Engine (`src/services/ModelManager.js`)
+- **Centralized Model Registry**: Catalog of Tier 1 (Fast-Lite, bundled 5.2MB), Tier 2 (Vision-Pro Transformer, on-demand ~195MB), and Tier 3 (Regional India Specialist, on-demand ~142MB).
+- **Resilient Chunked Streaming Downloader**: Native HTTP/HTTPS streaming with live progress telemetry (`downloadedBytes`, `totalBytes`, `speedBps`, `percentage`), abortable streams (`cancelDownload`), and atomic file placement in `userData/models/`.
+- **Cryptographic SHA-256 Checksum Verification**: Bit-level validation against canonical hashes, cleanly unlinking `.tmp` files upon checksum mismatch (`ERR_CHECKSUM_MISMATCH`).
+- **Protected Bundled Engine Guard**: Prevents deletion of the pre-packaged Tier 1 model (`ERR_MODEL_PROTECTED`).
+- **Currency-Aware Recommendations**: Automatically highlights Tier 3 (Regional Specialist) with a `"⭐ Recommended for your currency"` badge when the active profile currency is INR (`₹`/`INR`).
+- **Safe Deletion & Automatic Fallback**: Safely unlinks on-demand model weights from disk to reclaim storage; automatically falls back to Tier 1 if the active engine is deleted.
+
+### 🎨 Handy-Style Settings Hub Interface (`src/index.html`, `src/ui/views/SettingsView.js`, `src/styles.css`)
+- **Dedicated Sub-Navigation Pane**: Added `🧠 AI Models & Engines` sub-tab under Settings Hub with smooth scrollspy navigation.
+- **Glassmorphic Model Cards**: Displays tier badges, disk sizes, RAM footprints, CPU latency estimates, and capability checklists.
+- **Live Progress & Transfer Speed**: Horizontal animated amber progress bar with real-time transfer speed and percentage.
+- **Auto-Prompt Activation Toast**: Triggers an actionable toast notification upon download completion encouraging 1-click activation.
+- **Storage Footprint Indicator**: Real-time storage pill (`Storage: X MB installed`) tracking on-device model space.
+
+### 🛠️ Fine-Tuning & Model Packaging Pipeline (`training/scripts/fine_tune_models.py`)
+- Fine-tunes Vision-Pro Transformer and Regional India Specialist on `dataset_train.json` (154 samples) and `dataset_val.json` (33 samples).
+- Serializes quantized model weights (`tier2-visionpro.bin`, `tier3-regional-in.bin`) and configuration files into `training/models/`.
+- Generates canonical cryptographic manifest (`training/models/models_manifest.json`).
+
+### 🛡️ IPC Boundary & Runtime Schema Contracts (`src/main.js`, `src/preload.js`, `src/validation/schemaValidator.js`)
+- Added `validateModelActionInput` validating model IDs and action verbs.
+- Registered and exposed `list-models`, `download-model`, `cancel-model-download`, `delete-model`, `set-active-model`, `verify-model-integrity`, and `get-models-storage-usage` IPC channels with standardized envelopes.
+
+---
+
+## [0.5.3] - Phase 3: Tier 1 (Fast-Lite) Bundled Engine & Instant Receipt Autofill (2026-09-09)
 
 ### ⚡ Tier 1 Fast-Lite Receipt ML Engine (`src/services/ReceiptTier1Engine.js`)
 - **Ultra-Compact Offline Bundled Model**: Bundled offline Tesseract WASM OCR engine (`assets/models/tesseract/eng.traineddata`, 5.19MB) directly into the repository assets, guaranteeing zero cloud dependencies and instant out-of-the-box receipt scanning.

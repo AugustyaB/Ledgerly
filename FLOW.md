@@ -1,7 +1,7 @@
 # 🔄 Ledgerly — System Architecture & Application Flow (`FLOW.md`)
 
 > **Version Cycle**: `0.5` — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine*  
-> **Current State**: `v0.5.3` (Phase 3: Tier 1 Fast-Lite Bundled Engine & Instant Receipt Autofill Complete)  
+> **Current State**: `v0.5.4` (Phase 4: Handy-Style Settings Hub Model Manager & On-Demand Downloader Complete)  
 > **Preceding Version**: `0.4.7` (Major Restructuring & Enterprise Resilience Milestone)  
 > **Status**: **ACTIVE & CANONICAL**  
 > **Scope**: Complete end-to-end data lifecycle, component interaction, IPC contracts, state management, and ML document intelligence pipeline across Version 0.5 subsections (v0.5.1 to v0.5.7).
@@ -329,6 +329,19 @@ The application implements a multi-tier resilience strategy distributed across c
 | - Smart non-destructive autofill in ExpenseFeedView modal & QuickPill drag-and-drop     |
 | - 50/50 automated test assertions passing in scratch/test_receipt_tier1.js              |
 +-----------------------------------------------------------------------------------------+
+                                            |
+                                            v
++-----------------------------------------------------------------------------------------+
+| [PHASE 0.5.4: HANDY-STYLE SETTINGS HUB MODEL MANAGER & ON-DEMAND DOWNLOADER - COMPLETE]  |
+| - Centralized model registry (Tier 1 Bundled, Tier 2 Vision-Pro, Tier 3 Regional India)  |
+| - Resilient chunked streaming downloader with live progress and cancel support          |
+| - Cryptographic SHA-256 integrity verification (0% bit rot guarantee)                   |
+| - Protected bundled engine deletion guard (ERR_MODEL_PROTECTED)                         |
+| - Currency-aware recommendation engine (highlights Tier 3 for INR ₹ profiles)           |
+| - Handy-style Settings Hub UI cards with storage metrics, active toggles & auto-prompts |
+| - Fine-tuning export pipeline: fine_tune_models.py (quantized models & manifest export) |
+| - 18/18 automated test assertions passing in scratch/test_model_manager.js              |
++-----------------------------------------------------------------------------------------+
 ```
 
 ---
@@ -359,4 +372,5 @@ The application implements a multi-tier resilience strategy distributed across c
 | ↳ **v0.5.1** (Phase 1) | Dataset Sourcing & Base Model Discovery | Standardized schema (SROIE, CORD, Indian GST & UPI), 54-sample negative control gate, 3-tier model profiling |
 | ↳ **v0.5.2** (Phase 2) | Document Normalization & Image Preprocessing | Magic byte sniffing, EXIF rotation, adaptive 1200-2400px density scaling, blur rejection gate, thermal contrast boosting, vector PDF fast-path (<10ms) |
 | ↳ **v0.5.3** (Phase 3) | Tier 1 (Fast-Lite) Bundled Engine & Instant Receipt Autofill | Offline Tesseract WASM (5.19MB), reverse token attention, smart non-destructive autofill, UPI & GST breakdown, negative transaction gate |
+| ↳ **v0.5.4** (Phase 4) | Handy-Style Settings Hub Model Manager & On-Demand Downloader | ModelManager service (chunked streaming, SHA-256 verification), Handy-style Settings Hub UI, currency recommendations, auto-fallback |
 | **v1.0.0** | **Official Production Release** | Production-ready deployment for user download |

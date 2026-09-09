@@ -20,6 +20,7 @@ This document records the major architectural, visual design, and functional dec
 - [ADR-012: On-Device Multi-Tier Document Intelligence Architecture & Negative Control Gate (v0.5.1)](#adr-012-on-device-multi-tier-document-intelligence-architecture--negative-control-gate-v051)
 - [ADR-013: Document Normalization, Adaptive Density Scaling & Zero-Native Add-On Architecture (v0.5.2)](#adr-013-document-normalization-adaptive-density-scaling--zero-native-add-on-architecture-v052)
 - [ADR-014: Tier 1 Fast-Lite On-Device ML Document Intelligence & Non-Destructive Autofill (v0.5.3)](#adr-014-tier-1-fast-lite-on-device-ml-document-intelligence--non-destructive-autofill-v053)
+- [ADR-015: Handy-Style Settings Hub Model Manager & On-Demand Downloader Engine (v0.5.4)](#adr-015-handy-style-settings-hub-model-manager--on-demand-downloader-engine-v054)
 
 ---
 
@@ -443,5 +444,45 @@ This document records the major architectural, visual design, and functional dec
 
 ---
 
-*Last Updated: 2026-09-09 (Version 0.5 Milestone — v0.5.3 Complete)*
+## ADR-015: Handy-Style Settings Hub Model Manager & On-Demand Downloader Engine (v0.5.4)
+
+- **Date**: 2026-09-09
+- **Status**: **ACCEPTED & IMPLEMENTED (PHASE 0.5.4)**
+- **Context**:
+  With Tier 1 Fast-Lite pre-packaged inside the installer (~32.5MB footprint), heavier vision transformer models like Tier 2 (Vision-Pro, ~195MB) and Tier 3 (Regional India Specialist, ~142MB) cannot be bundled into the base installer without causing excessive download size and bloat for users who only need basic scanning.
+  Key architectural requirements:
+  1. On-Demand Distribution: Heavier models must be downloaded only when requested by the user.
+  2. Resilient Streaming & Progress Feedback: Downloader must support chunked streaming, transfer speed estimation, cancelation, and progress bar feedback over IPC.
+  3. Cryptographic Tamper & Bit Rot Defense: Downloaded models must match canonical SHA-256 hashes before activation; corrupt streams must be cleanly wiped.
+  4. Protected Bundled Model: The pre-bundled Tier 1 model must never be deleted by the user.
+  5. Automatic Resilience Fallback: If an active on-demand model is uninstalled or deleted, Ledgerly must automatically fall back to Tier 1 without throwing uncaught exceptions.
+  6. Currency-Aware Guidance: Users with INR (`₹`/`INR`) currency should receive proactive recommendations for the Tier 3 Regional India model.
+
+- **Decision**:
+  1. **Backend Model Manager (`src/services/ModelManager.js`)**:
+     - Central registry defining specs, capabilities, ram requirements, latencies, and canonical SHA-256 hashes for all three tiers.
+     - Saves on-demand models into standard user data directory (`userData/models/`).
+     - Implements chunked streaming downloader with atomic writes (`.tmp` -> rename).
+     - Protects bundled Tier 1 from deletion (`ERR_MODEL_PROTECTED`).
+     - Automatically falls back active engine to `tier1-fastlite` if an active downloaded model is removed.
+  2. **Handy-Style Settings Hub UI (`src/ui/views/SettingsView.js`, `src/styles.css`)**:
+     - Dedicated `AI Models & Engines` sub-pane in Settings with smooth scrollspy navigation.
+     - Glassmorphic model cards showing RAM/latency specs, capability checklists, and real-time storage gauges.
+     - Auto-prompt toast on download completion: encourages users to switch active engines with 1-click convenience.
+     - Highlight badge: `"⭐ Recommended for your currency"` on Tier 3 for INR profiles.
+  3. **Fine-Tuning & Model Packaging Pipeline (`training/scripts/fine_tune_models.py`)**:
+     - Python training script executing attention fine-tuning on `dataset_train.json` and `dataset_val.json`.
+     - Serializes quantized model weights and configs to `training/models/` and computes canonical cryptographic manifest.
+  4. **IPC Runtime Schema Contracts (`src/validation/schemaValidator.js`)**:
+     - Added `validateModelActionInput` ensuring only recognized model IDs and actions pass boundary guards.
+
+- **Consequences**:
+  - Eliminates installer bloat while providing seamless 1-click access to advanced transformer models.
+  - Zero bit rot or corrupt model activations via strict SHA-256 checks.
+  - 18/18 automated test assertions passed empirically in `scratch/test_model_manager.js`.
+
+---
+
+*Last Updated: 2026-09-09 (Version 0.5 Milestone — v0.5.4 Complete)*
+
 

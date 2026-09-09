@@ -167,6 +167,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getNativeAddonStatus: () => invokeIPC('get-native-addon-status'),
   scanReceiptDocument: (input, options) => invokeIPC('scan-receipt-document', input, options),
 
+  // Model Manager & Downloader Engine (Phase 0.5.4)
+  listModels: (currency) => invokeIPC('list-models', currency),
+  downloadModel: (modelId, options) => invokeIPC('download-model', modelId, options),
+  cancelModelDownload: (modelId) => invokeIPC('cancel-model-download', modelId),
+  deleteModel: (modelId) => invokeIPC('delete-model', modelId),
+  setActiveModel: (modelId) => invokeIPC('set-active-model', modelId),
+  verifyModelIntegrity: (modelId) => invokeIPC('verify-model-integrity', modelId),
+  getModelsStorageUsage: () => invokeIPC('get-models-storage-usage'),
+
   // Event Subscriptions
   onNavigateToTab: (callback) => {
     ipcRenderer.removeAllListeners('navigate-to-tab');
@@ -176,5 +185,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDataUpdated: (callback) => {
     ipcRenderer.removeAllListeners('data-updated');
     ipcRenderer.on('data-updated', (event, data) => callback(data));
+  },
+
+  onModelDownloadProgress: (callback) => {
+    ipcRenderer.removeAllListeners('model-download-progress');
+    ipcRenderer.on('model-download-progress', (event, data) => callback(data));
+  },
+
+  onActiveModelChanged: (callback) => {
+    ipcRenderer.removeAllListeners('active-model-changed');
+    ipcRenderer.on('active-model-changed', (event, data) => callback(data));
   }
 });
