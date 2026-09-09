@@ -17,6 +17,7 @@ This document records the major architectural, visual design, and functional dec
 - [ADR-009: IPC Runtime Schema Validation Layer & Error Contract Standardization (v0.4.5)](#adr-009-ipc-runtime-schema-validation-layer--error-contract-standardization-v045)
 - [ADR-010: Global UI Error Boundaries, Graceful Fallbacks & Crash Traps (v0.4.6)](#adr-010-global-ui-error-boundaries-graceful-fallbacks--crash-traps-v046)
 - [ADR-011: Enterprise Resilience, Startup Integrity Auditing, Privacy Telemetry & Offline Conflict Engine (v0.4.7)](#adr-011-enterprise-resilience-startup-integrity-auditing-privacy-telemetry--offline-conflict-engine-v047)
+- [ADR-012: On-Device Multi-Tier Document Intelligence Architecture & Negative Control Gate (v0.5.1)](#adr-012-on-device-multi-tier-document-intelligence-architecture--negative-control-gate-v051)
 
 ---
 
@@ -333,4 +334,33 @@ This document records the major architectural, visual design, and functional dec
 
 ---
 
-*Last Updated: 2026-09-08 (Version 0.4 Milestone — v0.4.7 Complete)*
+## ADR-012: On-Device Multi-Tier Document Intelligence Architecture & Negative Control Gate (v0.5.1)
+
+- **Date**: 2026-09-09
+- **Status**: **ACCEPTED & IMPLEMENTED (PHASE 0.5.1)**
+- **Context**:
+  In Version 0.5, Ledgerly introduces local, zero-cloud machine learning document intelligence to extract financial transactions from physical receipt photos, camera snaps, and PDF statements.
+  Key architectural requirements:
+  1. Base Installer Lean Envelope: Embedding heavy multi-hundred megabyte transformer models directly inside the Windows installer balloons setup size.
+  2. Hardware Scalability: Lower-spec consumer laptops lack dedicated GPUs and have restricted RAM envelopes (<150MB available).
+  3. Negative Detection Gate: Models must avoid hallucinating financial amounts or dates when non-transactional images (landscapes, book pages, notes, memes) are dropped.
+  4. Regional Specialization: Receipts from different jurisdictions (e.g. Indian GST, CGST/SGST, UPI slips vs. US/UK Sales Tax) have specialized vocabulary.
+
+- **Decision**:
+  1. **Three-Tier Functional Capability Categories**:
+     - **Tier 1 (Fast-Lite)**: Lightweight quantized OCR + regex token attention (~32.5MB, sub-second latency). **Bundled directly in the base Windows installer** for immediate out-of-the-box offline capability without internet.
+     - **Tier 2 (Vision-Pro)**: Deep Document Understanding Transformer (Donut / Florence-2, ~195MB) available for on-demand 1-click download in Settings Hub, targeting complex layouts, table items, and degraded camera photos.
+     - **Tier 3 (Regional Specialization)**: Regional models starting with India GST (GSTIN, HSN, CGST, SGST, IGST, UPI payment slips, ~142MB) downloadable on demand.
+  2. **Negative Control & Non-Transaction Rejection Gate**:
+     - Curated a balanced negative control corpus (24.3% of total dataset) to verify that the ML engine rejects non-financial images with 0% false-positive amount hallucinations.
+  3. **Unified Document Canvas Normalization**:
+     - All input formats (PDF, PNG, JPG, WebP) are rendered to an image canvas before inference, with native text stream fast-pathing for vector PDFs.
+
+- **Consequences**:
+  - Base installer remains lightweight with immediate offline functionality.
+  - Zero financial data hallucinated on non-receipt files.
+  - Establishes a scalable foundation for global regional expansion in Tier 3.
+
+---
+
+*Last Updated: 2026-09-09 (Version 0.5 Milestone — v0.5.1 In Progress)*

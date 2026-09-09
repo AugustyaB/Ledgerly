@@ -1,10 +1,10 @@
 # 🔄 Ledgerly — System Architecture & Application Flow (`FLOW.md`)
 
-> **Version Cycle**: `0.4` — *Major Restructuring of the Code Improving Its Readability*  
-> **Current State**: `v0.4.7` (Phase 7: Enterprise Resilience, Tier 2 UX Enhancements, Startup DB Integrity & Offline Conflict Engine Complete — Concludes Version 0.4 Milestone)  
-> **Preceding Version**: `0.3.0` (Alpha Fine-Tuning & Polish Milestone)  
+> **Version Cycle**: `0.5` — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine*  
+> **Current State**: `v0.5.1` (Phase 1: Dataset Sourcing & Base Model Discovery Complete)  
+> **Preceding Version**: `0.4.7` (Major Restructuring & Enterprise Resilience Milestone)  
 > **Status**: **ACTIVE & CANONICAL**  
-> **Scope**: Complete end-to-end data lifecycle, component interaction, IPC contracts, and state management flow across Version 0.4 subsections (v0.4.1 to v0.4.7).
+> **Scope**: Complete end-to-end data lifecycle, component interaction, IPC contracts, state management, and ML document intelligence pipeline across Version 0.5 subsections (v0.5.1 to v0.5.7).
 
 ---
 

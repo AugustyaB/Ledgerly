@@ -108,15 +108,23 @@ For full architectural diagrams and lifecycle sequences, see [`FLOW.md`](FLOW.md
 | **v0.1.0** | **Desktop Core Foundation**: Offline Electron runtime, local JSON db (`expenses_db.json`), express bar, presets, batch mode, salary pace & rollover, local receipts | ✅ Complete |
 | **v0.2.0** | **Visual Design Language System**: Theme 3 (Graphite & Spiced Chai Amber), Inter & JetBrains Mono typography, 93 Lucide SVG icons, monogram avatars, offline Chart.js | ✅ Complete |
 | **v0.3.0** | **Ambient Intelligence & Polish**: Multi-profile switcher, universal file importer/exporter (CSV/XLSX/OFX/PDF), contextual notes, pairwise debt netting, quick-add pill widget | ✅ Complete |
-| **v0.4** | **Major Codebase Restructuring, Domain Decomposition & Readability** | 🔄 **In Progress (v0.4.4 Complete)** |
+| **v0.4** | **Major Codebase Restructuring, Domain Decomposition & Readability** | ✅ **Complete (v0.4.1 – v0.4.7)** |
 | ↳ **v0.4.1** (Phase 1) | Security Hardening Baseline (CSP, PBKDF2 210K, Sandbox) | ✅ Complete |
 | ↳ **v0.4.2** (Phase 2) | Tooling, Type Contracts & Constants | ✅ Complete |
 | ↳ **v0.4.3** (Phase 3) | Backend Domain Service Decomposition (8 Services, Facade) | ✅ Complete |
-| ↳ **v0.4.4** (Phase 4) | Frontend Modular UI Decomposition & Event Delegation (Current) | ✅ **Complete** |
-| ↳ **v0.4.5** (Phase 5) | IPC Runtime Schema Validation Layer & Error Contracts | ⏳ Next Subsection |
-| ↳ **v0.4.6** (Phase 6) | Global UI Error Boundaries, Main Process Crash Traps & Streaming | 📋 Planned |
-| ↳ **v0.4.7** (Phase 7) | Enterprise Resilience, Offline Mobile Sync Conflict Resolution | 📋 Planned |
-| **v0.5+** | Mobile Responsive Web App (Android/iOS) & Local Network Peer Sync | 🚀 Roadmap |
+| ↳ **v0.4.4** (Phase 4) | Frontend Modular UI Decomposition & Event Delegation | ✅ Complete |
+| ↳ **v0.4.5** (Phase 5) | IPC Runtime Schema Validation Layer & Error Contracts | ✅ Complete |
+| ↳ **v0.4.6** (Phase 6) | Global UI Error Boundaries, Crash Traps & Audit Defect Remediation | ✅ Complete |
+| ↳ **v0.4.7** (Phase 7) | Enterprise Resilience, Startup DB Integrity & Offline Conflict Engine | ✅ Complete |
+| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Engine** | 🔄 **In Progress (v0.5.1 Complete)** |
+| ↳ **v0.5.1** (Phase 1) | Dataset Sourcing, Multi-Tier Benchmarking & Negative Rejection Gate | ✅ **Complete** |
+| ↳ **v0.5.2** (Phase 2) | Image Normalization & Document Preprocessing Engine | ⏳ Next Subsection |
+| ↳ **v0.5.3** (Phase 3) | Training & Fine-Tuning Pipeline (Fast-Lite, Vision-Pro, Regional GST) | 📋 Planned |
+| ↳ **v0.5.4** (Phase 4) | Empirical Auditing, Accuracy Benchmarking & Rejection Proof | 📋 Planned |
+| ↳ **v0.5.5** (Phase 5) | Desktop Inference Engine & Settings Model Manager | 📋 Planned |
+| ↳ **v0.5.6** (Phase 6) | Ingestion Workflow & Scanned Bill Review Queue UI | 📋 Planned |
+| ↳ **v0.5.7** (Phase 7) | Subsystem Integration, Documentation & Production Packaging | 📋 Planned |
+| **v0.6+** | Mobile Collector Companion & Local LAN Peer Sync | 🚀 Roadmap |
 | **v1.0.0** | **Official Production Release**: Production-ready deployment for user download | 🎯 Target Release |
 
 ---

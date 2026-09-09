@@ -1,6 +1,6 @@
 {
   "name": "ledgerly",
-  "version": "0.4.7",
+  "version": "0.5.1",
   "description": "Ledgerly — A friction-free, 100% offline desktop expense & budget tracker",
   "main": "src/main.js",
   "scripts": {
