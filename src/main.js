@@ -7,6 +7,7 @@ const FileImporter = require('./fileImporter');
 const NLPParser = require('./nlpParser');
 const ForesightEngine = require('./foresightEngine');
 const { CategoryMatcher } = require('./categoryMatcher');
+const DocumentNormalizer = require('./services/DocumentNormalizer');
 const XLSX = require('xlsx');
 const { wrapIPC } = require('./validation/ipcGuard');
 const { crashLogger } = require('./logger/crashLogger');
@@ -23,6 +24,7 @@ const {
   validatePresetInput,
   validateBudgetGoal,
   validateWorkspaceMode,
+  validateDocumentNormalizeInput,
   validateId,
   isPlainObject
 } = require('./validation/schemaValidator');
@@ -58,6 +60,7 @@ let receiptStorage;
 let fileImporter;
 let nlpParser;
 let categoryMatcher;
+let documentNormalizer;
 
 function sanitizeSpreadsheetCell(val) {
   const str = String(val === null || val === undefined ? '' : val);
@@ -127,6 +130,7 @@ function createWindow() {
     console.error('[Startup Auditor] Startup integrity check error:', auditErr.message);
   }
   receiptStorage = new ReceiptStorage();
+  documentNormalizer = new DocumentNormalizer();
   fileImporter = new FileImporter();
   categoryMatcher = new CategoryMatcher(storage.getCategoryKeywords());
   nlpParser = new NLPParser(storage.getCategoryKeywords());
@@ -558,7 +562,7 @@ ipcMain.handle('import-file', wrapIPC('import-file', null, async (event) => {
     return { success: false, canceled: true };
   }
 
-  const result = fileImporter.parseFile(filePaths[0]);
+  const result = await fileImporter.parseFile(filePaths[0]);
   return result;
 }));
 
@@ -568,8 +572,19 @@ ipcMain.handle('import-file-path', wrapIPC('import-file-path', (filePath) => {
   }
   return { valid: true, errors: [] };
 }, async (event, filePath) => {
-  const result = fileImporter.parseFile(filePath);
+  const result = await fileImporter.parseFile(filePath);
   return result;
+}));
+
+// Document Intake & Preprocessing Engine (Phase 0.5.2)
+ipcMain.handle('normalize-document', wrapIPC('normalize-document', (input, options) => {
+  return validateDocumentNormalizeInput(input, options);
+}, async (event, input, options) => {
+  return documentNormalizer.normalizeDocument(input, options);
+}));
+
+ipcMain.handle('get-native-addon-status', wrapIPC('get-native-addon-status', null, async () => {
+  return documentNormalizer.getNativeAddonStatus();
 }));
 
 ipcMain.handle('confirm-import', wrapIPC('confirm-import', (expenses) => {

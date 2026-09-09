@@ -331,5 +331,7 @@ The application implements a multi-tier resilience strategy distributed across c
 | ↳ **v0.4.5** (Phase 5) | IPC Runtime Schema Validation Layer | Boundary schema validation in `main.js`, standardized `{ success, data, error }` envelopes |
 | ↳ **v0.4.6** (Phase 6) | Global UI Error Boundaries, Crash Traps & Audit Remediation | `ErrorBoundary.js`, section fallback cards, `crashLogger.js` (5MB rotation), uncaughtException/unhandledRejection traps, importer safeguards, resolved BUG-001..004 |
 | ↳ **v0.4.7** (Phase 7) | Enterprise Resilience, Offline Sync & Diagnostics | DatabaseAuditor self-healing, DiagnosticExporter telemetry, SyncEngine 3-way merge, Ctrl+Z undo, fuzzy deduplication (Concludes Version 0.4) |
-| **v0.5+** | Mobile Responsive Web App & Sync | Android/iOS PWA layouts, camera receipts, peer sync |
+| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine** | **Local, zero-cloud ML models for camera photos, PDF statements, and receipts** |
+| ↳ **v0.5.1** (Phase 1) | Dataset Sourcing & Base Model Discovery | Standardized schema (SROIE, CORD, Indian GST & UPI), 54-sample negative control gate, 3-tier model profiling |
+| ↳ **v0.5.2** (Phase 2) | Document Normalization & Image Preprocessing | Magic byte sniffing, EXIF rotation, adaptive 1200-2400px density scaling, blur rejection gate, thermal contrast boosting, vector PDF fast-path (<10ms) |
 | **v1.0.0** | **Official Production Release** | Production-ready deployment for user download |

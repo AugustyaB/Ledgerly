@@ -27,8 +27,37 @@ Future Milestone:
 # Version 0.5: On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine
 > *Succeeds Version 0.4.7 (Major Restructuring Milestone). Introduces local, offline machine learning models for physical receipts, PDF statements, and camera photos.*
 
-## [0.5.1] - Phase 1: Dataset Sourcing & Base Model Discovery (2026-09-09)
+## [0.5.2] - Phase 2: Document Normalization & Image Preprocessing Engine (2026-09-09)
 > *Current Active Subsection*
+
+### 📸 Universal Document Intake & Preprocessing Engine (`src/services/DocumentNormalizer.js`)
+- **Zero Native Build Tools Guarantee**: Engineered 100% pure JavaScript and WebAssembly core capable of parsing, decompressing, and assessing documents out of the box on Windows and Linux without requiring Visual Studio C++ Build Tools or node-gyp.
+- **Magic Byte Sniffing**: Inspects initial byte signatures across PDF (`%PDF-`), JPEG (`\xFF\xD8\xFF`), PNG (`\x89PNG`), WebP (`RIFF...WEBP`), BMP (`BM`), and TIFF (`II*`/`MM*`), rejecting unsupported formats with `ERR_UNSUPPORTED_FORMAT`.
+- **EXIF Upright Orientation Correction**: Inspects JPEG APP1 marker TIFF headers to detect camera orientation tags (1–8) and automatically correct sideways or upside-down smartphone photos.
+
+### 📐 Adaptive Resolution & Text Density Inspection
+- **Density-Aware Downscaling**: Analyzes high-frequency Laplacian edge transitions across image scanlines to categorize document typography:
+  - **Dense Micro-Typography (`dense_microtext`)**: 6pt tabular font lines, multi-column tax invoices, and dense GST slips retain a high 2400px ceiling to preserve decimal points and character fidelity.
+  - **Standard Receipts (`standard`)**: Clear receipts downscale to 1600px ceiling, conserving system RAM and accelerating inference.
+  - **Low Detail (`low_detail`)**: Simple slips or large badges scale to 1200px ceiling.
+- **Early Blur Rejection Gate (`ERR_IMAGE_BLURRY`)**: Calculates discrete 2D Laplacian edge variance $\sigma^2$. Images with $\sigma^2 < 32.0$ (lacking high-frequency focal detail) are cleanly rejected with user guidance: *"Image appears blurry or out of focus. Please ensure good lighting and text clarity"*.
+
+### 🧾 Adaptive Thermal Paper Contrast Boosting
+- **Thermal Receipt Enhancement**: Computes 5th ($P_5$) and 95th ($P_{95}$) percentile luminance distribution. Pale, low-contrast thermal receipts ($R < 130$ and $\mu_L > 105$) receive dynamic contrast stretching to make faded ink legible, while crisp digital or color receipts pass through untouched.
+
+### 📄 Digital Vector PDF Fast-Path & Multi-Page Selection
+- **Instant Flate Decompression (<10ms)**: Decompresses PDF Flate streams (`zlib.inflateSync`) and extracts vector text tokens in milliseconds.
+- **Multi-Page Handling Modes**: Supports both user-specified page selection (`page: number`) and full-document aggregation (`page: 'all'`).
+- **Encryption Defense (`ERR_PDF_ENCRYPTED`)**: Detects password protection and `/Encrypt` dictionaries, gracefully warning users rather than throwing unhandled exceptions.
+
+### 🔌 FileImporter Upgrade & Native Accelerator Interface
+- **FileImporter PDF Integration (`src/fileImporter.js`)**: Upgraded `_parsePDF(filePath)` to leverage `DocumentNormalizer`, supporting both ISO (`YYYY-MM-DD`) and regional (`DD/MM/YYYY`) date formats.
+- **Native Extension Slot (`getNativeAddonStatus`)**: Added discovery interface for optional high-performance C++ add-ons (OpenCV 4-point document perspective dewarping and DirectML GPU acceleration) with informative build tool guidance.
+- **IPC Security & Contracts (`src/main.js`, `src/preload.js`, `src/validation/schemaValidator.js`)**: Registered `normalize-document` and `get-native-addon-status` with boundary validation (`validateDocumentNormalizeInput`) and standardized response envelopes.
+
+---
+
+## [0.5.1] - Phase 1: Dataset Sourcing & Base Model Discovery (2026-09-09)
 
 ### 🧠 Unified Multi-Format Training Corpus (`training/scripts/dataset_builder.py`, `training/scripts/source_datasets.py`)
 - **Standardized Receipt Schema**: Built a normalized schema unifying store receipts (SROIE), restaurant line items (CORD), Indian GST tax invoices (GSTIN, HSN, CGST/SGST), and digital UPI payment slips (Paytm, PhonePe, Google Pay).

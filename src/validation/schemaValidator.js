@@ -609,6 +609,40 @@ function validateWorkspaceMode(mode) {
   return { valid: errors.length === 0, errors };
 }
 
+/**
+ * Validates document normalizer input parameters (Phase 0.5.2).
+ * 
+ * @param {any} input - Target file path string or Buffer.
+ * @param {any} [options] - Normalization options.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateDocumentNormalizeInput(input, options) {
+  const errors = [];
+  if (typeof input !== 'string' && !Buffer.isBuffer(input) && !(input instanceof Uint8Array)) {
+    errors.push('Document input must be a valid file path string or Buffer.');
+  } else if (typeof input === 'string' && !input.trim()) {
+    errors.push('Document file path cannot be an empty string.');
+  }
+
+  if (options !== undefined && options !== null) {
+    if (!isPlainObject(options)) {
+      errors.push('Options must be a plain object.');
+    } else {
+      if (options.page !== undefined && options.page !== 'all') {
+        const pageNum = Number(options.page);
+        if (!Number.isInteger(pageNum) || pageNum < 1) {
+          errors.push('Option "page" must be "all" or a positive integer.');
+        }
+      }
+      if (options.rejectBlur !== undefined && typeof options.rejectBlur !== 'boolean') {
+        errors.push('Option "rejectBlur" must be a boolean.');
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 // ============================================================================
 // 3. Envelope Formatters
 // ============================================================================
@@ -676,6 +710,7 @@ module.exports = {
   validatePresetInput,
   validateBudgetGoal,
   validateWorkspaceMode,
+  validateDocumentNormalizeInput,
   formatSuccess,
   formatError
 };
