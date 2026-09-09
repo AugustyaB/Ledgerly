@@ -1,6 +1,6 @@
 {
   "name": "ledgerly",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "Ledgerly — A friction-free, 100% offline desktop expense & budget tracker",
   "main": "src/main.js",
   "scripts": {
@@ -16,6 +16,7 @@
     "test:phase7": "node scratch/test_phase7_resilience.js",
     "test:normalizer": "node scratch/test_document_normalizer.js",
     "test:receipt-tier1": "node scratch/test_receipt_tier1.js",
+    "test:model-manager": "node scratch/test_model_manager.js",
     "test:e2e": "node scratch/test_e2e_ledgerly.js",
     "check": "node scripts/check-syntax.js",
     "lint": "eslint src/",

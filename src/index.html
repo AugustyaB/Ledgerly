@@ -987,6 +987,10 @@
                 <i data-icon="database" data-icon-size="16"></i>
                 <span>Data & Storage</span>
               </div>
+              <div class="settings-nav-item" data-settings-target="settings-models-pane">
+                <i data-icon="cpu" data-icon-size="16"></i>
+                <span>AI Models & Engines</span>
+              </div>
               <div class="settings-nav-item" data-settings-target="settings-notif-pane">
                 <i data-icon="bell" data-icon-size="16"></i>
                 <span>Notifications & Alerts</span>
@@ -1243,6 +1247,59 @@
                   <button type="button" class="btn btn-secondary" id="settings-clear-all-expenses-btn" style="border-color: rgba(251, 113, 133, 0.4); color: #FB7185;">
                     <i data-icon="trash-2" data-icon-size="14"></i> Clear All Expenses
                   </button>
+                </div>
+              </section>
+
+              <div class="settings-section-divider"></div>
+
+              <!-- Section: On-Device AI Models & Intelligence (Phase 0.5.4) -->
+              <section id="settings-models-pane" class="settings-pane settings-section">
+                <div style="background: var(--bg-surface-elevated); padding: 20px 24px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                      <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin: 0 0 4px 0;">
+                        <i data-icon="cpu" data-icon-size="16" style="color: var(--accent-primary);"></i> On-Device AI Models & Document Intelligence
+                      </h3>
+                      <p style="font-size: 12.5px; color: var(--text-muted); margin: 0;">Manage local document intelligence engines for receipt autofill and statement parsing. 100% private, zero cloud transmission.</p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <span id="models-storage-pill" class="badge" style="background: rgba(217, 130, 43, 0.15); color: var(--accent-primary); border: 1px solid rgba(217, 130, 43, 0.3); padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                        Storage: Loading...
+                      </span>
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-models" title="Refresh Models Catalog">
+                        <i data-icon="refresh-cw" data-icon-size="13"></i> Refresh
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Active Engine Info Callout -->
+                  <div id="models-active-banner" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <span style="font-size: 18px;">⚡</span>
+                      <div>
+                        <div style="font-size: 13px; font-weight: 700; color: #10B981;" id="active-model-title">Active Engine: Fast-Lite (Tier 1)</div>
+                        <div style="font-size: 11.5px; color: var(--text-muted);" id="active-model-desc">Sub-second receipt parsing with zero cloud calls. Bundled offline.</div>
+                      </div>
+                    </div>
+                    <span class="badge" style="font-size: 11px; padding: 3px 8px; border-radius: 12px; background: rgba(16, 185, 129, 0.2); color: #34D399; font-weight: 600;">Active</span>
+                  </div>
+
+                  <!-- Handy-Style Model Cards Grid -->
+                  <div class="models-grid" id="models-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                    <!-- Rendered dynamically by SettingsView -->
+                  </div>
+
+                  <!-- Intelligence Preferences & Auto-Fallback -->
+                  <div style="padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.06); display: flex; justify-content: space-between; align-items: center;">
+                    <div style="max-width: 80%;">
+                      <strong style="font-size: 13.5px; color: var(--text-main); display: block; margin-bottom: 2px;">Smart Fallback to Fast-Lite Engine</strong>
+                      <span style="font-size: 12px; color: var(--text-muted);">Automatically falls back to bundled Tier 1 engine if an on-demand model file is uninstalled or corrupted.</span>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="settings-models-auto-fallback" checked>
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
                 </div>
               </section>
 

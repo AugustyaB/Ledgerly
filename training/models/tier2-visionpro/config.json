@@ -1,0 +1,18 @@
+{
+  "model_id": "tier2-visionpro",
+  "model_name": "Vision-Pro Transformer (Tier 2)",
+  "tier": 2,
+  "version": "1.0.0",
+  "architecture": "VisionEncoderDecoder-Donut-Quantized",
+  "context_window": 1024,
+  "vocab_size": 50257,
+  "quantization": "int8_onnx",
+  "accuracy_val_pct": 99.4,
+  "trained_epochs": 3,
+  "features": [
+    "Deep Visual Layout Analysis",
+    "Itemized Table & Line Items",
+    "Wrinkled & Faded Paper Resilience",
+    "Multi-Column Text Parsing"
+  ]
+}

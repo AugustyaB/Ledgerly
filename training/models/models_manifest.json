@@ -1,0 +1,26 @@
+{
+  "version": "0.5.4",
+  "generated_at": "2026-09-09T10:18:57Z",
+  "models": {
+    "tier1-fastlite": {
+      "model_id": "tier1-fastlite",
+      "tier": 1,
+      "is_bundled": true,
+      "local_path": "assets/models/tesseract/eng.traineddata"
+    },
+    "tier2-visionpro": {
+      "model_id": "tier2-visionpro",
+      "tier": 2,
+      "is_bundled": false,
+      "filename": "tier2-visionpro.bin",
+      "sha256": "f2d85911b41b3d7a3b25407c7e9c201f68f251aecdb0b6fc2f0d21b5533f39cd"
+    },
+    "tier3-regional-in": {
+      "model_id": "tier3-regional-in",
+      "tier": 3,
+      "is_bundled": false,
+      "filename": "tier3-regional-in.bin",
+      "sha256": "e0a7669f3cbb62f4079ce79c7ac16f7ca14a1f7a5ff68f19848248f3a59b2130"
+    }
+  }
+}

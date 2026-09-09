@@ -667,6 +667,47 @@ function validateReceiptScanInput(input, options) {
   return { valid: errors.length === 0, errors };
 }
 
+/**
+ * Validates model management actions (download, cancel, delete, setActive, verify).
+ * 
+ * @param {any} input - Model ID string or action payload object.
+ * @param {any} [options] - Additional action options.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateModelActionInput(input, options) {
+  const errors = [];
+  const ALLOWED_MODEL_IDS = ['tier1-fastlite', 'tier2-visionpro', 'tier3-regional-in'];
+  const ALLOWED_ACTIONS = ['download', 'cancel', 'delete', 'setActive', 'verify'];
+
+  let modelId;
+  let action = null;
+
+  if (typeof input === 'string') {
+    modelId = input.trim();
+  } else if (isPlainObject(input)) {
+    modelId = typeof input.modelId === 'string' ? input.modelId.trim() : null;
+    action = typeof input.action === 'string' ? input.action.trim() : null;
+  } else {
+    return { valid: false, errors: ['Model action input must be a valid model ID string or payload object.'] };
+  }
+
+  if (!modelId) {
+    errors.push('Model ID is required and cannot be empty.');
+  } else if (!ALLOWED_MODEL_IDS.includes(modelId)) {
+    errors.push(`Invalid model ID "${modelId}". Must be one of: ${ALLOWED_MODEL_IDS.join(', ')}.`);
+  }
+
+  if (action && !ALLOWED_ACTIONS.includes(action)) {
+    errors.push(`Invalid action "${action}". Must be one of: ${ALLOWED_ACTIONS.join(', ')}.`);
+  }
+
+  if (options !== undefined && options !== null && !isPlainObject(options)) {
+    errors.push('Action options must be a plain object.');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 // ============================================================================
 // 3. Envelope Formatters
 // ============================================================================
@@ -736,6 +777,7 @@ module.exports = {
   validateWorkspaceMode,
   validateDocumentNormalizeInput,
   validateReceiptScanInput,
+  validateModelActionInput,
   formatSuccess,
   formatError
 };

@@ -79,6 +79,7 @@ export class SettingsView {
     this.#bindSalaryForm();
     this.#bindPreferencesForm();
     this.#bindReducedMotion();
+    this.#bindModelManager();
 
     const backBtn = document.getElementById('btn-settings-back-dashboard') || this.#container.querySelector('button[onclick*="dashboard"]');
     if (backBtn) {
@@ -144,6 +145,7 @@ export class SettingsView {
     this.updateCycleBanner();
     this.renderCategoriesPane();
     this.renderDataStoragePane();
+    this.renderModelsPane();
     this.renderNotificationSettingsPane();
 
     const navItems = document.querySelectorAll('.settings-nav-item');
@@ -779,6 +781,333 @@ export class SettingsView {
           if (typeof localStorage !== 'undefined') localStorage.setItem('ledgerly-reduced-motion', 'false');
         }
       });
+    }
+  }
+
+
+  // ==========================================================================
+  //  On-Device AI Models & Intelligence (Phase 0.5.4)
+  // ==========================================================================
+
+  #isModelManagerBound = false;
+
+  #bindModelManager() {
+    if (this.#isModelManagerBound || typeof document === 'undefined') return;
+    this.#isModelManagerBound = true;
+
+    const refreshBtn = document.getElementById('btn-refresh-models');
+    if (refreshBtn) {
+      const onRefresh = (e) => {
+        e.preventDefault();
+        this.renderModelsPane();
+        showToast('Model catalog refreshed.');
+      };
+      refreshBtn.addEventListener('click', onRefresh);
+      this.#cleanupListeners.push(() => refreshBtn.removeEventListener('click', onRefresh));
+    }
+
+    // Delegate clicks inside #models-cards-grid
+    const gridEl = document.getElementById('models-cards-grid');
+    if (gridEl) {
+      const onGridClick = async (e) => {
+        const btn = e.target.closest('button[data-model-action]');
+        if (!btn) return;
+        e.preventDefault();
+
+        const action = btn.getAttribute('data-model-action');
+        const modelId = btn.getAttribute('data-model-id');
+        if (!action || !modelId) return;
+
+        if (action === 'download') {
+          await this.#handleDownloadModel(modelId, btn);
+        } else if (action === 'delete') {
+          await this.#handleDeleteModel(modelId, btn);
+        } else if (action === 'set-active') {
+          await this.#handleSetActiveModel(modelId, btn);
+        } else if (action === 'verify') {
+          await this.#handleVerifyModel(modelId, btn);
+        }
+      };
+      gridEl.addEventListener('click', onGridClick);
+      this.#cleanupListeners.push(() => gridEl.removeEventListener('click', onGridClick));
+    }
+
+    // Subscribe to IPC download progress events
+    if (this.#api?.onModelDownloadProgress) {
+      this.#api.onModelDownloadProgress((progress) => {
+        this.#updateDownloadProgressUI(progress);
+      });
+    }
+
+    // Subscribe to active model change events
+    if (this.#api?.onActiveModelChanged) {
+      this.#api.onActiveModelChanged(() => {
+        this.renderModelsPane();
+      });
+    }
+  }
+
+  /**
+   * Renders the Handy-style model cards grid and storage metrics.
+   * @returns {Promise<void>}
+   */
+  async renderModelsPane() {
+    if (typeof document === 'undefined') return;
+    const gridEl = document.getElementById('models-cards-grid');
+    const storagePill = document.getElementById('models-storage-pill');
+    const activeTitle = document.getElementById('active-model-title');
+    const activeDesc = document.getElementById('active-model-desc');
+    if (!gridEl) return;
+
+    try {
+      if (!this.#api?.listModels) {
+        setInnerHTML(gridEl, '<div style="color: var(--text-muted); padding: 16px;">Model management API unavailable.</div>');
+        return;
+      }
+
+      const activeCurrency = this.#state.get('salaryConfig')?.currencySymbol || '₹';
+      const modelsRes = await this.#api.listModels(activeCurrency);
+      const models = Array.isArray(modelsRes) ? modelsRes : (modelsRes?.data || []);
+
+      // Update storage pill
+      if (this.#api.getModelsStorageUsage) {
+        const usageRes = await this.#api.getModelsStorageUsage();
+        const usage = usageRes?.data || usageRes || {};
+        if (storagePill) {
+          storagePill.textContent = `Storage: ${usage.totalMb || 0} MB installed`;
+        }
+      }
+
+      if (!models || models.length === 0) {
+        setInnerHTML(gridEl, '<div style="color: var(--text-muted); padding: 16px;">No models found in catalog.</div>');
+        return;
+      }
+
+      // Identify active model
+      const activeModel = models.find(m => m.isActive) || models[0];
+      if (activeTitle && activeModel) {
+        activeTitle.textContent = `Active Engine: ${activeModel.name}`;
+      }
+      if (activeDesc && activeModel) {
+        activeDesc.textContent = activeModel.description;
+      }
+
+      // Render cards
+      let html = '';
+      for (const m of models) {
+        const cardBorder = m.isActive 
+          ? 'border-color: #10B981; box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);' 
+          : '';
+        
+        let statusBadge = '';
+        if (m.isActive) {
+          statusBadge = '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399; font-weight: 700; font-size: 11px;">✓ ACTIVE ENGINE</span>';
+        } else if (m.isBundled) {
+          statusBadge = '<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; font-weight: 600; font-size: 11px;">BUNDLED (OFFLINE)</span>';
+        } else if (m.isDownloaded) {
+          statusBadge = '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10B981; font-weight: 600; font-size: 11px;">INSTALLED</span>';
+        } else {
+          statusBadge = '<span class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-muted); font-size: 11px;">AVAILABLE FOR DOWNLOAD</span>';
+        }
+
+        const recommendationBadge = m.isRecommended 
+          ? '<span class="badge" style="background: rgba(217, 130, 43, 0.25); color: var(--accent-primary); font-weight: 700; font-size: 10.5px; border: 1px solid rgba(217, 130, 43, 0.4);">⭐ Recommended for your currency</span>' 
+          : '';
+
+        const featuresHtml = (m.features || []).map(f => `
+          <div style="font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <span style="color: var(--accent-primary); font-weight: 700;">✓</span> ${escapeHTML(f)}
+          </div>
+        `).join('');
+
+        let actionsHtml = '';
+        if (m.isActive) {
+          actionsHtml = `
+            <button class="btn btn-secondary btn-sm" disabled style="opacity: 0.75; cursor: default; width: 100%;">
+              <i data-icon="check" data-icon-size="13"></i> Currently Active Engine
+            </button>
+          `;
+        } else if (m.isDownloaded || m.isBundled) {
+          actionsHtml = `
+            <div style="display: flex; gap: 8px; width: 100%;">
+              <button class="btn btn-primary btn-sm" data-model-action="set-active" data-model-id="${m.id}" style="flex: 1;">
+                <i data-icon="zap" data-icon-size="13"></i> Set as Active
+              </button>
+              ${!m.isBundled ? `
+                <button class="btn btn-secondary btn-sm" data-model-action="delete" data-model-id="${m.id}" title="Delete model to reclaim disk space" style="color: #FB7185; border-color: rgba(251, 113, 133, 0.3);">
+                  <i data-icon="trash-2" data-icon-size="13"></i>
+                </button>
+              ` : ''}
+            </div>
+          `;
+        } else if (m.isDownloading) {
+          actionsHtml = `
+            <div style="width: 100%;">
+              <div class="progress-bar-container" style="background: rgba(255, 255, 255, 0.08); border-radius: 4px; height: 6px; margin-bottom: 8px; overflow: hidden;">
+                <div id="progress-bar-${m.id}" style="background: var(--accent-primary); height: 100%; width: ${m.downloadProgress?.percentage || 0}%; transition: width 0.2s;"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span id="progress-text-${m.id}" style="font-size: 11px; color: var(--accent-primary); font-weight: 600;">Downloading (${m.downloadProgress?.percentage || 0}%)...</span>
+                <button class="btn btn-secondary btn-sm" data-model-action="cancel" data-model-id="${m.id}" style="padding: 2px 8px; font-size: 11px;">Cancel</button>
+              </div>
+            </div>
+          `;
+        } else {
+          actionsHtml = `
+            <button class="btn btn-primary btn-sm" data-model-action="download" data-model-id="${m.id}" style="width: 100%;">
+              <i data-icon="download" data-icon-size="13"></i> Download (${m.sizeMb} MB)
+            </button>
+          `;
+        }
+
+        html += `
+          <div class="model-card" id="card-${m.id}" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; display: flex; flex-direction: column; justify-content: space-between; ${cardBorder}">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+                <span style="font-size: 10.5px; font-weight: 700; color: var(--accent-primary); letter-spacing: 0.5px;">TIER ${m.tier}</span>
+                ${statusBadge}
+              </div>
+
+              <h4 style="font-size: 15px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">${escapeHTML(m.name)}</h4>
+              ${recommendationBadge ? `<div style="margin-bottom: 8px;">${recommendationBadge}</div>` : ''}
+              
+              <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: 0 0 12px 0;">${escapeHTML(m.description)}</p>
+
+              <!-- Specs Row -->
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;">
+                <span class="badge" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); font-size: 11px; padding: 3px 7px;">
+                  💾 ${m.sizeMb} MB
+                </span>
+                <span class="badge" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); font-size: 11px; padding: 3px 7px;">
+                  ⚡ ~${m.latencyMs}ms
+                </span>
+                <span class="badge" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); font-size: 11px; padding: 3px 7px;">
+                  🧠 ${m.ramMb} MB RAM
+                </span>
+              </div>
+
+              <!-- Features Checklist -->
+              <div style="margin-bottom: 16px;">
+                ${featuresHtml}
+              </div>
+            </div>
+
+            <div class="model-card-actions" id="actions-${m.id}" style="margin-top: 8px;">
+              ${actionsHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      setInnerHTML(gridEl, html);
+      if (typeof window !== 'undefined' && typeof window.renderIcons === 'function') {
+        window.renderIcons(gridEl);
+      }
+    } catch (err) {
+      console.error('[SettingsView] Error rendering models pane:', err);
+    }
+  }
+
+  #updateDownloadProgressUI(progress) {
+    if (!progress || !progress.modelId) return;
+    const bar = document.getElementById(`progress-bar-${progress.modelId}`);
+    const text = document.getElementById(`progress-text-${progress.modelId}`);
+    if (bar) {
+      bar.style.width = `${progress.percentage}%`;
+    }
+    if (text) {
+      const speedMb = (progress.speedBps / (1024 * 1024)).toFixed(1);
+      text.textContent = `Downloading ${progress.percentage}% (${speedMb} MB/s)...`;
+    }
+  }
+
+  async #handleDownloadModel(modelId, btn) {
+    if (!this.#api?.downloadModel) return;
+    try {
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Initiating download...';
+      }
+      showToast(`Starting download for ${modelId}...`);
+
+      const res = await this.#api.downloadModel(modelId);
+      if (res?.success) {
+        showToast(`Model ${modelId} downloaded & verified successfully!`);
+        this.#promptActivateDownloadedModel(modelId);
+        await this.renderModelsPane();
+      } else {
+        showToast(res?.error || 'Download failed.', 'error');
+        await this.renderModelsPane();
+      }
+    } catch (err) {
+      showToast(err.message || 'Download error.', 'error');
+      await this.renderModelsPane();
+    }
+  }
+
+  #promptActivateDownloadedModel(modelId) {
+    const meta = {
+      'tier2-visionpro': 'Vision-Pro (Tier 2)',
+      'tier3-regional-in': 'India GST Specialist (Tier 3)'
+    }[modelId] || modelId;
+
+    showToast(`${meta} is ready! Click 'Set as Active' in AI Models to use it.`);
+  }
+
+  async #handleDeleteModel(modelId, btn) {
+    if (!this.#api?.deleteModel) return;
+    if (typeof confirm === 'function' && !confirm('Are you sure you want to delete this model? You can re-download it anytime.')) {
+      return;
+    }
+
+    try {
+      if (btn) btn.disabled = true;
+      const res = await this.#api.deleteModel(modelId);
+      if (res?.success) {
+        const mbFreed = Math.round((res.data?.freedBytes || res.freedBytes || 0) / (1024 * 1024));
+        showToast(`Model deleted. Freed ${mbFreed} MB disk space.`);
+      } else {
+        showToast(res?.error || 'Failed to delete model.', 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Error deleting model.', 'error');
+    } finally {
+      await this.renderModelsPane();
+    }
+  }
+
+  async #handleSetActiveModel(modelId, btn) {
+    if (!this.#api?.setActiveModel) return;
+    try {
+      if (btn) btn.disabled = true;
+      const res = await this.#api.setActiveModel(modelId);
+      if (res?.success) {
+        showToast(`Switched active processing engine to ${modelId}.`);
+      } else {
+        showToast(res?.error || 'Failed to activate model.', 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Error activating model.', 'error');
+    } finally {
+      await this.renderModelsPane();
+    }
+  }
+
+  async #handleVerifyModel(modelId, btn) {
+    if (!this.#api?.verifyModelIntegrity) return;
+    try {
+      if (btn) btn.disabled = true;
+      const res = await this.#api.verifyModelIntegrity(modelId);
+      const data = res?.data || res;
+      if (data?.valid) {
+        showToast('Model checksum verified. 100% integrity valid!');
+      } else {
+        showToast(`Integrity check failed: ${data?.error || 'Checksum mismatch'}`, 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Verification error.', 'error');
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 

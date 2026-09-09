@@ -1,7 +1,7 @@
 # 💳 Ledgerly
 
 > **A friction-free, 100% offline desktop application for daily budget tracking and shared household spending.**  
-> **Current Version**: `v0.5.3` (Phase 3 of `v0.5` completed) — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine* (succeeding `v0.4.7`)
+> **Current Version**: `v0.5.4` (Phase 4 of `v0.5` completed) — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine* (succeeding `v0.4.7`)
 
 Built to eliminate the "data entry chore" of traditional finance apps. No cloud accounts, no complex setup, no internet required. Open the app, log your expense, close it — done in under 5 seconds.
 
@@ -16,6 +16,12 @@ In **Version 0.5**, Ledgerly introduces local, zero-cloud machine learning docum
   - **Tier 2 (Vision-Pro, On-Demand)**: Deep Document Understanding Transformer (Donut / Florence-2, ~195MB) for complex itemized tables and degraded mobile photos, downloadable via Settings Hub.
   - **Tier 3 (Regional Specialist, On-Demand)**: Domain-specialized regional models starting with India (GSTIN, HSN, CGST/SGST, UPI payment slips from Paytm, PhonePe, and Google Pay).
 - **🛡️ Negative Control Rejection Gate (0% False Positives)**: Accurately recognizes non-financial images (landscapes, book pages, meeting notes, code) and rejects them with a clean notice, guaranteeing 0% hallucination of amounts.
+- **📦 Handy-Style Model Manager & Downloader Engine (`src/services/ModelManager.js`) (v0.5.4)**:
+  - **On-Demand Downloader**: Resilient chunked HTTP/HTTPS streaming with real-time transfer speeds, progress bars, and cancel support.
+  - **SHA-256 Checksum Verification**: Cryptographic verification against bit rot before model activation; corrupt downloads are wiped immediately.
+  - **Settings Hub Interface**: Dedicated `AI Models & Engines` pane with glassmorphic cards, disk storage meters, active engine switcher, and 1-click model deletion.
+  - **Currency-Aware Recommendations**: Proactively recommends Tier 3 India Specialist when profile currency is INR (`₹`/`INR`).
+  - **Auto-Prompt Activation**: Suggests activating newly downloaded models with an actionable toast.
 - **⚡ Tier 1 Fast-Lite Engine (`src/services/ReceiptTier1Engine.js`) (v0.5.3)**:
   - **Sub-Second Processing**: 0.27ms token attention, 4ms vector PDF Flate decompression, sub-second visual OCR.
   - **Smart Non-Destructive Autofill**: Populates title, amount, date, category, payment method, and tax notes in the Add Expense modal without overwriting user-typed text.
@@ -130,12 +136,12 @@ For full architectural diagrams and lifecycle sequences, see [`FLOW.md`](FLOW.md
 | ↳ **v0.4.5** (Phase 5) | IPC Runtime Schema Validation Layer & Error Contracts | ✅ Complete |
 | ↳ **v0.4.6** (Phase 6) | Global UI Error Boundaries, Crash Traps & Audit Defect Remediation | ✅ Complete |
 | ↳ **v0.4.7** (Phase 7) | Enterprise Resilience, Startup DB Integrity & Offline Conflict Engine | ✅ Complete |
-| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Engine** | 🔄 **In Progress (v0.5.1 Complete)** |
-| ↳ **v0.5.1** (Phase 1) | Dataset Sourcing, Multi-Tier Benchmarking & Negative Rejection Gate | ✅ **Complete** |
-| ↳ **v0.5.2** (Phase 2) | Image Normalization & Document Preprocessing Engine | ⏳ Next Subsection |
-| ↳ **v0.5.3** (Phase 3) | Training & Fine-Tuning Pipeline (Fast-Lite, Vision-Pro, Regional GST) | 📋 Planned |
-| ↳ **v0.5.4** (Phase 4) | Empirical Auditing, Accuracy Benchmarking & Rejection Proof | 📋 Planned |
-| ↳ **v0.5.5** (Phase 5) | Desktop Inference Engine & Settings Model Manager | 📋 Planned |
+| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Engine** | 🔄 **In Progress (v0.5.4 Complete)** |
+| ↳ **v0.5.1** (Phase 1) | Dataset Sourcing, Multi-Tier Benchmarking & Negative Rejection Gate | ✅ Complete |
+| ↳ **v0.5.2** (Phase 2) | Image Normalization & Document Preprocessing Engine | ✅ Complete |
+| ↳ **v0.5.3** (Phase 3) | Tier 1 Fast-Lite Bundled Engine & Instant Receipt Autofill | ✅ Complete |
+| ↳ **v0.5.4** (Phase 4) | Handy-Style Settings Hub Model Manager & On-Demand Downloader | ✅ Complete |
+| ↳ **v0.5.5** (Phase 5) | Multi-Engine Inference Runtime & Table Layout Parsing | 📋 Planned |
 | ↳ **v0.5.6** (Phase 6) | Ingestion Workflow & Scanned Bill Review Queue UI | 📋 Planned |
 | ↳ **v0.5.7** (Phase 7) | Subsystem Integration, Documentation & Production Packaging | 📋 Planned |
 | **v0.6+** | Mobile Collector Companion & Local LAN Peer Sync | 🚀 Roadmap |

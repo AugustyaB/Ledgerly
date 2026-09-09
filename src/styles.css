@@ -5234,5 +5234,54 @@ body.reduced-motion * {
   justify-content: center;
 }
 
+/* ==========================================================================
+   Phase 0.5.4: On-Device AI Models & Intelligence (Settings Hub)
+   ========================================================================== */
+
+.models-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.model-card {
+  background: var(--bg-surface-elevated, #1A1C23);
+  border: 1px solid var(--border-color, #2D303C);
+  border-radius: var(--radius-md, 8px);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.model-card:hover {
+  border-color: rgba(217, 130, 43, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.model-card.active-card {
+  border-color: #10B981;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.2);
+}
+
+.model-progress-bar-container {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  height: 6px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.model-progress-fill {
+  background: var(--accent-primary, #D9822B);
+  height: 100%;
+  transition: width 0.2s ease;
+}
+
+
 
 
