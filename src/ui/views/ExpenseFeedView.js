@@ -122,6 +122,13 @@ export class ExpenseFeedView {
   #lastCheckedIndex = null;
 
   /**
+   * Stored metadata from the most recently scanned document.
+   * @type {Object|null}
+   * @private
+   */
+  #lastScannedMetadata = null;
+
+  /**
    * Construct ExpenseFeedView instance.
    * @param {Object} options
    * @param {import('../AppState').AppState} options.state - AppState instance
@@ -654,6 +661,8 @@ export class ExpenseFeedView {
     if (receiptStatus) receiptStatus.textContent = 'No receipt image attached';
     if (isHouseholdCb) isHouseholdCb.checked = false;
     if (splitOptions) splitOptions.classList.add('hidden');
+    document.getElementById('form-upi-prompt')?.classList.add('hidden');
+    this.#lastScannedMetadata = null;
 
     this.populateCategoryDropdown();
     this.populateHouseholdFormSplitters();
@@ -711,6 +720,8 @@ export class ExpenseFeedView {
     const isHousehold = Boolean(item.isHouseholdExpense);
     if (isHouseholdCb) isHouseholdCb.checked = isHousehold;
     if (splitOptions) splitOptions.classList.toggle('hidden', !isHousehold);
+    document.getElementById('form-upi-prompt')?.classList.add('hidden');
+    this.#lastScannedMetadata = null;
 
     this.populateHouseholdFormSplitters(item.paidBy, item.splitWith);
 
@@ -722,6 +733,8 @@ export class ExpenseFeedView {
    */
   closeModal() {
     if (typeof document === 'undefined') return;
+    document.getElementById('form-upi-prompt')?.classList.add('hidden');
+    this.#lastScannedMetadata = null;
     document.getElementById('expense-modal')?.classList.remove('active');
   }
 
@@ -1179,7 +1192,8 @@ export class ExpenseFeedView {
         receiptFilename: /** @type {HTMLInputElement} */ (document.getElementById('form-receipt-filename'))?.value || null,
         paidBy: /** @type {HTMLSelectElement} */ (document.getElementById('form-paid-by'))?.value || 'Self',
         splitWith: splitWithMembers,
-        isHouseholdExpense: Boolean(isHousehold)
+        isHouseholdExpense: Boolean(isHousehold),
+        metadata: this.#lastScannedMetadata ? { ...this.#lastScannedMetadata } : undefined
       };
 
       if (id) {
@@ -1299,18 +1313,37 @@ export class ExpenseFeedView {
       }
     }
 
-    // Tier 1 Fast-Lite On-Device Document Intelligence Scan
+    // Multi-Engine On-Device Document Intelligence Scan (Phase 0.5.5)
     if (this.api?.scanReceiptDocument) {
       try {
         const scanRes = await this.api.scanReceiptDocument(filePath);
         if (scanRes?.success && scanRes.data) {
           const data = scanRes.data;
+
+          // User requirement: Notify if active engine fell back to Tier 1
+          if (data.fallbackTriggered) {
+            const reqEngineName = data.requestedEngine === 'tier2-visionpro'
+              ? 'Tier 2 Vision-Pro'
+              : (data.requestedEngine === 'tier3-regional-in' ? 'Tier 3 Regional India' : (data.requestedEngine || 'Selected engine'));
+            showToast(`⚠️ ${reqEngineName} was unavailable. Switched to Tier 1 Fast-Lite.`, 'warning');
+          }
+
           if (data.isTransaction && data.total !== null) {
+            this.#lastScannedMetadata = data.metadata || {
+              lineItems: data.lineItems || [],
+              engineUsed: data.engineUsed
+            };
+
             this.#autofillExpenseForm(data);
+
+            const engineLabel = data.engineUsed === 'tier2-visionpro'
+              ? 'Vision-Pro (Table Parsed)'
+              : (data.engineUsed === 'tier3-regional-in' ? 'Regional India' : 'Fast-Lite');
+
             if (statusText) {
-              statusText.textContent = `Attached: ${saveRes.filename} (Scanned: ₹${data.total.toFixed(2)})`;
+              statusText.textContent = `Attached: ${saveRes.filename} (${engineLabel}: ₹${data.total.toFixed(2)})`;
             }
-            showToast(`Receipt scanned: ₹${data.total.toFixed(2)} at ${data.merchant}`);
+            showToast(`Receipt scanned with ${engineLabel}: ₹${data.total.toFixed(2)} at ${data.merchant}`);
           } else {
             if (statusText) {
               statusText.textContent = `Attached: ${saveRes.filename} (No receipt data detected)`;
@@ -1341,9 +1374,68 @@ export class ExpenseFeedView {
     const paymentEl = /** @type {HTMLSelectElement|null} */ (document.getElementById('form-payment'));
     const descEl = /** @type {HTMLTextAreaElement|null} */ (document.getElementById('form-description'));
 
-    if (titleEl && (!titleEl.value.trim() || titleEl.value.toLowerCase() === 'new expense')) {
-      if (data.merchant && data.merchant !== 'Unknown Merchant') {
-        titleEl.value = data.merchant;
+    // Digital UPI Payment Purpose Prompt handling
+    const upiPrompt = document.getElementById('form-upi-prompt');
+    const upiPromptText = document.getElementById('form-upi-prompt-text');
+    const btnUpiSaveLater = document.getElementById('btn-upi-save-later');
+
+    if (data.isUpiPayment) {
+      if (upiPrompt) {
+        if (upiPromptText) {
+          const payee = data.merchant && data.merchant !== 'Unknown Merchant' ? data.merchant : 'Payee';
+          upiPromptText.innerHTML = `💡 <strong>UPI Payment to ${escapeHTML(payee)}:</strong> What was this expense for?`;
+        }
+        upiPrompt.classList.remove('hidden');
+
+        if (btnUpiSaveLater) {
+          btnUpiSaveLater.onclick = () => {
+            if (titleEl) titleEl.value = `[Pending Purpose] - ${data.merchant || 'UPI Transfer'}`;
+            upiPrompt.classList.add('hidden');
+            showToast("Tagged as 'Pending Purpose'. You can categorize later.");
+          };
+        }
+      }
+
+      // Automatically select detected specific UPI app (PhonePe, Google Pay, Paytm, BHIM, etc.)
+      if (paymentEl && data.paymentMethod) {
+        let matched = false;
+        for (let i = 0; i < paymentEl.options.length; i++) {
+          const optVal = paymentEl.options[i].value.toLowerCase();
+          const target = data.paymentMethod.toLowerCase();
+          if (optVal === target || optVal.includes(target) || target.includes(optVal)) {
+            paymentEl.selectedIndex = i;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          paymentEl.value = 'UPI / GPay';
+        }
+      }
+
+      // Prompt focus on title for immediate purpose entry
+      if (titleEl) {
+        titleEl.placeholder = `e.g., Dinner, Groceries, Electricity (Paid to ${data.merchant || 'Payee'})`;
+        titleEl.focus();
+        if (typeof titleEl.select === 'function') titleEl.select();
+      }
+    } else {
+      if (upiPrompt) upiPrompt.classList.add('hidden');
+
+      if (titleEl && (!titleEl.value.trim() || titleEl.value.toLowerCase() === 'new expense')) {
+        if (data.merchant && data.merchant !== 'Unknown Merchant') {
+          titleEl.value = data.merchant;
+        }
+      }
+
+      if (paymentEl && data.paymentMethod) {
+        for (let i = 0; i < paymentEl.options.length; i++) {
+          if (paymentEl.options[i].value.toLowerCase().includes(data.paymentMethod.toLowerCase()) ||
+              data.paymentMethod.toLowerCase().includes(paymentEl.options[i].value.toLowerCase())) {
+            paymentEl.selectedIndex = i;
+            break;
+          }
+        }
       }
     }
 
@@ -1366,22 +1458,29 @@ export class ExpenseFeedView {
       }
     }
 
-    if (paymentEl && data.paymentMethod) {
-      for (let i = 0; i < paymentEl.options.length; i++) {
-        if (paymentEl.options[i].value.toLowerCase().includes(data.paymentMethod.toLowerCase()) ||
-            data.paymentMethod.toLowerCase().includes(paymentEl.options[i].value.toLowerCase())) {
-          paymentEl.selectedIndex = i;
-          break;
-        }
-      }
-    }
-
+    // Option A: Format itemized table line items in description field
     if (descEl && !descEl.value.trim()) {
-      const notes = [];
-      if (data.gstin) notes.push(`GSTIN: ${data.gstin}`);
-      if (data.cgst || data.sgst) notes.push(`CGST: ₹${data.cgst || 0}, SGST: ₹${data.sgst || 0}`);
-      if (notes.length > 0) {
-        descEl.value = notes.join(' | ');
+      const parts = [];
+      if (data.itemizedSummary) {
+        parts.push(data.itemizedSummary);
+      }
+      if (data.regionalData) {
+        if (data.regionalData.gstin) {
+          parts.push(`GSTIN: ${data.regionalData.gstin} (${data.regionalData.stateName || 'IN'})`);
+        }
+        if (data.regionalData.cgst || data.regionalData.sgst) {
+          parts.push(`CGST: ₹${data.regionalData.cgst || 0}, SGST: ₹${data.regionalData.sgst || 0}`);
+        }
+        if (data.regionalData.upi?.utr) {
+          parts.push(`UPI UTR: ${data.regionalData.upi.utr}`);
+        }
+      } else {
+        if (data.gstin) parts.push(`GSTIN: ${data.gstin}`);
+        if (data.cgst || data.sgst) parts.push(`CGST: ₹${data.cgst || 0}, SGST: ₹${data.sgst || 0}`);
+      }
+
+      if (parts.length > 0) {
+        descEl.value = parts.join(' | ');
       }
     }
   }

@@ -342,6 +342,21 @@ The application implements a multi-tier resilience strategy distributed across c
 | - Fine-tuning export pipeline: fine_tune_models.py (quantized models & manifest export) |
 | - 18/18 automated test assertions passing in scratch/test_model_manager.js              |
 +-----------------------------------------------------------------------------------------+
+                                            |
+                                            v
++-----------------------------------------------------------------------------------------+
+| [PHASE 0.5.5: MULTI-ENGINE INFERENCE RUNTIME & TABLE LAYOUT PARSING - COMPLETE]         |
+| - DocumentIntelligenceService dispatcher with dynamic active model routing              |
+| - Zero-crash fallback guarantee to Tier 1 with user toast notification alert           |
+| - Tier 2 Vision-Pro deep table parsing (column identification & multi-line wrapped text)|
+| - Tier 2 mathematical table reconciliation (sum(lineItems) == subtotal)                |
+| - Option A line item description formatting & full persistence in metadata.lineItems   |
+| - Tier 3 Regional India specialist (15-char GSTIN & 01-38 state code decoding)         |
+| - Tier 3 multi-slab GST decomposition (0%, 5%, 12%, 18%, 28% CGST/SGST/IGST)           |
+| - Digital UPI slip processing (PhonePe, Google Pay, Paytm, BHIM, 12-digit UTR, VPAs)   |
+| - UPI app auto-selection & in-modal expense purpose prompt with title focus            |
+| - 16/16 automated test assertions passing in scratch/test_phase5_multi_engine.js       |
++-----------------------------------------------------------------------------------------+
 ```
 
 ---
@@ -373,4 +388,5 @@ The application implements a multi-tier resilience strategy distributed across c
 | ↳ **v0.5.2** (Phase 2) | Document Normalization & Image Preprocessing | Magic byte sniffing, EXIF rotation, adaptive 1200-2400px density scaling, blur rejection gate, thermal contrast boosting, vector PDF fast-path (<10ms) |
 | ↳ **v0.5.3** (Phase 3) | Tier 1 (Fast-Lite) Bundled Engine & Instant Receipt Autofill | Offline Tesseract WASM (5.19MB), reverse token attention, smart non-destructive autofill, UPI & GST breakdown, negative transaction gate |
 | ↳ **v0.5.4** (Phase 4) | Handy-Style Settings Hub Model Manager & On-Demand Downloader | ModelManager service (chunked streaming, SHA-256 verification), Handy-style Settings Hub UI, currency recommendations, auto-fallback |
+| ↳ **v0.5.5** (Phase 5) | Multi-Engine Inference Runtime & Table Layout Parsing | DocumentIntelligenceService dispatcher, Tier 2 table parsing & mathematical reconciliation, Tier 3 GSTIN/UPI engine, fallback toasts |
 | **v1.0.0** | **Official Production Release** | Production-ready deployment for user download |

@@ -175,6 +175,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setActiveModel: (modelId) => invokeIPC('set-active-model', modelId),
   verifyModelIntegrity: (modelId) => invokeIPC('verify-model-integrity', modelId),
   getModelsStorageUsage: () => invokeIPC('get-models-storage-usage'),
+  getActiveModel: () => invokeIPC('get-active-model'),
 
   // Event Subscriptions
   onNavigateToTab: (callback) => {

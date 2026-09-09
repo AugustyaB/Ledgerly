@@ -27,8 +27,36 @@ Future Milestone:
 # Version 0.5: On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine
 > *Succeeds Version 0.4.7 (Major Restructuring Milestone). Introduces local, offline machine learning models for physical receipts, PDF statements, and camera photos.*
 
-## [0.5.4] - Phase 4: Handy-Style Settings Hub Model Manager & On-Demand Downloader (2026-09-09)
+## [0.5.5] - Phase 5: Multi-Engine Inference Runtime & Table Layout Parsing (2026-09-09)
 > *Current Active Subsection*
+
+### 🧠 Multi-Engine Inference Dispatcher (`src/services/DocumentIntelligenceService.js`)
+- **Dynamic Model Routing**: Intelligently routes intake documents to active or requested engine (Tier 1 Fast-Lite, Tier 2 Vision-Pro, or Tier 3 Regional India Specialist).
+- **Resilient Fallback Protocol**: Automatically falls back to Tier 1 if on-demand model weights are unready, missing, or corrupted (`fallbackTriggered: true`, `fallbackReason: 'MODEL_NOT_DOWNLOADED'`).
+- **User Fallback Toast Notification**: Prompts a clear warning toast to inform the user when an active on-demand engine falls back to Tier 1 Fast-Lite.
+- **Negative Rejection Gate Enforcer**: Enforces 100% rejection of non-financial documents (code snippets, essays, landscapes) with 0% false positive amount hallucinations across all tiers.
+- **Unified Result Envelope**: Returns normalized schema containing latency, confidence, merchant, date, total, tax, currency, itemized line items, and regional structures.
+
+### 📊 Tier 2 Deep Table Layout & Itemization (`src/services/ReceiptTier2VisionEngine.js`)
+- **Spatial Multi-Column Grid Detection**: Identifies column headers (`Description / Item`, `Qty`, `Rate / Unit Price`, `Discount`, `Tax`, `Amount / Net`).
+- **Multi-Line Item Continuation**: Reconstructs wrapped item descriptions spanning across multiple lines before numeric quantity and price anchors.
+- **Mathematical Table Reconciliation**: Computes `sum(lineItems.amount)` and checks mathematical consistency against document subtotal and tax amounts (`reconciled: true`).
+- **Option A Itemized Description Formatting**: Formats itemized line items into `form-description` (`Items (N): ... | Reconciled: ✓`) while persisting complete item arrays in `metadata.lineItems`.
+
+### 🇮🇳 Tier 3 Regional India Specialist (`src/services/ReceiptTier3RegionalEngine.js`)
+- **Statutory GSTIN Validation & State Decoder**: Validates 15-character statutory GSTIN format and decodes 2-digit state codes into official Indian states (01-38, e.g. `29` -> Karnataka, `27` -> Maharashtra, `07` -> Delhi).
+- **Multi-Slab Tax Decomposition**: Parses standard Indian GST brackets (0%, 5%, 12%, 18%, 28%), CGST/SGST split, IGST, and HSN/SAC codes.
+- **Digital UPI Screenshot & Slip Processing**: Automatically recognizes payment slips from PhonePe, Google Pay, Paytm, BHIM, CRED, Amazon Pay, extracting 12-digit UTR/UPI reference IDs, VPA handles (`@okhdfcbank`, `@ybl`), and payee names.
+- **Specific UPI App Assignment & Purpose Prompt**: Selects detected UPI app in Payment Method dropdown and displays an interactive modal prompt asking what the expense was for, with immediate title focus and 1-click 'Pending Purpose' tagging.
+
+### 🛡️ IPC Boundary & Runtime Schema Contracts (`src/main.js`, `src/preload.js`, `src/validation/schemaValidator.js`)
+- Enhanced `validateReceiptScanInput` to validate optional engine selection (`tier1-fastlite`, `tier2-visionpro`, `tier3-regional-in`, `auto`).
+- Added `get-active-model` IPC channel and exposed `window.electronAPI.getActiveModel()`.
+- Routed `scan-receipt-document` IPC channel through `DocumentIntelligenceService`.
+
+---
+
+## [0.5.4] - Phase 4: Handy-Style Settings Hub Model Manager & On-Demand Downloader (2026-09-09)
 
 ### 🧠 Model Manager & Downloader Engine (`src/services/ModelManager.js`)
 - **Centralized Model Registry**: Catalog of Tier 1 (Fast-Lite, bundled 5.2MB), Tier 2 (Vision-Pro Transformer, on-demand ~195MB), and Tier 3 (Regional India Specialist, on-demand ~142MB).

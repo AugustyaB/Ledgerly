@@ -82,9 +82,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const processReceiptPath = async (filePath) => {
     if (!filePath || !window.electronAPI?.scanReceiptDocument) return;
 
-    inputEl.placeholder = 'Scanning receipt with Tier 1 Fast-Lite...';
+    let activeModelId = 'tier1-fastlite';
+    if (window.electronAPI?.getActiveModel) {
+      try {
+        const modelRes = await window.electronAPI.getActiveModel();
+        activeModelId = typeof modelRes === 'string' ? modelRes : (modelRes?.data || 'tier1-fastlite');
+      } catch {
+        // Default to tier1
+      }
+    }
+
+    const engineName = activeModelId === 'tier2-visionpro'
+      ? 'Tier 2 Vision-Pro'
+      : (activeModelId === 'tier3-regional-in' ? 'Tier 3 Regional India' : 'Tier 1 Fast-Lite');
+
+    inputEl.placeholder = `Scanning with ${engineName}...`;
     try {
       const scanRes = await window.electronAPI.scanReceiptDocument(filePath);
+
+      if (scanRes?.data?.fallbackTriggered) {
+        const reqEngine = scanRes.data.requestedEngine === 'tier2-visionpro' ? 'Tier 2 Vision-Pro' : 'Tier 3 Regional India';
+        if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+          window.showToast(`⚠️ ${reqEngine} unavailable. Switched to Tier 1 Fast-Lite.`, 'warning');
+        }
+      }
+
       if (scanRes?.success && scanRes.data?.isTransaction && scanRes.data.total !== null) {
         const d = scanRes.data;
         let savedFilename = null;
