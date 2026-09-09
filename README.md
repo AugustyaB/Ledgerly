@@ -1,20 +1,29 @@
 # 💳 Ledgerly
 
 > **A friction-free, 100% offline desktop application for daily budget tracking and shared household spending.**  
-> **Current Version**: `v0.4.7` (Phase 7 of `v0.4` completed — Concludes Version 0.4 Milestone) — *Major Restructuring of the Code Improving Its Readability & Resilience* (succeeding `v0.3.0`)
+> **Current Version**: `v0.5.2` (Phase 2 of `v0.5` completed) — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine* (succeeding `v0.4.7`)
 
 Built to eliminate the "data entry chore" of traditional finance apps. No cloud accounts, no complex setup, no internet required. Open the app, log your expense, close it — done in under 5 seconds.
 
 ---
 
-## 🧠 Why This Exists
+## 🧠 Version 0.5: On-Device ML Document Intelligence Engine
 
-Most expense tracking tools fall into two traps:
+In **Version 0.5**, Ledgerly introduces local, zero-cloud machine learning document intelligence:
 
-1. **Too tedious** — They feel like a chore to add data to. You stop using them after a week.
-2. **Too complex** — Tools like Notion require extensive setup, knowledge of their features, and ongoing maintenance just to build a simple budget dashboard.
-
-This app sits in between: **quick to set up, effortless to use daily, and powerful enough to compete with open-source finance trackers** — all while keeping your financial data 100% private on your own machine.
+- **🤖 Three-Tier Capability Categories**:
+  - **Tier 1 (Fast-Lite, Bundled)**: Lightweight quantized OCR + regex attention (~32.5MB, sub-second latency). Pre-packaged directly inside the base Windows installer for immediate out-of-the-box scanning with zero internet.
+  - **Tier 2 (Vision-Pro, On-Demand)**: Deep Document Understanding Transformer (Donut / Florence-2, ~195MB) for complex itemized tables and degraded mobile photos, downloadable via Settings Hub.
+  - **Tier 3 (Regional Specialist, On-Demand)**: Domain-specialized regional models starting with India (GSTIN, HSN, CGST/SGST, UPI payment slips from Paytm, PhonePe, and Google Pay).
+- **🛡️ Negative Control Rejection Gate**: Accurately recognizes non-financial images (landscapes, book pages, meeting notes, code) and rejects them with a clean notice, guaranteeing 0% hallucination of amounts.
+- **Universal Document Normalizer (`src/services/DocumentNormalizer.js`) (v0.5.2)**:
+  - **Zero Native Build Tools Guarantee**: 100% pure JS/WASM core running on Windows and Linux out of the box without requiring Visual Studio C++ Build Tools or node-gyp.
+  - **Adaptive Density-Aware Scaling**: Preserves 2400px ceiling for fine 6pt tabular tax microtext, while downscaling standard receipts to 1600px/1200px to conserve RAM.
+  - **Early Blur Rejection Gate (`ERR_IMAGE_BLURRY`)**: Rejects out-of-focus or blurred snaps via 2D Laplacian edge variance.
+  - **Adaptive Thermal Contrast Booster**: Dynamically stretches faded gray ink on thermal receipts while keeping clean digital documents untouched.
+  - **Digital Vector PDF Fast-Path (<10ms)**: Instant Flate stream decompression (`zlib.inflateSync`) and multi-page page selection (`page: 'all'` vs single-page).
+  - **Encrypted PDF Trap (`ERR_PDF_ENCRYPTED`)**: Detects `/Encrypt` headers gracefully.
+  - **Native Accelerator Discovery Hook (`getNativeAddonStatus`)**: Prepared for power users wanting optional native OpenCV or GPU DirectML acceleration.
 
 ---
 

@@ -162,6 +162,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkPendingBills: () => invokeIPC('check-pending-bills'),
   executeBillPayment: (billId, customAmount) => invokeIPC('execute-bill-payment', { billId, customAmount }),
 
+  // Document Intake & ML Normalization (Phase 0.5.2)
+  normalizeDocument: (input, options) => invokeIPC('normalize-document', input, options),
+  getNativeAddonStatus: () => invokeIPC('get-native-addon-status'),
+
   // Event Subscriptions
   onNavigateToTab: (callback) => {
     ipcRenderer.removeAllListeners('navigate-to-tab');

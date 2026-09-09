@@ -2,9 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
 const { VALIDATION_LIMITS } = require('./constants');
+const DocumentNormalizer = require('./services/DocumentNormalizer');
 
 class FileImporter {
   constructor() {
+    this._normalizer = new DocumentNormalizer();
     // Defined aliases based on specifications
     this.aliases = {
       date: ['date', 'transaction date', 'posted date', 'trans date', 'posting date'],
@@ -415,25 +417,34 @@ class FileImporter {
   // --- PDF Parser ---
   _parsePDF(filePath) {
     try {
-      const content = fs.readFileSync(filePath, 'binary');
-      
-      // Basic text extraction - works for non-compressed simple text in PDF
-      // Not suitable for heavily formatted or FlateDecode streams in real world, but matches specs
       const expenses = [];
-      const warnings = ['PDF parsing is experimental and relies on basic text extraction. Results may be inaccurate.'];
+      const warnings = [];
 
-      // Extract raw strings from PDF that might be text
-      const textBlocks = content.match(/[\x20-\x7E]{5,}/g) || [];
-      const fullText = textBlocks.join(' ');
+      const normResult = this._normalizer.normalizeDocumentSync(filePath, { page: 'all' });
+      if (!normResult.success) {
+        if (normResult.code === 'ERR_PDF_ENCRYPTED') {
+          return this._errorResponse('Password-protected or encrypted PDF documents cannot be processed automatically.', 'pdf');
+        }
+        return this._errorResponse(normResult.error || 'Failed to normalize PDF document.', 'pdf');
+      }
 
-      // A simple heuristic: search for Date followed by Description followed by Amount in chunks of text
-      const transactionRegex = /([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})\s+(.*?)\s+(?:[₹$]|Rs\.?)?\s*\b(\d+[,.]\d{2})\b/gi;
+      let text = (normResult.data && normResult.data.fastPathText) ? normResult.data.fastPathText : '';
+      
+      // Fallback to raw string extraction if fast-path text is empty
+      if (!text) {
+        const content = fs.readFileSync(filePath, 'binary');
+        const textBlocks = content.match(/[\x20-\x7E]{5,}/g) || [];
+        text = textBlocks.join(' ');
+      }
+
+      // Financial transaction regex matching Date (ISO YYYY-MM-DD or DD/MM/YYYY) + Payee/Description + Amount
+      const transactionRegex = /(?:(\d{4}[/-]\d{1,2}[/-]\d{1,2})|(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}))\s+(.*?)\s+(?:[₹$€£]|Rs\.?)?\s*\b(\d+[,.]\d{2})\b/gi;
       let match;
 
-      while ((match = transactionRegex.exec(fullText)) !== null) {
-        let date = match[1];
-        let title = match[2].trim();
-        let amount = parseFloat(match[3].replace(',', ''));
+      while ((match = transactionRegex.exec(text)) !== null) {
+        const date = match[1] || match[2];
+        const title = match[3].trim();
+        const amount = parseFloat(match[4].replace(',', ''));
 
         if (!isNaN(amount) && amount > 0) {
           expenses.push({
@@ -453,9 +464,15 @@ class FileImporter {
           success: false,
           expenses: [],
           errors: ['No valid transactions found in PDF.'],
-          warnings,
+          warnings: normResult.data?.pageCount > 1
+            ? [`Scanned ${normResult.data.pageCount} pages, but no matching transaction patterns were found.`]
+            : ['Digital vector text extracted, but no matching transaction patterns were found.'],
           format: 'pdf'
         };
+      }
+
+      if (normResult.data?.pageCount > 1) {
+        warnings.push(`Successfully aggregated transactions across ${normResult.data.pageCount} PDF pages.`);
       }
 
       return { success: true, expenses, errors: [], warnings, format: 'pdf' };
