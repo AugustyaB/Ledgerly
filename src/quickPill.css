@@ -1,4 +1,4 @@
-﻿* {
+* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -88,6 +88,32 @@ body {
   background: rgba(16, 185, 129, 0.14);
   color: #10B981;
   border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.pill-action-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #D9822B;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.pill-action-btn:hover {
+  transform: scale(1.06);
+  background: rgba(217, 130, 43, 0.22);
+  border-color: #D9822B;
+}
+
+.pill-action-btn:active {
+  transform: scale(0.96);
 }
 
 .pill-submit-btn {
