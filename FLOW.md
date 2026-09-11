@@ -1,10 +1,10 @@
 # 🔄 Ledgerly — System Architecture & Application Flow (`FLOW.md`)
 
 > **Version Cycle**: `0.5` — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine*  
-> **Current State**: `v0.5.4` (Phase 4: Handy-Style Settings Hub Model Manager & On-Demand Downloader Complete)  
+> **Current State**: `v0.5.9` (Phase 9: Subsystem Integration, Regression Auditing & Production Packaging Complete — Concludes Version 0.5 Milestone)  
 > **Preceding Version**: `0.4.7` (Major Restructuring & Enterprise Resilience Milestone)  
 > **Status**: **ACTIVE & CANONICAL**  
-> **Scope**: Complete end-to-end data lifecycle, component interaction, IPC contracts, state management, and ML document intelligence pipeline across Version 0.5 subsections (v0.5.1 to v0.5.7).
+> **Scope**: Complete end-to-end data lifecycle, component interaction, IPC contracts, state management, and ML document intelligence pipeline across Version 0.5 subsections (v0.5.1 to v0.5.9).
 
 ---
 
@@ -357,6 +357,60 @@ The application implements a multi-tier resilience strategy distributed across c
 | - UPI app auto-selection & in-modal expense purpose prompt with title focus            |
 | - 16/16 automated test assertions passing in scratch/test_phase5_multi_engine.js       |
 +-----------------------------------------------------------------------------------------+
+                                            |
+                                            v
++-----------------------------------------------------------------------------------------+
+| [PHASE 0.5.6: INGESTION WORKFLOW & SCANNED BILL REVIEW QUEUE UI - COMPLETE]             |
+| - First-class Import workspace with Scanned Bills Queue vs Bank Statements segmented tab|
+| - SmartDocumentAnalyzer: <1ms in-memory post-scan classifier (invoice/multi-bills/stmt) |
+| - Interactive 3-way toggle pill in review cockpit with immediate user toast feedback   |
+| - Auto-approval middle ground (>=94% confidence, <=3 items, reconciled, not duplicate)  |
+| - Side-by-side review cockpit (intake list, zoom/pan/rotate viewer, structured form)   |
+| - Dense bill line-items table with live Qty*UnitPrice recalculation and 1-click sync   |
+| - ExpenseService.bulkAdd metadata & receiptFilename persistence                        |
+| - 15/15 automated test assertions passing in scratch/test_phase6_ingestion_queue.js     |
++-----------------------------------------------------------------------------------------+
+                                            |
+                                            v
++-----------------------------------------------------------------------------------------+
+| [PHASE 0.5.7: TIER 3 REGIONAL SPECIALIST MODELS ARCHITECTURE - COMPLETE]                |
+| - 4 Core Regional Specialists: India, North America, Europe/UK, Australia/Japan       |
+| - Statutory Checksums: ATO Mod-89 ABN, IRS 9-digit EIN, European VIES, Japan T-Number  |
+| - Regional Utility Discoms: ConEd, BESCOM, British Gas, EnergyAustralia (kWh & units)   |
+| - Payment Rails: UPI, Apple Pay DAN, Venmo, Cash App, Zelle, BPAY, PayID, PayPay, IC   |
+| - Cultural Disambiguation: Comma vs period decimal parser, regional date disambiguator  |
+| - Settings Hub Region Filters & dynamic Review Cockpit statutory chips bar              |
+| - Currency Auto-Routing & graceful zero-crash Tier 1 fallback                           |
+| - 21/21 automated test assertions passing in scratch/test_phase7_tier3_models.js        |
++-----------------------------------------------------------------------------------------+
+                                            |
+                                            v
++-----------------------------------------------------------------------------------------+
+| [PHASE 0.5.8: TIER 2 VISION-PRO MULTI-MODEL ARCHITECTURE - COMPLETE]                    |
+| - 4 Specialized Visual Models: Precision, Degraded Paper, Handwritten, Multilingual    |
+| - Arithmetic Inpainting Solver: Solves torn/missing totals via mathematical constraints |
+| - Comprehensive Anti-Trap Filtering: Eliminates change due, cash tendered, promo banners|
+| - Creased/Crumpled Paper Repair: Bridges disjointed character blocks across fold lines  |
+| - Thermal POS Fade Recovery: Restores missing decimal points on bleached thermal paper  |
+| - Rubber Stamp Layer Separation: Strips overlaid PAID/CANCELLED ink from line items     |
+| - Handwritten Chit Processor (HTR): Numerals 0/6/8, 1/7 disambiguation, slashed zeros Ø |
+| - Multilingual & Travel DCC: Dynamic currency conversion extraction, Kanji, Eastern     |
+|   Arabic [٠-٩], Devanagari [०-९] and Cyrillic script comprehension                       |
+| - Intelligent Auto-Escalation: Tier 1 structural inspection recommends Tier 2 models    |
+| - 21/21 automated test assertions passing in scratch/test_phase8_tier2_models.js        |
++-----------------------------------------------------------------------------------------+
+                                            |
+                                            v
++-----------------------------------------------------------------------------------------+
+| [PHASE 0.5.9: SUBSYSTEM INTEGRATION & PRODUCTION PACKAGING - COMPLETE]                  |
+| - Full Cross-Tier Interoperability: Pipeline flow from intake to DB persistence         |
+| - High-Throughput Concurrency Stress: 35 concurrent scans without deadlocks/corruption  |
+| - Chaos Fuzzing Pass: 0-byte, corrupt streams, missing files, 0% false positives        |
+| - Enterprise Regression Audit: 180+ tests passing across 11 test suites with 0 errors    |
+| - 0 ESLint errors/warnings (npm run lint), 52/52 JS files clean (npm run check)         |
+| - Windows Production Distribution: NSIS installer & portable EXE via electron-builder    |
+| - Playwright E2E smoke test verifying packaged binary dist/win-unpacked/Ledgerly.exe    |
++-----------------------------------------------------------------------------------------+
 ```
 
 ---
@@ -368,7 +422,7 @@ The application implements a multi-tier resilience strategy distributed across c
 > - The leading **`0`** denotes that Ledgerly is currently within its **Alpha Build Phase** (`0.x.x`) of active architecture and feature building. The official **`v1.0.0`** release will mark the production-ready build for user download and deployment.
 > - The version **`0.4`** represents the **overall phase structure** (*Major Codebase Restructuring Improving Its Readability*).
 > - Each phase represents a specific **subsection of version 0.4** (`0.4.1` through `0.4.7`).
-> - The version **`0.5`** represents the **on-device machine learning document intelligence cycle** (`0.5.1` through `0.5.7`).
+> - The version **`0.5`** represents the **on-device machine learning document intelligence cycle** (`0.5.1` through `0.5.9`).
 
 | Version / Sub-version | Milestone / Phase Name | Key Architectural Shift |
 |---|---|---|
@@ -383,10 +437,14 @@ The application implements a multi-tier resilience strategy distributed across c
 | ↳ **v0.4.5** (Phase 5) | IPC Runtime Schema Validation Layer | Boundary schema validation in `main.js`, standardized `{ success, data, error }` envelopes |
 | ↳ **v0.4.6** (Phase 6) | Global UI Error Boundaries, Crash Traps & Audit Remediation | `ErrorBoundary.js`, section fallback cards, `crashLogger.js` (5MB rotation), uncaughtException/unhandledRejection traps, importer safeguards, resolved BUG-001..004 |
 | ↳ **v0.4.7** (Phase 7) | Enterprise Resilience, Offline Sync & Diagnostics | DatabaseAuditor self-healing, DiagnosticExporter telemetry, SyncEngine 3-way merge, Ctrl+Z undo, fuzzy deduplication (Concludes Version 0.4) |
-| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine** | **Local, zero-cloud ML models for camera photos, PDF statements, and receipts** |
+| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine** | **Local, zero-cloud ML models for camera photos, PDF statements, and receipts (Complete)** |
 | ↳ **v0.5.1** (Phase 1) | Dataset Sourcing & Base Model Discovery | Standardized schema (SROIE, CORD, Indian GST & UPI), 54-sample negative control gate, 3-tier model profiling |
 | ↳ **v0.5.2** (Phase 2) | Document Normalization & Image Preprocessing | Magic byte sniffing, EXIF rotation, adaptive 1200-2400px density scaling, blur rejection gate, thermal contrast boosting, vector PDF fast-path (<10ms) |
 | ↳ **v0.5.3** (Phase 3) | Tier 1 (Fast-Lite) Bundled Engine & Instant Receipt Autofill | Offline Tesseract WASM (5.19MB), reverse token attention, smart non-destructive autofill, UPI & GST breakdown, negative transaction gate |
 | ↳ **v0.5.4** (Phase 4) | Handy-Style Settings Hub Model Manager & On-Demand Downloader | ModelManager service (chunked streaming, SHA-256 verification), Handy-style Settings Hub UI, currency recommendations, auto-fallback |
 | ↳ **v0.5.5** (Phase 5) | Multi-Engine Inference Runtime & Table Layout Parsing | DocumentIntelligenceService dispatcher, Tier 2 table parsing & mathematical reconciliation, Tier 3 GSTIN/UPI engine, fallback toasts |
+| ↳ **v0.5.6** (Phase 6) | Ingestion Workflow & Scanned Bill Review Queue UI | First-class Import workspace, Smart Document Analyzer (<1ms 3-way classifier), auto-approval middle ground, side-by-side cockpit, interactive line items table, metadata persistence |
+| ↳ **v0.5.7** (Phase 7) | Tier 3 Regional Specialist Models Architecture | 4 regional specialists (India, North America, Europe/UK, APAC), statutory checksums (ABN Mod-89, EIN, VIES, T-Number), utility bills, currency routing (Complete) |
+| ↳ **v0.5.8** (Phase 8) | Tier 2 Vision-Pro Multi-Model Architecture & Visual Understanding | 4 specialized visual models (Precision microtext/inpainting, Degraded paper/creases, Handwritten chits HTR, Multilingual travel DCC) + balanced baseline, auto-escalation (Complete) |
+| ↳ **v0.5.9** (Phase 9) | Subsystem Integration, Documentation & Production Packaging | End-to-end stress testing, system resilience auditing, final documentation sync, and production electron-builder installer packaging (Complete — Concludes Version 0.5 Milestone) |
 | **v1.0.0** | **Official Production Release** | Production-ready deployment for user download |

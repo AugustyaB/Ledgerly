@@ -9,7 +9,6 @@
  * Extracted from: src/app.js L2164-2235 (switchTab & updateSidebarNavIcons)
  */
 
-
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 
 // ============================================================================
@@ -46,16 +45,19 @@ const TAB_METADATA = Object.freeze({
     containerId: 'view-settings',
     title: 'General Settings & Preferences',
     subtitle: 'Configure salary cycles, currency, payday buffers, and data management'
+  },
+  import: {
+    containerId: 'view-import',
+    title: 'Universal Ingestion & Scanned Bill Review',
+    subtitle: 'Import bank statements and inspect on-device ML-scanned receipts'
   }
 });
-
 
 // ============================================================================
 //  AppRouter Class
 // ============================================================================
 
 export class AppRouter {
-
   /** @type {import('./AppState.js').AppState} */
   #state;
 
@@ -70,7 +72,6 @@ export class AppRouter {
 
   /** @type {any|null} */
   #activeView = null;
-
 
   // ==========================================================================
   //  Constructor
@@ -88,7 +89,6 @@ export class AppRouter {
     }
   }
 
-
   // ==========================================================================
   //  View Registration & Dynamic Extensibility
   // ==========================================================================
@@ -104,7 +104,6 @@ export class AppRouter {
     this.#views.set(tabName, viewInstance);
   }
 
-
   /**
    * Retrieves the view instance registered for a given tab.
    *
@@ -115,7 +114,6 @@ export class AppRouter {
     return this.#views.get(tabName);
   }
 
-
   /**
    * Returns the currently active tab identifier.
    *
@@ -125,7 +123,6 @@ export class AppRouter {
     return this.#currentTab;
   }
 
-
   /**
    * Returns the currently active view instance.
    *
@@ -134,7 +131,6 @@ export class AppRouter {
   getActiveView() {
     return this.#activeView;
   }
-
 
   // ==========================================================================
   //  Tab Switching & Lifecycle Management
@@ -197,20 +193,24 @@ export class AppRouter {
       }
     };
 
-    ErrorBoundary.wrapRender(targetContainer, renderAction, {
-      componentName: targetMeta.title || tabName,
-      tabName
-    }, {
-      onRetry: () => this.switchTo(tabName, legacyFallback),
-      onReset: () => this.switchTo('dashboard')
-    });
+    ErrorBoundary.wrapRender(
+      targetContainer,
+      renderAction,
+      {
+        componentName: targetMeta.title || tabName,
+        tabName
+      },
+      {
+        onRetry: () => this.switchTo(tabName, legacyFallback),
+        onReset: () => this.switchTo('dashboard')
+      }
+    );
 
     // Refresh Feather/Lucide SVG icons in DOM
     if (typeof window !== 'undefined' && typeof window.hydrateIcons === 'function') {
       window.hydrateIcons();
     }
   }
-
 
   // ==========================================================================
   //  Data Refresh & Error Recovery
@@ -235,13 +235,18 @@ export class AppRouter {
       }
     };
 
-    ErrorBoundary.wrapRender(targetContainer, refreshAction, {
-      componentName: targetMeta.title || this.#currentTab,
-      tabName: this.#currentTab
-    }, {
-      onRetry: () => this.refreshCurrentView(legacyFallback),
-      onReset: () => this.switchTo('dashboard')
-    });
+    ErrorBoundary.wrapRender(
+      targetContainer,
+      refreshAction,
+      {
+        componentName: targetMeta.title || this.#currentTab,
+        tabName: this.#currentTab
+      },
+      {
+        onRetry: () => this.refreshCurrentView(legacyFallback),
+        onReset: () => this.switchTo('dashboard')
+      }
+    );
 
     if (typeof window !== 'undefined' && typeof window.hydrateIcons === 'function') {
       window.hydrateIcons();
@@ -256,7 +261,6 @@ export class AppRouter {
   recoverToTab(tabName = 'dashboard') {
     this.switchTo(tabName);
   }
-
 
   // ==========================================================================
   //  Private Helpers
@@ -275,15 +279,12 @@ export class AppRouter {
     const expenseIcon = document.getElementById('nav-icon-expenses');
 
     if (dashIcon) {
-      dashIcon.innerHTML = activeTab === 'dashboard'
-        ? window.icon('bar-chart-declining', 20)
-        : window.icon('bar-chart-2', 20);
+      dashIcon.innerHTML =
+        activeTab === 'dashboard' ? window.icon('bar-chart-declining', 20) : window.icon('bar-chart-2', 20);
     }
 
     if (expenseIcon) {
-      expenseIcon.innerHTML = activeTab === 'expenses'
-        ? window.icon('receipt', 20)
-        : window.icon('banknote', 20);
+      expenseIcon.innerHTML = activeTab === 'expenses' ? window.icon('receipt', 20) : window.icon('banknote', 20);
     }
   }
 

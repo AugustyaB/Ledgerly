@@ -2,11 +2,11 @@
  * ============================================================================
  * Ledgerly — DocumentNormalizer (Universal Document Intake & Preprocessor)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Intake gatekeeper and image preprocessor for Ledgerly's on-device document
  * intelligence and receipt ML pipelines (Phase 0.5.2).
- * 
+ *
  * DESIGN PRINCIPLES:
  * - 100% Offline & Pure JS/WASM core: Works out of the box with zero native build tools.
  * - Adaptive Detail Scaling: Preserves 2400px resolution ceiling for dense micro-text,
@@ -72,7 +72,7 @@ const RESOLUTION_CEILINGS = Object.freeze({
 
 class DocumentNormalizer {
   constructor() {
-    this._maxFileSize = VALIDATION_LIMITS?.MAX_IMPORT_FILE_SIZE || (50 * 1024 * 1024);
+    this._maxFileSize = VALIDATION_LIMITS?.MAX_IMPORT_FILE_SIZE || 50 * 1024 * 1024;
   }
 
   // ==========================================================================
@@ -81,7 +81,7 @@ class DocumentNormalizer {
 
   /**
    * Sniffs the file type and MIME format from magic bytes.
-   * 
+   *
    * @param {Buffer|Uint8Array|string} input - File path or buffer.
    * @returns {{ supported: boolean, mimeType: string, extension: string, isPdf: boolean, isImage: boolean }}
    */
@@ -89,7 +89,14 @@ class DocumentNormalizer {
     let buf;
     if (typeof input === 'string') {
       if (!fs.existsSync(input)) {
-        return { supported: false, mimeType: 'application/octet-stream', extension: '', isPdf: false, isImage: false, error: 'File not found' };
+        return {
+          supported: false,
+          mimeType: 'application/octet-stream',
+          extension: '',
+          isPdf: false,
+          isImage: false,
+          error: 'File not found'
+        };
       }
       const fd = fs.openSync(input, 'r');
       buf = Buffer.alloc(1024);
@@ -98,7 +105,14 @@ class DocumentNormalizer {
     } else if (Buffer.isBuffer(input) || input instanceof Uint8Array) {
       buf = Buffer.from(input);
     } else {
-      return { supported: false, mimeType: 'application/octet-stream', extension: '', isPdf: false, isImage: false, error: 'Invalid input type' };
+      return {
+        supported: false,
+        mimeType: 'application/octet-stream',
+        extension: '',
+        isPdf: false,
+        isImage: false,
+        error: 'Invalid input type'
+      };
     }
 
     if (buf.length < 4) {
@@ -111,32 +125,50 @@ class DocumentNormalizer {
     }
 
     // JPEG: 0xFF 0xD8 0xFF
-    if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) {
+    if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
       return { supported: true, mimeType: SUPPORTED_FORMATS.JPEG, extension: '.jpg', isPdf: false, isImage: true };
     }
 
     // PNG: 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A
-    if (buf.length >= 8 &&
-        buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47 &&
-        buf[4] === 0x0D && buf[5] === 0x0A && buf[6] === 0x1A && buf[7] === 0x0A) {
+    if (
+      buf.length >= 8 &&
+      buf[0] === 0x89 &&
+      buf[1] === 0x50 &&
+      buf[2] === 0x4e &&
+      buf[3] === 0x47 &&
+      buf[4] === 0x0d &&
+      buf[5] === 0x0a &&
+      buf[6] === 0x1a &&
+      buf[7] === 0x0a
+    ) {
       return { supported: true, mimeType: SUPPORTED_FORMATS.PNG, extension: '.png', isPdf: false, isImage: true };
     }
 
     // WebP: RIFF ... WEBP (0x52 0x49 0x46 0x46 ... 0x57 0x45 0x42 0x50)
-    if (buf.length >= 12 &&
-        buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
-        buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) {
+    if (
+      buf.length >= 12 &&
+      buf[0] === 0x52 &&
+      buf[1] === 0x49 &&
+      buf[2] === 0x46 &&
+      buf[3] === 0x46 &&
+      buf[8] === 0x57 &&
+      buf[9] === 0x45 &&
+      buf[10] === 0x42 &&
+      buf[11] === 0x50
+    ) {
       return { supported: true, mimeType: SUPPORTED_FORMATS.WEBP, extension: '.webp', isPdf: false, isImage: true };
     }
 
     // BMP: BM (0x42 0x4D)
-    if (buf[0] === 0x42 && buf[1] === 0x4D) {
+    if (buf[0] === 0x42 && buf[1] === 0x4d) {
       return { supported: true, mimeType: SUPPORTED_FORMATS.BMP, extension: '.bmp', isPdf: false, isImage: true };
     }
 
     // TIFF: II*. or MM.*
-    if ((buf[0] === 0x49 && buf[1] === 0x49 && buf[2] === 0x2A && buf[3] === 0x00) ||
-        (buf[0] === 0x4D && buf[1] === 0x4D && buf[2] === 0x00 && buf[3] === 0x2A)) {
+    if (
+      (buf[0] === 0x49 && buf[1] === 0x49 && buf[2] === 0x2a && buf[3] === 0x00) ||
+      (buf[0] === 0x4d && buf[1] === 0x4d && buf[2] === 0x00 && buf[3] === 0x2a)
+    ) {
       return { supported: true, mimeType: SUPPORTED_FORMATS.TIFF, extension: '.tiff', isPdf: false, isImage: true };
     }
 
@@ -149,7 +181,7 @@ class DocumentNormalizer {
 
   /**
    * Parses width, height, and EXIF orientation from image headers in pure JavaScript.
-   * 
+   *
    * @param {Buffer} buffer - Image buffer.
    * @param {string} mimeType - Image MIME type.
    * @returns {{ width: number, height: number, orientation: number, hasExif: boolean, format: string }}
@@ -179,12 +211,15 @@ class DocumentNormalizer {
       if (buffer.length >= 30) {
         const typeStr = buffer.slice(12, 16).toString('ascii');
         if (typeStr === 'VP8 ') {
-          meta.width = buffer.readUInt16LE(26) & 0x3FFF;
-          meta.height = buffer.readUInt16LE(28) & 0x3FFF;
+          meta.width = buffer.readUInt16LE(26) & 0x3fff;
+          meta.height = buffer.readUInt16LE(28) & 0x3fff;
         } else if (typeStr === 'VP8L') {
-          const b0 = buffer[21], b1 = buffer[22], b2 = buffer[23], b3 = buffer[24];
-          meta.width = 1 + (((b1 & 0x3F) << 8) | b0);
-          meta.height = 1 + (((b3 & 0xF) << 10) | (b2 << 2) | ((b1 & 0xC0) >> 6));
+          const b0 = buffer[21],
+            b1 = buffer[22],
+            b2 = buffer[23],
+            b3 = buffer[24];
+          meta.width = 1 + (((b1 & 0x3f) << 8) | b0);
+          meta.height = 1 + (((b3 & 0xf) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6));
         } else if (typeStr === 'VP8X') {
           meta.width = 1 + buffer.readUIntLE(24, 3);
           meta.height = 1 + buffer.readUIntLE(27, 3);
@@ -196,11 +231,11 @@ class DocumentNormalizer {
     if (mimeType === SUPPORTED_FORMATS.JPEG) {
       let offset = 2;
       while (offset < buffer.length - 8) {
-        if (buffer[offset] !== 0xFF) {
+        if (buffer[offset] !== 0xff) {
           offset++;
           continue;
         }
-        while (offset < buffer.length && buffer[offset] === 0xFF) {
+        while (offset < buffer.length && buffer[offset] === 0xff) {
           offset++;
         }
         if (offset >= buffer.length) break;
@@ -209,20 +244,20 @@ class DocumentNormalizer {
         offset++;
 
         // End of image or scan
-        if (marker === 0xD9 || marker === 0xDA) break;
+        if (marker === 0xd9 || marker === 0xda) break;
 
         const length = buffer.readUInt16BE(offset);
         if (length < 2) break;
 
         // APP1 Marker for EXIF
-        if (marker === 0xE1 && offset + length <= buffer.length) {
+        if (marker === 0xe1 && offset + length <= buffer.length) {
           const exifHeader = buffer.slice(offset + 2, offset + 8).toString('ascii');
           if (exifHeader.startsWith('Exif\0\0')) {
             meta.hasExif = true;
             const tiffStart = offset + 8;
             const isLittleEndian = buffer[tiffStart] === 0x49 && buffer[tiffStart + 1] === 0x49;
-            const readUInt16 = (pos) => isLittleEndian ? buffer.readUInt16LE(pos) : buffer.readUInt16BE(pos);
-            const readUInt32 = (pos) => isLittleEndian ? buffer.readUInt32LE(pos) : buffer.readUInt32BE(pos);
+            const readUInt16 = pos => (isLittleEndian ? buffer.readUInt16LE(pos) : buffer.readUInt16BE(pos));
+            const readUInt32 = pos => (isLittleEndian ? buffer.readUInt32LE(pos) : buffer.readUInt32BE(pos));
 
             const ifdOffset = readUInt32(tiffStart + 4);
             let dirPos = tiffStart + ifdOffset;
@@ -233,7 +268,8 @@ class DocumentNormalizer {
 
               for (let e = 0; e < entriesCount && dirPos + 12 <= buffer.length; e++) {
                 const tag = readUInt16(dirPos);
-                if (tag === 0x0112) { // Orientation Tag
+                if (tag === 0x0112) {
+                  // Orientation Tag
                   meta.orientation = readUInt16(dirPos + 8);
                   break;
                 }
@@ -244,7 +280,7 @@ class DocumentNormalizer {
         }
 
         // SOF Markers (SOF0 = 0xC0, SOF2 = 0xC2, etc.)
-        if (marker >= 0xC0 && marker <= 0xCF && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
           meta.height = buffer.readUInt16BE(offset + 3);
           meta.width = buffer.readUInt16BE(offset + 5);
           break;
@@ -264,7 +300,7 @@ class DocumentNormalizer {
 
   /**
    * Assesses image text legibility and blur using discrete Laplacian edge variance.
-   * 
+   *
    * @param {Buffer} buffer - Image buffer.
    * @param {{ width: number, height: number, mimeType: string }} [meta] - Optional pre-parsed metadata.
    * @returns {{ variance: number, legibilityScore: number, isBlurry: boolean, detailTier: 'dense_microtext'|'standard'|'low_detail', edgeDensity: number, recommendedCeiling: number }}
@@ -275,10 +311,10 @@ class DocumentNormalizer {
       // Fallback if unable to sample pixel grid
       return {
         variance: 100.0,
-        legibilityScore: 0.90,
+        legibilityScore: 0.9,
         isBlurry: false,
         detailTier: 'standard',
-        edgeDensity: 0.10,
+        edgeDensity: 0.1,
         recommendedCeiling: RESOLUTION_CEILINGS.STANDARD
       };
     }
@@ -297,7 +333,7 @@ class DocumentNormalizer {
         const right = grid[r * cols + (c + 1)];
 
         // 2D discrete Laplacian operator
-        const lap = Math.abs(top + bottom + left + right - (4 * center));
+        const lap = Math.abs(top + bottom + left + right - 4 * center);
         laplacians.push(lap);
         sumLap += lap;
 
@@ -311,10 +347,10 @@ class DocumentNormalizer {
     if (laplacians.length === 0) {
       return {
         variance: 100.0,
-        legibilityScore: 0.90,
+        legibilityScore: 0.9,
         isBlurry: false,
         detailTier: 'standard',
-        edgeDensity: 0.10,
+        edgeDensity: 0.1,
         recommendedCeiling: RESOLUTION_CEILINGS.STANDARD
       };
     }
@@ -366,12 +402,12 @@ class DocumentNormalizer {
       if (!buffer || buffer.length < 16) return null;
 
       // 1. PNG Scanline Decompression
-      if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+      if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
         return this._samplePngLuminance(buffer);
       }
 
       // 2. BMP Direct Pixel Reading
-      if (buffer[0] === 0x42 && buffer[1] === 0x4D) {
+      if (buffer[0] === 0x42 && buffer[1] === 0x4d) {
         return this._sampleBmpLuminance(buffer);
       }
 
@@ -389,7 +425,10 @@ class DocumentNormalizer {
   _samplePngLuminance(buffer) {
     let offset = 8;
     const idatChunks = [];
-    let width = 0, height = 0, colorType = 2, _bitDepth = 8;
+    let width = 0,
+      height = 0,
+      colorType = 2,
+      _bitDepth = 8;
 
     while (offset < buffer.length - 8) {
       const length = buffer.readUInt32BE(offset);
@@ -413,8 +452,8 @@ class DocumentNormalizer {
     const idatData = Buffer.concat(idatChunks);
     const uncompressed = zlib.inflateSync(idatData);
 
-    const bytesPerPixel = colorType === 6 ? 4 : (colorType === 2 ? 3 : (colorType === 0 ? 1 : 1));
-    const stride = 1 + (width * bytesPerPixel);
+    const bytesPerPixel = colorType === 6 ? 4 : colorType === 2 ? 3 : colorType === 0 ? 1 : 1;
+    const stride = 1 + width * bytesPerPixel;
 
     const sampleRows = Math.min(64, height);
     const sampleCols = Math.min(64, width);
@@ -425,19 +464,19 @@ class DocumentNormalizer {
     for (let r = 0; r < sampleRows; r++) {
       const y = r * rowStep;
       if (y >= height) break;
-      const rowStart = (y * stride) + 1; // skip filter byte
+      const rowStart = y * stride + 1; // skip filter byte
 
       for (let c = 0; c < sampleCols; c++) {
         const x = c * colStep;
         if (x >= width) break;
-        const px = rowStart + (x * bytesPerPixel);
+        const px = rowStart + x * bytesPerPixel;
 
         let lum;
         if (bytesPerPixel >= 3) {
           const red = uncompressed[px] || 0;
           const green = uncompressed[px + 1] || 0;
           const blue = uncompressed[px + 2] || 0;
-          lum = (0.299 * red) + (0.587 * green) + (0.114 * blue);
+          lum = 0.299 * red + 0.587 * green + 0.114 * blue;
         } else {
           lum = uncompressed[px] || 0;
         }
@@ -473,17 +512,17 @@ class DocumentNormalizer {
     for (let r = 0; r < sampleRows; r++) {
       const y = r * rowStep;
       if (y >= height) break;
-      const rowStart = pixelOffset + (y * rowStride);
+      const rowStart = pixelOffset + y * rowStride;
 
       for (let c = 0; c < sampleCols; c++) {
         const x = c * colStep;
         if (x >= width) break;
-        const px = rowStart + (x * bytesPerPixel);
+        const px = rowStart + x * bytesPerPixel;
 
         const b = buffer[px] || 0;
         const g = buffer[px + 1] || 0;
         const red = buffer[px + 2] || 0;
-        const lum = (0.299 * red) + (0.587 * g) + (0.114 * b);
+        const lum = 0.299 * red + 0.587 * g + 0.114 * b;
         grid.push(lum);
       }
     }
@@ -516,16 +555,19 @@ class DocumentNormalizer {
 
   /**
    * Calculates adaptive target dimensions based on text detail tier.
-   * 
+   *
    * @param {number} origWidth - Original image width.
    * @param {number} origHeight - Original image height.
    * @param {'dense_microtext'|'standard'|'low_detail'} detailTier - Classification.
    * @returns {{ width: number, height: number, scaled: boolean, scaleFactor: number, maxCeiling: number }}
    */
   computeAdaptiveDimensions(origWidth, origHeight, detailTier) {
-    const maxCeiling = detailTier === 'dense_microtext'
-      ? RESOLUTION_CEILINGS.DENSE_MICROTEXT
-      : (detailTier === 'standard' ? RESOLUTION_CEILINGS.STANDARD : RESOLUTION_CEILINGS.LOW_DETAIL);
+    const maxCeiling =
+      detailTier === 'dense_microtext'
+        ? RESOLUTION_CEILINGS.DENSE_MICROTEXT
+        : detailTier === 'standard'
+          ? RESOLUTION_CEILINGS.STANDARD
+          : RESOLUTION_CEILINGS.LOW_DETAIL;
 
     const longestSide = Math.max(origWidth, origHeight);
 
@@ -551,7 +593,7 @@ class DocumentNormalizer {
 
   /**
    * Assesses dynamic contrast range and applies adaptive contrast enhancement for thermal receipts.
-   * 
+   *
    * @param {number[]} luminanceArray - Array of luminance values (0-255).
    * @returns {{ needsEnhancement: boolean, contrastEnhanced: boolean, originalRange: number, p5: number, p95: number }}
    */
@@ -587,7 +629,7 @@ class DocumentNormalizer {
 
   /**
    * Extracts digital vector text and page layout directly from PDF binary streams.
-   * 
+   *
    * @param {Buffer} buffer - PDF file buffer.
    * @param {{ page?: number|'all' }} [options] - Page selection options.
    * @returns {Promise<{ success: boolean, text: string, pageCount: number, pageUsed: number|'all', pages: Array<{ pageNumber: number, text: string }>, error?: string, code?: string }>}
@@ -595,7 +637,15 @@ class DocumentNormalizer {
   async extractPdfTextFastPath(buffer, options = {}) {
     try {
       if (!buffer || buffer.length < 10) {
-        return { success: false, text: '', pageCount: 0, pageUsed: 'all', pages: [], error: 'Invalid or empty PDF buffer', code: ErrorCode.INVALID_ARGUMENT };
+        return {
+          success: false,
+          text: '',
+          pageCount: 0,
+          pageUsed: 'all',
+          pages: [],
+          error: 'Invalid or empty PDF buffer',
+          code: ErrorCode.INVALID_ARGUMENT
+        };
       }
 
       // Check for password protection / encryption in PDF header/trailer
@@ -668,7 +718,12 @@ class DocumentNormalizer {
             };
           }
         } catch (pdfErr) {
-          if (pdfErr && (pdfErr.name === 'PasswordException' || String(pdfErr.message).includes('password') || String(pdfErr.message).includes('encrypt'))) {
+          if (
+            pdfErr &&
+            (pdfErr.name === 'PasswordException' ||
+              String(pdfErr.message).includes('password') ||
+              String(pdfErr.message).includes('encrypt'))
+          ) {
             return {
               success: false,
               text: '',
@@ -725,9 +780,9 @@ class DocumentNormalizer {
       const dictSnippet = buffer.slice(dictStart, streamStart).toString('ascii');
 
       let dataStart = streamStart + 6;
-      if (buffer[dataStart] === 0x0D && buffer[dataStart + 1] === 0x0A) {
+      if (buffer[dataStart] === 0x0d && buffer[dataStart + 1] === 0x0a) {
         dataStart += 2;
-      } else if (buffer[dataStart] === 0x0A || buffer[dataStart] === 0x0D) {
+      } else if (buffer[dataStart] === 0x0a || buffer[dataStart] === 0x0d) {
         dataStart += 1;
       }
 
@@ -765,19 +820,30 @@ class DocumentNormalizer {
       searchPos = endStream + 9;
     }
 
-    return textTokens.join(' ').replace(/\\([()\\])/g, '$1').trim();
+    return textTokens
+      .join(' ')
+      .replace(/\\([()\\])/g, '$1')
+      .trim();
   }
 
   /**
    * Synchronously extracts vector text from PDF FlateDecode streams.
-   * 
+   *
    * @param {Buffer} buffer - PDF file buffer.
    * @returns {{ success: boolean, text: string, pageCount: number, pageUsed: number|'all', pages: Array<{ pageNumber: number, text: string }>, error?: string, code?: string }}
    */
   extractPdfTextFastPathSync(buffer) {
     try {
       if (!buffer || buffer.length < 10) {
-        return { success: false, text: '', pageCount: 0, pageUsed: 'all', pages: [], error: 'Invalid or empty PDF buffer', code: ErrorCode.INVALID_ARGUMENT };
+        return {
+          success: false,
+          text: '',
+          pageCount: 0,
+          pageUsed: 'all',
+          pages: [],
+          error: 'Invalid or empty PDF buffer',
+          code: ErrorCode.INVALID_ARGUMENT
+        };
       }
 
       const bufferString = buffer.slice(0, Math.min(buffer.length, 8192)).toString('binary');
@@ -822,7 +888,7 @@ class DocumentNormalizer {
   /**
    * Reports the status and availability of optional native accelerators
    * (e.g. OpenCV perspective dewarping, GPU DirectML acceleration).
-   * 
+   *
    * @returns {{ hasNativeAccelerators: boolean, addons: Array<{ id: string, name: string, description: string, installed: boolean, requiresBuildTools: boolean, buildToolsNotes: string }> }}
    */
   getNativeAddonStatus() {
@@ -857,7 +923,8 @@ class DocumentNormalizer {
         {
           id: 'directml_gpu',
           name: 'DirectML / CUDA Neural GPU Acceleration',
-          description: 'Leverages AMD, Intel, or Nvidia discrete GPUs to accelerate Tier 2 & Tier 3 vision transformers.',
+          description:
+            'Leverages AMD, Intel, or Nvidia discrete GPUs to accelerate Tier 2 & Tier 3 vision transformers.',
           installed: onnxGpuAvailable,
           requiresBuildTools: false,
           buildToolsNotes: 'Prebuilt native binaries distributed via onnxruntime-node without requiring Visual Studio.'
@@ -873,7 +940,7 @@ class DocumentNormalizer {
   /**
    * Standardizes any input document into an upright, contrast-enhanced, standard-resolution
    * payload ready for ML receipt parsing.
-   * 
+   *
    * @param {string|Buffer|Uint8Array} filePathOrBuffer - Target document path or in-memory buffer.
    * @param {{ page?: number|'all', rejectBlur?: boolean, enhanceThermal?: boolean }} [options] - Options.
    * @returns {Promise<{ success: boolean, data?: any, error?: string, code?: string }>}
@@ -891,7 +958,12 @@ class DocumentNormalizer {
         const stats = fs.statSync(sourcePath);
         if (stats.size > this._maxFileSize) {
           const sizeMB = (stats.size / (1024 * 1024)).toFixed(1);
-          return { success: false, data: null, error: `File size (${sizeMB}MB) exceeds the 50MB limit.`, code: ErrorCode.INVALID_ARGUMENT };
+          return {
+            success: false,
+            data: null,
+            error: `File size (${sizeMB}MB) exceeds the 50MB limit.`,
+            code: ErrorCode.INVALID_ARGUMENT
+          };
         }
         buffer = fs.readFileSync(sourcePath);
       } else if (Buffer.isBuffer(filePathOrBuffer)) {
@@ -899,7 +971,12 @@ class DocumentNormalizer {
       } else if (filePathOrBuffer instanceof Uint8Array) {
         buffer = Buffer.from(filePathOrBuffer);
       } else {
-        return { success: false, data: null, error: 'Document input must be a valid file path or buffer.', code: ErrorCode.INVALID_ARGUMENT };
+        return {
+          success: false,
+          data: null,
+          error: 'Document input must be a valid file path or buffer.',
+          code: ErrorCode.INVALID_ARGUMENT
+        };
       }
 
       if (!buffer || buffer.length === 0) {
@@ -974,11 +1051,7 @@ class DocumentNormalizer {
       }
 
       // Adaptive dimensions based on detail tier
-      const scaled = this.computeAdaptiveDimensions(
-        meta.width || 1200,
-        meta.height || 1600,
-        blurResult.detailTier
-      );
+      const scaled = this.computeAdaptiveDimensions(meta.width || 1200, meta.height || 1600, blurResult.detailTier);
 
       // Thermal contrast assessment
       const samples = this._extractLuminanceGrid(buffer, meta);
@@ -1049,7 +1122,7 @@ class DocumentNormalizer {
 
   /**
    * Synchronous document intake and normalization pipeline.
-   * 
+   *
    * @param {string|Buffer|Uint8Array} filePathOrBuffer - Target document path or buffer.
    * @param {{ page?: number|'all', rejectBlur?: boolean }} [options] - Options.
    * @returns {{ success: boolean, data?: any, error?: string, code?: string }}
@@ -1067,7 +1140,12 @@ class DocumentNormalizer {
         const stats = fs.statSync(sourcePath);
         if (stats.size > this._maxFileSize) {
           const sizeMB = (stats.size / (1024 * 1024)).toFixed(1);
-          return { success: false, data: null, error: `File size (${sizeMB}MB) exceeds the 50MB limit.`, code: ErrorCode.INVALID_ARGUMENT };
+          return {
+            success: false,
+            data: null,
+            error: `File size (${sizeMB}MB) exceeds the 50MB limit.`,
+            code: ErrorCode.INVALID_ARGUMENT
+          };
         }
         buffer = fs.readFileSync(sourcePath);
       } else if (Buffer.isBuffer(filePathOrBuffer)) {
@@ -1075,7 +1153,12 @@ class DocumentNormalizer {
       } else if (filePathOrBuffer instanceof Uint8Array) {
         buffer = Buffer.from(filePathOrBuffer);
       } else {
-        return { success: false, data: null, error: 'Document input must be a valid file path or buffer.', code: ErrorCode.INVALID_ARGUMENT };
+        return {
+          success: false,
+          data: null,
+          error: 'Document input must be a valid file path or buffer.',
+          code: ErrorCode.INVALID_ARGUMENT
+        };
       }
 
       if (!buffer || buffer.length === 0) {
@@ -1143,11 +1226,7 @@ class DocumentNormalizer {
         };
       }
 
-      const scaled = this.computeAdaptiveDimensions(
-        meta.width || 1200,
-        meta.height || 1600,
-        blurResult.detailTier
-      );
+      const scaled = this.computeAdaptiveDimensions(meta.width || 1200, meta.height || 1600, blurResult.detailTier);
 
       const samples = this._extractLuminanceGrid(buffer, meta);
       const contrastResult = this.assessAndEnhanceContrast(samples ? samples.grid : []);

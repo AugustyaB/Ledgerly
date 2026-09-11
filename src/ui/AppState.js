@@ -10,13 +10,11 @@
  * Dependencies: src/types.js
  */
 
-
 // ============================================================================
 //  AppState Class
 // ============================================================================
 
 export class AppState {
-
   /**
    * Private internal state dictionary.
    * @type {Record<string, any>}
@@ -36,7 +34,6 @@ export class AppState {
   #undoStack = [];
 
   static MAX_UNDO_STACK_SIZE = 10;
-
 
   // ==========================================================================
   //  Constructor & Initial State Baseline
@@ -119,7 +116,6 @@ export class AppState {
     };
   }
 
-
   // ==========================================================================
   //  State Access & Mutation (Encapsulated)
   // ==========================================================================
@@ -134,7 +130,6 @@ export class AppState {
     return this.#state[key];
   }
 
-
   /**
    * Sets the value of a state property and notifies registered subscribers.
    *
@@ -147,7 +142,6 @@ export class AppState {
     this.#state[key] = value;
     this.#notify(key, value, oldValue);
   }
-
 
   /**
    * Applies multiple state updates in a single batch call.
@@ -165,7 +159,6 @@ export class AppState {
     }
   }
 
-
   /**
    * Returns a snapshot object of the current state for rendering or debugging.
    *
@@ -174,7 +167,6 @@ export class AppState {
   snapshot() {
     return { ...this.#state };
   }
-
 
   // ==========================================================================
   //  Reactive Subscriptions (Observer Pattern)
@@ -208,7 +200,6 @@ export class AppState {
     };
   }
 
-
   /**
    * Internal dispatcher that invokes all registered listener callbacks for a key.
    *
@@ -229,7 +220,6 @@ export class AppState {
       }
     }
   }
-
 
   // ==========================================================================
   //  Action History & Undo Stack (Phase 7)
@@ -293,4 +283,3 @@ export class AppState {
     return this.#undoStack.length;
   }
 }
-

@@ -13,7 +13,6 @@ import { formatCurrency } from './formatters.js';
 
 let toastActionTimer = null;
 
-
 // ============================================================================
 //  Toast Notification Display
 // ============================================================================
@@ -61,9 +60,8 @@ export function showActionToast({
   }
 
   if (mainMsgEl) {
-    mainMsgEl.textContent = (amount !== null && !isNaN(amount))
-      ? `${title} • ${formatCurrency(parseFloat(amount))}`
-      : title;
+    mainMsgEl.textContent =
+      amount !== null && !isNaN(amount) ? `${title} • ${formatCurrency(parseFloat(amount))}` : title;
   }
 
   if (subMsgEl) {
@@ -77,7 +75,6 @@ export function showActionToast({
     container.classList.add('hidden');
   }, duration);
 }
-
 
 /**
  * Displays a simple, informative toast notification.

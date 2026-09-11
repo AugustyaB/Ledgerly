@@ -2,12 +2,12 @@
  * ============================================================================
  * Ledgerly — Zero-Dependency Runtime Schema Validator (Phase 5)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * High-performance, zero-dependency schema validation engine for all IPC boundaries
  * and domain entities. Enforces boundary contracts matching JSDoc types in
  * `src/types.js` and constants in `src/constants.js`.
- * 
+ *
  * DESIGN PRINCIPLES:
  * - 100% offline & self-contained: No bulky external validation libraries (zod, joi).
  * - Comprehensive negative validation: guards against injection, type confusion,
@@ -18,12 +18,7 @@
 
 'use strict';
 
-const {
-  ErrorCode,
-  VALIDATION_LIMITS,
-  NoteRelation,
-  BillFrequency
-} = require('../constants');
+const { ErrorCode, VALIDATION_LIMITS, NoteRelation, BillFrequency } = require('../constants');
 
 // ============================================================================
 // 1. Primitive & Sanitization Helpers
@@ -61,7 +56,9 @@ function validateId(id, fieldName = 'ID') {
   } else if (strId.length > VALIDATION_LIMITS.MAX_ID_LENGTH) {
     errors.push(`${fieldName} exceeds maximum length of ${VALIDATION_LIMITS.MAX_ID_LENGTH} characters.`);
   } else if (!/^[a-zA-Z0-9_\-.:]+$/.test(strId)) {
-    errors.push(`${fieldName} contains invalid characters. Only alphanumeric, dashes, dots, colons, and underscores are permitted.`);
+    errors.push(
+      `${fieldName} contains invalid characters. Only alphanumeric, dashes, dots, colons, and underscores are permitted.`
+    );
   }
   return { valid: errors.length === 0, errors };
 }
@@ -83,11 +80,7 @@ function isValidCalendarDate(dateStr) {
   if (m < 1 || m > 12 || d < 1 || d > 31) return false;
 
   const testDate = new Date(y, m - 1, d);
-  return (
-    testDate.getFullYear() === y &&
-    testDate.getMonth() === m - 1 &&
-    testDate.getDate() === d
-  );
+  return testDate.getFullYear() === y && testDate.getMonth() === m - 1 && testDate.getDate() === d;
 }
 
 // ============================================================================
@@ -96,7 +89,7 @@ function isValidCalendarDate(dateStr) {
 
 /**
  * Validates an expense entry payload.
- * 
+ *
  * @param {any} expense - Raw expense input.
  * @param {boolean} [isUpdate=false] - Whether this is an update mutation.
  * @returns {import('../types').ValidationResult}
@@ -199,7 +192,9 @@ function validateExpenseInput(expense, isUpdate = false) {
   if (expense.tags !== undefined && expense.tags !== null) {
     const tagsArr = Array.isArray(expense.tags)
       ? expense.tags
-      : (typeof expense.tags === 'string' ? expense.tags.split(',') : null);
+      : typeof expense.tags === 'string'
+        ? expense.tags.split(',')
+        : null;
 
     if (!tagsArr) {
       errors.push('Tags must be an array of strings or comma-separated string.');
@@ -222,7 +217,9 @@ function validateExpenseInput(expense, isUpdate = false) {
     if (typeof expense.description !== 'string') {
       errors.push('Expense description must be a string.');
     } else if (expense.description.length > VALIDATION_LIMITS.MAX_DESCRIPTION_LENGTH) {
-      errors.push(`Expense description exceeds maximum length of ${VALIDATION_LIMITS.MAX_DESCRIPTION_LENGTH} characters.`);
+      errors.push(
+        `Expense description exceeds maximum length of ${VALIDATION_LIMITS.MAX_DESCRIPTION_LENGTH} characters.`
+      );
     }
   }
 
@@ -240,7 +237,7 @@ function validateExpenseInput(expense, isUpdate = false) {
 
 /**
  * Validates a user profile payload.
- * 
+ *
  * @param {any} profile - Profile input data.
  * @param {boolean} [isUpdate=false] - Whether this is an update mutation.
  * @returns {import('../types').ValidationResult}
@@ -278,7 +275,7 @@ function validateProfileInput(profile, isUpdate = false) {
 
 /**
  * Validates salary and budget allocator configuration.
- * 
+ *
  * @param {any} config - Budget configuration object.
  * @returns {import('../types').ValidationResult}
  */
@@ -343,7 +340,7 @@ function validateBudgetConfig(config) {
 
 /**
  * Validates a household member name.
- * 
+ *
  * @param {any} name - Household member name.
  * @returns {import('../types').ValidationResult}
  */
@@ -363,7 +360,7 @@ function validateHouseholdMember(name) {
 
 /**
  * Validates a debt settlement reimbursement entry.
- * 
+ *
  * @param {any} data - Settlement data payload.
  * @returns {import('../types').ValidationResult}
  */
@@ -413,7 +410,7 @@ function validateSettlement(data) {
 
 /**
  * Validates a contextual note entry.
- * 
+ *
  * @param {any} note - Note payload.
  * @param {boolean} [isUpdate=false] - Whether this is an update mutation.
  * @returns {import('../types').ValidationResult}
@@ -461,7 +458,7 @@ function validateNoteInput(note, isUpdate = false) {
 
 /**
  * Validates a recurring utility bill payload.
- * 
+ *
  * @param {any} bill - Recurring bill payload.
  * @param {boolean} [isUpdate=false] - Whether this is an update mutation.
  * @returns {import('../types').ValidationResult}
@@ -515,7 +512,7 @@ function validateRecurringBill(bill, isUpdate = false) {
 
 /**
  * Validates a category name.
- * 
+ *
  * @param {any} categoryName
  * @returns {import('../types').ValidationResult}
  */
@@ -533,7 +530,7 @@ function validateCategoryName(categoryName) {
 
 /**
  * Validates a quick-entry preset payload.
- * 
+ *
  * @param {any} preset - Preset payload.
  * @param {boolean} [isUpdate=false] - Whether this is an update mutation.
  * @returns {import('../types').ValidationResult}
@@ -580,7 +577,7 @@ function validatePresetInput(preset, isUpdate = false) {
 
 /**
  * Validates a monthly budget goal amount.
- * 
+ *
  * @param {any} amount - Target budget amount.
  * @returns {import('../types').ValidationResult}
  */
@@ -597,7 +594,7 @@ function validateBudgetGoal(amount) {
 
 /**
  * Validates workspace mode selection.
- * 
+ *
  * @param {any} mode - Workspace mode ('solo' or 'household').
  * @returns {import('../types').ValidationResult}
  */
@@ -611,7 +608,7 @@ function validateWorkspaceMode(mode) {
 
 /**
  * Validates document normalizer input parameters (Phase 0.5.2).
- * 
+ *
  * @param {any} input - Target file path string or Buffer.
  * @param {any} [options] - Normalization options.
  * @returns {import('../types').ValidationResult}
@@ -645,14 +642,19 @@ function validateDocumentNormalizeInput(input, options) {
 
 /**
  * Validates receipt document scan input parameters (Phase 0.5.3).
- * 
+ *
  * @param {any} input - Target file path string, Buffer, or normalized document.
  * @param {any} [options] - Scan options.
  * @returns {import('../types').ValidationResult}
  */
 function validateReceiptScanInput(input, options) {
   const errors = [];
-  if (typeof input !== 'string' && !Buffer.isBuffer(input) && !(input instanceof Uint8Array) && (typeof input !== 'object' || input === null)) {
+  if (
+    typeof input !== 'string' &&
+    !Buffer.isBuffer(input) &&
+    !(input instanceof Uint8Array) &&
+    (typeof input !== 'object' || input === null)
+  ) {
     errors.push('Receipt scan input must be a valid file path string, Buffer, or normalized document object.');
   } else if (typeof input === 'string' && !input.trim()) {
     errors.push('Receipt scan file path cannot be an empty string.');
@@ -663,7 +665,21 @@ function validateReceiptScanInput(input, options) {
       errors.push('Options must be a plain object.');
     } else {
       const targetEngine = options.engine || options.preferredEngine;
-      const ALLOWED_ENGINES = ['tier1-fastlite', 'tier2-visionpro', 'tier3-regional-in', 'auto'];
+      const ALLOWED_ENGINES = [
+        'tier1-fastlite',
+        'tier2-visionpro',
+        'tier2-vision-precision',
+        'tier2-vision-degraded',
+        'tier2-vision-handwritten',
+        'tier2-vision-multilingual',
+        'tier2',
+        'tier3-regional-in',
+        'tier3-regional-us',
+        'tier3-regional-eu',
+        'tier3-regional-apac',
+        'tier3',
+        'auto'
+      ];
       if (targetEngine !== undefined && targetEngine !== null && !ALLOWED_ENGINES.includes(targetEngine)) {
         errors.push(`Invalid engine "${targetEngine}". Must be one of: ${ALLOWED_ENGINES.join(', ')}.`);
       }
@@ -675,14 +691,25 @@ function validateReceiptScanInput(input, options) {
 
 /**
  * Validates model management actions (download, cancel, delete, setActive, verify).
- * 
+ *
  * @param {any} input - Model ID string or action payload object.
  * @param {any} [options] - Additional action options.
  * @returns {import('../types').ValidationResult}
  */
 function validateModelActionInput(input, options) {
   const errors = [];
-  const ALLOWED_MODEL_IDS = ['tier1-fastlite', 'tier2-visionpro', 'tier3-regional-in'];
+  const ALLOWED_MODEL_IDS = [
+    'tier1-fastlite',
+    'tier2-visionpro',
+    'tier2-vision-precision',
+    'tier2-vision-degraded',
+    'tier2-vision-handwritten',
+    'tier2-vision-multilingual',
+    'tier3-regional-in',
+    'tier3-regional-us',
+    'tier3-regional-eu',
+    'tier3-regional-apac'
+  ];
   const ALLOWED_ACTIONS = ['download', 'cancel', 'delete', 'setActive', 'verify'];
 
   let modelId;
@@ -720,7 +747,7 @@ function validateModelActionInput(input, options) {
 
 /**
  * Creates a standardized success response envelope.
- * 
+ *
  * @template T
  * @param {T} data - The payload to wrap.
  * @param {Record<string, any>} [extras={}] - Additional metadata fields to merge for backward compat.
@@ -746,7 +773,7 @@ function formatSuccess(data, extras = {}) {
 
 /**
  * Creates a standardized failure response envelope.
- * 
+ *
  * @param {string} code - Machine-readable error code (e.g. INVALID_ARGUMENT).
  * @param {string} message - Human-readable error message.
  * @param {any} [details=null] - Detailed error violation list or diagnostic info.

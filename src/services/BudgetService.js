@@ -2,11 +2,11 @@
  * ============================================================================
  * Ledgerly — BudgetService (Salary Allocator & Payday Cycle Pacing Engine)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Domain service managing personal budget allocations, salary cycle schedules,
  * payday shift projections, and real-time daily spending pace metrics.
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Single Responsibility: Manages income allocation, pay cycles, and pacing health.
  * - Encapsulation: Insulates cycle date math, pacing statuses, and discretionary calculations.
@@ -23,7 +23,7 @@
 class BudgetService {
   /**
    * Initializes the BudgetService with injected database and profile services.
-   * 
+   *
    * @param {import('./JsonDatabase')} db - The database persistence service.
    * @param {import('./ProfileService')} profileService - The profile management service.
    */
@@ -46,7 +46,7 @@ class BudgetService {
   /**
    * Retrieves the active profile's salary configuration.
    * Falls back to default salary configuration if not explicitly set.
-   * 
+   *
    * @returns {import('../types').SalaryConfig} Active salary configuration.
    */
   getSalaryConfig() {
@@ -56,7 +56,7 @@ class BudgetService {
 
   /**
    * Updates salary allocation parameters and synchronizes the discretionary budget goal.
-   * 
+   *
    * @param {Partial<import('../types').SalaryConfig>} config - New salary parameters.
    * @returns {import('../types').OperationResult & { salaryConfig: import('../types').SalaryConfig, budgetGoal: number }}
    */
@@ -97,7 +97,7 @@ class BudgetService {
 
   /**
    * Sets a manual discretionary budget goal for the active profile.
-   * 
+   *
    * @param {number|string} amount - Target budget amount.
    * @returns {import('../types').OperationResult & { budgetGoal: number }}
    */
@@ -119,7 +119,7 @@ class BudgetService {
   /**
    * Computes the boundaries and duration metrics for the active salary cycle.
    * Handles custom start overrides, payday delays, and early pay advances.
-   * 
+   *
    * @param {import('../types').SalaryConfig} [salaryConfig] - Optional salary config (defaults to active).
    * @param {string|null} [targetDateStr=null] - Reference date for calculation (YYYY-MM-DD).
    * @returns {{
@@ -171,7 +171,7 @@ class BudgetService {
     const daysElapsed = Math.max(1, Math.min(totalDaysInCycle, Math.round((now - cycleStart) / msPerDay) + 1));
     const remainingDays = Math.max(1, totalDaysInCycle - daysElapsed + 1);
 
-    const formatLocal = (d) => {
+    const formatLocal = d => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
@@ -203,7 +203,7 @@ class BudgetService {
 
   /**
    * Calculates real-time daily spending pace, rollover balances, and safe spending limits.
-   * 
+   *
    * @param {string} [targetDateStr=null] - Date to compute metrics for (YYYY-MM-DD). Defaults to today.
    * @returns {import('../types').DailyBudgetMetrics} Full pacing analysis metrics.
    */
@@ -213,14 +213,14 @@ class BudgetService {
     const discretionaryBudget = Math.max(0, salary.monthlyIncome - salary.fixedBills - salary.savingsGoal);
 
     const cycle = this.getSalaryCycleDates(salary, targetDateStr);
-    const dailyAllowance = cycle.totalDaysInCycle > 0 ? (discretionaryBudget / cycle.totalDaysInCycle) : 0;
+    const dailyAllowance = cycle.totalDaysInCycle > 0 ? discretionaryBudget / cycle.totalDaysInCycle : 0;
 
     const now = targetDateStr ? new Date(targetDateStr) : new Date();
     const todayStr = targetDateStr || now.toISOString().split('T')[0];
 
     // Filter non-fixed variable expenses within the active pay cycle
-    const cycleExpenses = (data.expenses || []).filter(e =>
-      e.date && e.date >= cycle.cycleStartDate && e.date < cycle.nextPaydayDate
+    const cycleExpenses = (data.expenses || []).filter(
+      e => e.date && e.date >= cycle.cycleStartDate && e.date < cycle.nextPaydayDate
     );
     const spentCycleToDate = cycleExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
     const todayExpenses = cycleExpenses.filter(e => e.date === todayStr);

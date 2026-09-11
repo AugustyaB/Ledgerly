@@ -2,11 +2,11 @@
  * ============================================================================
  * Ledgerly — System Constants, Enums & Configuration Defaults
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Single source of truth for immutable enumeration values, default thresholds,
  * file format constraints, and domain mappings used across Ledgerly.
- * 
+ *
  * DESIGN PRINCIPLES:
  * - All exported objects are deeply frozen (Object.freeze) to guarantee runtime immutability.
  * - Eliminates duplicate magic strings and scattered literal numbers across files.
@@ -125,28 +125,14 @@ const NotificationType = Object.freeze({
  * @readonly
  * @type {string[]}
  */
-const ALLOWED_RECEIPT_EXTENSIONS = Object.freeze([
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.webp',
-  '.gif'
-]);
+const ALLOWED_RECEIPT_EXTENSIONS = Object.freeze(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 
 /**
  * Whitelist of financial file formats accepted by the Universal File Importer.
  * @readonly
  * @type {string[]}
  */
-const ALLOWED_IMPORT_EXTENSIONS = Object.freeze([
-  '.csv',
-  '.xls',
-  '.xlsx',
-  '.ofx',
-  '.qfx',
-  '.json',
-  '.pdf'
-]);
+const ALLOWED_IMPORT_EXTENSIONS = Object.freeze(['.csv', '.xls', '.xlsx', '.ofx', '.qfx', '.json', '.pdf']);
 
 // ============================================================================
 // 6. Security, Cryptography & Engine Defaults

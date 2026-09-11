@@ -2,12 +2,12 @@
  * ============================================================================
  * Ledgerly — ProfileService (Multi-User Profile Management Service)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Domain service managing the multi-user profile workspace layer.
  * Ledgerly isolates transactions, categories, presets, and budget configurations
  * by user profile (e.g. "Personal", "Business", "Family").
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Single Responsibility: Manages profile lifecycles, active profile switching,
  *   and profile-scoped data partition access.
@@ -29,7 +29,7 @@ const { DEFAULT_CATEGORIES, DEFAULTS } = require('../constants');
 class ProfileService {
   /**
    * Initializes the ProfileService with an injected database instance.
-   * 
+   *
    * @param {import('./JsonDatabase')} db - Database persistence service.
    */
   constructor(db) {
@@ -48,7 +48,7 @@ class ProfileService {
   /**
    * Retrieves the full data partition object for the currently active profile.
    * Auto-repairs missing arrays or fields to prevent runtime exceptions.
-   * 
+   *
    * @returns {import('../types').ProfileData} Active profile's encapsulated data object.
    */
   getActiveData() {
@@ -95,7 +95,7 @@ class ProfileService {
 
   /**
    * Persists updated data partition for the currently active profile.
-   * 
+   *
    * @param {import('../types').ProfileData} data - The modified profile data.
    * @returns {import('../types').OperationResult}
    */
@@ -118,7 +118,7 @@ class ProfileService {
 
   /**
    * Retrieves summary descriptors for all profiles in the system.
-   * 
+   *
    * @returns {import('../types').ProfileSummary[]} List of profiles.
    */
   getAll() {
@@ -136,7 +136,7 @@ class ProfileService {
 
   /**
    * Retrieves the summary descriptor for the currently active profile.
-   * 
+   *
    * @returns {import('../types').ProfileSummary} Active profile summary.
    */
   getActive() {
@@ -156,7 +156,7 @@ class ProfileService {
 
   /**
    * Switches the active workspace profile.
-   * 
+   *
    * @param {string} profileId - Target profile ID.
    * @returns {import('../types').OperationResult & { activeProfile?: import('../types').ProfileSummary }}
    */
@@ -187,7 +187,7 @@ class ProfileService {
 
   /**
    * Creates a new profile with a clean slate (0 expenses) and baseline configurations.
-   * 
+   *
    * @param {{ name: string, avatar?: string, color?: string }} input - New profile properties.
    * @returns {import('../types').OperationResult & { profile?: import('../types').ProfileSummary, activeProfile?: import('../types').ProfileSummary }}
    */
@@ -233,7 +233,7 @@ class ProfileService {
 
   /**
    * Updates an existing profile's name, avatar, or accent color.
-   * 
+   *
    * @param {{ id: string, name?: string, avatar?: string, color?: string }} input - Updated fields.
    * @returns {import('../types').OperationResult & { profile?: import('../types').ProfileSummary }}
    */
@@ -277,7 +277,7 @@ class ProfileService {
 
   /**
    * Deletes a profile by ID. Prevents deletion if only one profile remains.
-   * 
+   *
    * @param {string} profileId - ID of profile to delete.
    * @returns {import('../types').OperationResult & { activeProfile?: import('../types').ProfileSummary }}
    */
@@ -312,7 +312,7 @@ class ProfileService {
 
   /**
    * Aggregates expenses across all profiles, annotating each record with profile identity.
-   * 
+   *
    * @returns {Array<import('../types').Expense & { profileId: string, profileName: string, profileAvatar: string }>}
    */
   getCombinedExpenses() {
@@ -341,7 +341,7 @@ class ProfileService {
 
   /**
    * Retrieves category keywords trained for the active profile.
-   * 
+   *
    * @returns {Record<string, string>} Keyword -> Category mapping.
    */
   getCategoryKeywords() {
@@ -351,7 +351,7 @@ class ProfileService {
 
   /**
    * Associates a keyword with an expense category for natural language parsing.
-   * 
+   *
    * @param {string} keyword - Search term or merchant name.
    * @param {string} category - Target category to predict.
    * @returns {import('../types').OperationResult & { categoryKeywords?: Record<string, string> }}
@@ -381,7 +381,7 @@ class ProfileService {
 
   /**
    * Baseline category list.
-   * 
+   *
    * @returns {string[]} Default categories.
    */
   getDefaultCategories() {
@@ -390,22 +390,57 @@ class ProfileService {
 
   /**
    * Baseline quick-log presets.
-   * 
+   *
    * @returns {import('../types').ExpensePreset[]} Default presets.
    */
   getDefaultPresets() {
     return [
-      { id: 'pst-1', icon: 'coffee', title: 'Chai / Coffee', amount: 20.00, category: 'Food & Dining', paymentMethod: 'UPI / GPay' },
-      { id: 'pst-2', icon: 'utensils', title: 'Lunch / Snacks', amount: 120.00, category: 'Food & Dining', paymentMethod: 'UPI / GPay' },
-      { id: 'pst-3', icon: 'fuel', title: 'Petrol / Fuel', amount: 300.00, category: 'Transportation', paymentMethod: 'UPI / GPay' },
-      { id: 'pst-4', icon: 'car', title: 'Auto / Cab / Metro', amount: 80.00, category: 'Transportation', paymentMethod: 'UPI / GPay' },
-      { id: 'pst-5', icon: 'shopping-cart', title: 'Groceries & Kirana', amount: 450.00, category: 'Food & Dining', paymentMethod: 'UPI / GPay' }
+      {
+        id: 'pst-1',
+        icon: 'coffee',
+        title: 'Chai / Coffee',
+        amount: 20.0,
+        category: 'Food & Dining',
+        paymentMethod: 'UPI / GPay'
+      },
+      {
+        id: 'pst-2',
+        icon: 'utensils',
+        title: 'Lunch / Snacks',
+        amount: 120.0,
+        category: 'Food & Dining',
+        paymentMethod: 'UPI / GPay'
+      },
+      {
+        id: 'pst-3',
+        icon: 'fuel',
+        title: 'Petrol / Fuel',
+        amount: 300.0,
+        category: 'Transportation',
+        paymentMethod: 'UPI / GPay'
+      },
+      {
+        id: 'pst-4',
+        icon: 'car',
+        title: 'Auto / Cab / Metro',
+        amount: 80.0,
+        category: 'Transportation',
+        paymentMethod: 'UPI / GPay'
+      },
+      {
+        id: 'pst-5',
+        icon: 'shopping-cart',
+        title: 'Groceries & Kirana',
+        amount: 450.0,
+        category: 'Food & Dining',
+        paymentMethod: 'UPI / GPay'
+      }
     ];
   }
 
   /**
    * Baseline salary configuration.
-   * 
+   *
    * @returns {import('../types').SalaryConfig} Default salary config.
    */
   getDefaultSalaryConfig() {
@@ -422,7 +457,7 @@ class ProfileService {
 
   /**
    * Constructs a pristine data object for a new profile.
-   * 
+   *
    * @returns {import('../types').ProfileData} Empty profile data container.
    */
   createEmptyProfileData() {
@@ -432,7 +467,10 @@ class ProfileService {
       presets: this.getDefaultPresets(),
       salaryConfig: this.getDefaultSalaryConfig(),
       householdMembers: ['Self', 'Partner', 'Roommate'],
-      budgetGoal: Math.max(0, DEFAULTS.DEFAULT_MONTHLY_INCOME - DEFAULTS.DEFAULT_FIXED_BILLS - DEFAULTS.DEFAULT_SAVINGS_GOAL),
+      budgetGoal: Math.max(
+        0,
+        DEFAULTS.DEFAULT_MONTHLY_INCOME - DEFAULTS.DEFAULT_FIXED_BILLS - DEFAULTS.DEFAULT_SAVINGS_GOAL
+      ),
       notes: [],
       notifications: []
     };

@@ -1,7 +1,7 @@
 # 💳 Ledgerly
 
 > **A friction-free, 100% offline desktop application for daily budget tracking and shared household spending.**  
-> **Current Version**: `v0.5.4` (Phase 4 of `v0.5` completed) — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine* (succeeding `v0.4.7`)
+> **Current Version**: `v0.5.9` (Version 0.5 Milestone Completed) — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine* (succeeding `v0.4.7`)
 
 Built to eliminate the "data entry chore" of traditional finance apps. No cloud accounts, no complex setup, no internet required. Open the app, log your expense, close it — done in under 5 seconds.
 
@@ -11,9 +11,39 @@ Built to eliminate the "data entry chore" of traditional finance apps. No cloud 
 
 In **Version 0.5**, Ledgerly introduces local, zero-cloud machine learning document intelligence:
 
+- **🚀 Subsystem Integration, Stress Testing & Production Packaging (v0.5.9)**:
+  - **Full Cross-Tier Interoperability**: Seamless integration of DocumentNormalizer, Tier 1 Fast-Lite, Tier 2 Vision Multi-Models, Tier 3 Regional Specialists, ModelManager, SmartDocumentAnalyzer, and ExpenseService.
+  - **Windows Production Distribution**: Packaged via `electron-builder --win` into NSIS installer (`dist/Ledgerly Setup 0.5.9.exe`) and zero-install portable executable (`dist/Ledgerly 0.5.9.exe`). Bundled with offline Tesseract WASM engine (`5.19MB`) for zero-internet scanning out of the box.
+  - **High-Throughput Concurrency & Chaos Hardening**: Verified against 35 concurrent scan operations, 0-byte files, corrupt headers, and negative control documents (0% false positives).
+- **👁️ Tier 2 Vision-Pro Multi-Model Architecture (`src/services/ReceiptTier2VisionEngine.js`) (v0.5.8)**:
+  - **4 Specialized Visual Models**:
+    - **Visual Precision (`tier2-vision-precision`)**: 6pt–8pt microtext, arithmetic constraint inpainting (`Subtotal + Tax - Discount == Total`), clipped digit recovery (e.g. `2_.46` -> `26.46`), anti-trap filtering ("Change Due" vs "Cash Tendered", promotional "You Saved", zero totals, Swedish cash rounding), and negative return/refund detection.
+    - **Physically Degraded Paper (`tier2-vision-degraded`)**: Fold/crease repair (`T O T A L`, `S U B T O T A L`), thermal POS bleach recovery (faded decimal point restoration), and rubber stamp layer separation (`PAID`, `CANCELLED`, official seals) leaving transaction items intact.
+    - **Handwritten Chits & Hybrid Bills (`tier2-vision-handwritten`)**: HTR engine for informal market slips and voucher numbers, numeral ambiguity resolution (`0/6/8`, `1/7`, slashed zeros `Ø`), and pen resting tap dot filtering.
+    - **Multilingual Travel & Non-Latin Glyphs (`tier2-vision-multilingual`)**: Dynamic Currency Conversion (DCC) dual-currency extraction (Transaction Currency vs Home Charged Currency + FX rate), Japanese Kanji receipts (`¥`, `合計`), Eastern Arabic numerals (`[٠-٩]`), Devanagari numerals (`[०-९]`), and Cyrillic documents.
+    - **Balanced Baseline (`tier2-visionpro`)**: Deep tabular matrix reconstruction, multi-line item description grouping, and running balance cross-reconciliation.
+  - **Intelligent Auto-Escalation**: Tier 1 engine inspects OCR confidence markers and dynamically recommends re-scanning with the optimal Tier 2 specialist model.
+- **🌍 Tier 3 Regional Specialist Models Architecture (`src/services/ReceiptTier3RegionalEngine.js`, `src/services/RegionalIntelligenceRegistry.js`) (v0.5.7)**:
+  - **4 Major Regional Models**: India (`tier3-regional-in`), North America (`tier3-regional-us`), Europe & UK (`tier3-regional-eu`), Australia & Japan (`tier3-regional-apac`).
+  - **Statutory Taxes & Checksums**: Australian ATO Mod-89 ABN validation, IRS 9-digit EIN verification, European VIES VAT IDs & multi-rate taxes, and Japan Qualified Invoice 13-digit T-Numbers & 8%/10% tax breakdown.
+  - **Local Payment Rails**: UPI (PhonePe, GPay, Paytm), Apple Pay DAN, Venmo, Cash App, Zelle, BPAY, PayID, PayPay, IC cards (Suica/Pasmo).
+  - **Regional Utility Bills**: Automated parsing for ConEd, BESCOM, British Gas, EnergyAustralia (accounts, meter units, and kWh consumption).
+  - **Monetary & Date Disambiguation**: Cultural disambiguation for comma/period decimals and MM/DD vs DD/MM date formats.
+  - **Settings Hub Filtering & Dynamic Chips**: Category filter tabs in Settings (`All`, `India`, `US/Canada`, `Europe/UK`, `Australia/Japan`, `Tier 2 Vision`) and dynamic statutory badges in the review cockpit.
+- **🧾 Ingestion Workflow & Scanned Bill Review Cockpit (`src/ui/views/ImportView.js`) (v0.5.6)**:
+  - **First-Class Ingestion Workspace**: Modern workspace tab with segmented toggle for `[ 🧾 Scanned Bills & Receipts ]` vs `[ 📊 Bank Statements ]`, multi-file intake dropzone, and live queue status counters.
+  - **Smart Document Analyzer (<1ms In-Memory Classifier)**: Distinguishes between single multi-page invoices (`invoice`), batch receipt scans (`multiple-bills`), and bank statements (`statement`) via post-scan page semantics instead of brittle filenames.
+  - **Interactive 3-Way Re-Classification**: Segmented pill in the review cockpit enables 1-click user re-classification with instant toast notifications.
+  - **Auto-Approval Middle Ground**: Instantly auto-approves clean, high-confidence extractions (`>=94%`, `<=3` items, reconciled totals, non-generic merchant, no pending UPI prompt, no duplicate within ±2 days) for 1-click batch insertion, while routing dense bills or ambiguities to `needs-review`.
+  - **Side-by-Side Review Cockpit**: Responsive 3-pane layout with queue list, hardware-accelerated interactive document viewer (CSS transform zoom, pan, 90° CW/CCW rotation, pagination), and dense bill editable line-items table with live arithmetic recalculation (`Qty * Unit Price == Amount`) and 1-click `Sync Total` reconciliation.
+  - **Receipt Metadata Persistence**: Stores `receiptFilename` and rich `metadata` (`lineItems`, `gstin`, `cgst`, `sgst`, `igst`, `state`, `utr`, `reconciled`, `smartAnalysis`) directly in the database.
+- **⚡ Multi-Engine Runtime & Table Layout Parsing (`src/services/DocumentIntelligenceService.js`) (v0.5.5)**:
+  - **Dynamic Model Routing & Fallback**: Automatically dispatches tasks to Tier 1 Fast-Lite, Tier 2 Vision-Pro, or Tier 3 Regional India Specialist with seamless fallback to Tier 1 and user toast notifications if weights are missing.
+  - **Tier 2 Deep Table Itemization**: Multi-column grid detection, multi-line item description reconstruction, running arithmetic cross-checks, and Option A itemized description strings.
+  - **Tier 3 Regional India Specialist**: Statutory 15-character GSTIN decoding, state codes, multi-slab tax decomposition, and UPI digital screenshot extraction (PhonePe, GPay, Paytm) with dedicated payment method selection and purpose prompts.
 - **🤖 Three-Tier Capability Categories**:
   - **Tier 1 (Fast-Lite, Bundled)**: Lightweight quantized OCR + reverse bottom-to-top token attention (~32.5MB target footprint, sub-second latency). Pre-packaged directly inside the base installer with bundled Tesseract WASM traineddata (`5.19MB`) for immediate out-of-the-box scanning with zero internet.
-  - **Tier 2 (Vision-Pro, On-Demand)**: Deep Document Understanding Transformer (Donut / Florence-2, ~195MB) for complex itemized tables and degraded mobile photos, downloadable via Settings Hub.
+  - **Tier 2 (Vision-Pro, On-Demand)**: Deep Document Understanding Transformer & Visual Specialists (4 specialized models: `tier2-vision-precision`, `tier2-vision-degraded`, `tier2-vision-handwritten`, `tier2-vision-multilingual`, plus balanced `tier2-visionpro`, ~185–220MB) for microtext inpainting, physically degraded folds, cursive handwriting, and international travel DCC, downloadable via Settings Hub.
   - **Tier 3 (Regional Specialist, On-Demand)**: Domain-specialized regional models starting with India (GSTIN, HSN, CGST/SGST, UPI payment slips from Paytm, PhonePe, and Google Pay).
 - **🛡️ Negative Control Rejection Gate (0% False Positives)**: Accurately recognizes non-financial images (landscapes, book pages, meeting notes, code) and rejects them with a clean notice, guaranteeing 0% hallucination of amounts.
 - **📦 Handy-Style Model Manager & Downloader Engine (`src/services/ModelManager.js`) (v0.5.4)**:
@@ -136,15 +166,18 @@ For full architectural diagrams and lifecycle sequences, see [`FLOW.md`](FLOW.md
 | ↳ **v0.4.5** (Phase 5) | IPC Runtime Schema Validation Layer & Error Contracts | ✅ Complete |
 | ↳ **v0.4.6** (Phase 6) | Global UI Error Boundaries, Crash Traps & Audit Defect Remediation | ✅ Complete |
 | ↳ **v0.4.7** (Phase 7) | Enterprise Resilience, Startup DB Integrity & Offline Conflict Engine | ✅ Complete |
-| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Engine** | 🔄 **In Progress (v0.5.5 Complete)** |
+| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Engine** | 🔄 **In Progress (v0.5.6 Complete)** |
 | ↳ **v0.5.1** (Phase 1) | Dataset Sourcing, Multi-Tier Benchmarking & Negative Rejection Gate | ✅ Complete |
 | ↳ **v0.5.2** (Phase 2) | Image Normalization & Document Preprocessing Engine | ✅ Complete |
 | ↳ **v0.5.3** (Phase 3) | Tier 1 Fast-Lite Bundled Engine & Instant Receipt Autofill | ✅ Complete |
 | ↳ **v0.5.4** (Phase 4) | Handy-Style Settings Hub Model Manager & On-Demand Downloader | ✅ Complete |
 | ↳ **v0.5.5** (Phase 5) | Multi-Engine Inference Runtime & Table Layout Parsing | ✅ Complete |
-| ↳ **v0.5.6** (Phase 6) | Ingestion Workflow & Scanned Bill Review Queue UI | 📋 Planned |
-| ↳ **v0.5.7** (Phase 7) | Subsystem Integration, Documentation & Production Packaging | 📋 Planned |
+| ↳ **v0.5.6** (Phase 6) | Ingestion Workflow & Scanned Bill Review Queue UI | ✅ Complete |
+| ↳ **v0.5.7** (Phase 7) | Tier 3 Regional & Domain-Specific Specialist Models | 📋 Planned |
+| ↳ **v0.5.8** (Phase 8) | Tier 2 Vision-Pro Multi-Model Architecture & Visual Understanding | 📋 Planned |
+| ↳ **v0.5.9** (Phase 9) | Subsystem Integration, Documentation & Production Packaging | 📋 Planned |
 | **v0.6+** | Mobile Collector Companion & Local LAN Peer Sync | 🚀 Roadmap |
+| **v0.7+** | Advanced Utility Intelligence (Consumption Tracking, Tariff Optimization & User Privacy Consent Gates) | 🚀 Roadmap |
 | **v1.0.0** | **Official Production Release**: Production-ready deployment for user download | 🎯 Target Release |
 
 ---

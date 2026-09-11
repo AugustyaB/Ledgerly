@@ -84,7 +84,8 @@ export function safeEvaluateMath(expr) {
     if (char === '+' || char === '-' || char === '*' || char === '/' || char === '%') {
       // Check for unary minus
       const prevToken = tokens[tokens.length - 1];
-      const isUnary = (char === '-' || char === '+') &&
+      const isUnary =
+        (char === '-' || char === '+') &&
         (!prevToken || prevToken.type === 'OPERATOR' || prevToken.type === 'UNARY_NEG' || prevToken.type === 'LPAREN');
 
       if (isUnary) {
@@ -95,7 +96,7 @@ export function safeEvaluateMath(expr) {
         continue;
       }
 
-      const precedence = (char === '*' || char === '/' || char === '%') ? 2 : 1;
+      const precedence = char === '*' || char === '/' || char === '%' ? 2 : 1;
       tokens.push({ type: 'OPERATOR', value: char, precedence });
       i++;
       continue;
@@ -128,7 +129,8 @@ export function safeEvaluateMath(expr) {
     } else if (token.type === 'OPERATOR') {
       while (
         operatorStack.length > 0 &&
-        (operatorStack[operatorStack.length - 1].type === 'OPERATOR' || operatorStack[operatorStack.length - 1].type === 'UNARY_NEG') &&
+        (operatorStack[operatorStack.length - 1].type === 'OPERATOR' ||
+          operatorStack[operatorStack.length - 1].type === 'UNARY_NEG') &&
         operatorStack[operatorStack.length - 1].precedence >= token.precedence
       ) {
         outputQueue.push(operatorStack.pop());
@@ -171,9 +173,15 @@ export function safeEvaluateMath(expr) {
       const a = evalStack.pop();
       let res;
       switch (token.value) {
-        case '+': res = a + b; break;
-        case '-': res = a - b; break;
-        case '*': res = a * b; break;
+        case '+':
+          res = a + b;
+          break;
+        case '-':
+          res = a - b;
+          break;
+        case '*':
+          res = a * b;
+          break;
         case '/':
           if (b === 0) return null;
           res = a / b;
@@ -182,7 +190,8 @@ export function safeEvaluateMath(expr) {
           if (b === 0) return null;
           res = a % b;
           break;
-        default: return null;
+        default:
+          return null;
       }
       evalStack.push(res);
     }
@@ -272,7 +281,7 @@ export class CommandPalette {
    * Clean up all event listeners.
    */
   unmount() {
-    this.#cleanups.forEach((cleanup) => {
+    this.#cleanups.forEach(cleanup => {
       try {
         cleanup();
       } catch (err) {
@@ -417,7 +426,7 @@ export class CommandPalette {
       }
     ];
 
-    actions.forEach((a) => {
+    actions.forEach(a => {
       if (!q || a.title.toLowerCase().includes(q)) {
         categorized.actions.push(a);
       }
@@ -459,10 +468,17 @@ export class CommandPalette {
         icon: 'file-text',
         category: 'Workspaces',
         run: () => this.handlers.onNavigateTab?.('notes')
+      },
+      {
+        title: 'Go to Import & Scanned Bill Queue',
+        badge: 'Workspace',
+        icon: 'file-up',
+        category: 'Workspaces',
+        run: () => this.handlers.onNavigateTab?.('import')
       }
     ];
 
-    workspaces.forEach((w) => {
+    workspaces.forEach(w => {
       if (!q || w.title.toLowerCase().includes(q)) {
         categorized.workspaces.push(w);
       }
@@ -470,7 +486,7 @@ export class CommandPalette {
 
     // 3. User Profiles & Household Members
     const profiles = this.state?.get('profiles') || [];
-    profiles.forEach((p) => {
+    profiles.forEach(p => {
       if (!q || p.name.toLowerCase().includes(q)) {
         categorized.members.push({
           title: `Filter Scope: ${p.name}`,
@@ -488,7 +504,7 @@ export class CommandPalette {
       const allHousehold = this.state?.get('allHouseholdExpenses') || [];
       const searchPool = allHousehold.length > 0 ? allHousehold : expenses;
 
-      searchPool.forEach((e) => {
+      searchPool.forEach(e => {
         const titleMatch = e.title?.toLowerCase().includes(q);
         const descMatch = e.description && e.description.toLowerCase().includes(q);
         if (titleMatch || descMatch) {
@@ -506,7 +522,7 @@ export class CommandPalette {
     // 5. Notes & Attachments Search (Phase 7)
     if (q) {
       const notes = this.state?.get('notes') || [];
-      notes.forEach((n) => {
+      notes.forEach(n => {
         const titleMatch = n.title?.toLowerCase().includes(q);
         const contentMatch = n.content && n.content.toLowerCase().includes(q);
         const tagMatch = Array.isArray(n.tags) && n.tags.some(t => t.toLowerCase().includes(q));
@@ -540,10 +556,10 @@ export class CommandPalette {
     let html = '';
     let globalIdx = 0;
 
-    sections.forEach((sec) => {
+    sections.forEach(sec => {
       if (sec.items.length > 0) {
         html += `<div class="palette-section-header">${sec.name}</div>`;
-        sec.items.slice(0, 6).forEach((item) => {
+        sec.items.slice(0, 6).forEach(item => {
           const itemIdx = globalIdx++;
           this.#flatResults.push(item);
           const isSelected = itemIdx === this.#selectedIndex;
@@ -655,8 +671,8 @@ export class CommandPalette {
 
     const input = document.getElementById('command-palette-input');
     if (input) {
-      const inputHandler = (e) => this.filter(e.target.value);
-      const keydownHandler = (e) => this.handleKeydown(e);
+      const inputHandler = e => this.filter(e.target.value);
+      const keydownHandler = e => this.handleKeydown(e);
 
       input.addEventListener('input', inputHandler);
       input.addEventListener('keydown', keydownHandler);
@@ -668,7 +684,7 @@ export class CommandPalette {
     // Close on backdrop click
     const modal = document.getElementById('command-palette-modal');
     if (modal) {
-      const backdropHandler = (e) => {
+      const backdropHandler = e => {
         if (e.target === modal) this.close();
       };
       modal.addEventListener('click', backdropHandler);
@@ -681,7 +697,7 @@ export class CommandPalette {
    * @private
    */
   #bindGlobalShortcut() {
-    const keyHandler = (e) => {
+    const keyHandler = e => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         const modal = document.getElementById('command-palette-modal');

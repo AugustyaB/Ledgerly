@@ -2,11 +2,11 @@
  * ============================================================================
  * Ledgerly — Core Domain Interface Contracts & Type Definitions
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Centralized JSDoc type contracts for the Ledgerly desktop personal finance system.
  * This file contains purely declarative type definitions (no runtime overhead).
- * 
+ *
  * ARCHITECTURAL DESIGN:
  * - Serves as the single source of truth for all data shapes across processes.
  * - Engineered with forward-compatibility: core entities include extensibility
@@ -25,7 +25,7 @@
 /**
  * Standardized mutation response envelope across all services.
  * Allows predictable error propagation and status checking without exceptions.
- * 
+ *
  * @template T
  * @typedef {Object} ServiceResult
  * @property {boolean} success - Whether the operation succeeded.
@@ -76,7 +76,7 @@
  * Represents a single transaction or financial entry.
  * Designed to support one-off expenses, recurring charges, split household debits,
  * and future multi-currency or multi-tax expansions.
- * 
+ *
  * @typedef {Object} Expense
  * @property {string} id - Unique identifier (e.g., "exp-1724000000-abcd").
  * @property {string} title - Primary display title / payee / merchant name.
@@ -90,7 +90,7 @@
  * @property {string} [paidBy] - Payer name or member identifier (default: "Self").
  * @property {string[]} [splitWith] - Household members sharing this expense.
  * @property {boolean} [isHouseholdExpense] - Whether this entry participates in split balances.
- * 
+ *
  * // --- Future Extensibility Slots ---
  * @property {string} [currency] - ISO 4217 currency code (e.g., "INR", "USD", "EUR").
  * @property {number} [exchangeRate] - Conversion multiplier relative to base currency.
@@ -104,7 +104,7 @@
 
 /**
  * Filter criteria for querying the expenses collection.
- * 
+ *
  * @typedef {Object} ExpenseFilters
  * @property {string} [query] - Full-text search term matching title, memo, or category.
  * @property {string} [category] - Filter by specific category or "ALL".
@@ -120,7 +120,7 @@
 
 /**
  * Paginated and sorted expense collection query response.
- * 
+ *
  * @typedef {Object} ExpenseQueryResult
  * @property {Expense[]} expenses - Array of matching expense records.
  * @property {number} totalCount - Total matching records count before pagination.
@@ -131,7 +131,7 @@
 
 /**
  * Preset button configuration for 1-click frequent logging.
- * 
+ *
  * @typedef {Object} ExpensePreset
  * @property {string} id - Unique preset identifier (e.g., "pst-1").
  * @property {string} icon - Lucide icon name (e.g., "coffee", "utensils", "fuel").
@@ -148,7 +148,7 @@
 
 /**
  * Root account authentication credentials and security settings.
- * 
+ *
  * @typedef {Object} AccountCredentials
  * @property {boolean} isConfigured - Whether the master account setup has been completed.
  * @property {string} userId - Master user identifier or email.
@@ -162,7 +162,7 @@
 
 /**
  * Lightweight public profile descriptor for profile pickers and headers.
- * 
+ *
  * @typedef {Object} ProfileSummary
  * @property {string} id - Unique profile ID (e.g., "prof-default").
  * @property {string} name - Profile display name (e.g., "Personal", "Business").
@@ -175,7 +175,7 @@
 
 /**
  * Isolated profile data store encapsulating all financial entries for a profile.
- * 
+ *
  * @typedef {Object} ProfileData
  * @property {Expense[]} expenses - Private expense ledger.
  * @property {string[]} categories - Configured expense categories.
@@ -191,7 +191,7 @@
 
 /**
  * Full profile container entity stored within the root JSON database.
- * 
+ *
  * @typedef {Object} Profile
  * @property {string} id - Unique profile ID.
  * @property {string} name - Display name.
@@ -207,7 +207,7 @@
 
 /**
  * Configuration parameters for the monthly salary allocator.
- * 
+ *
  * @typedef {Object} SalaryConfig
  * @property {number} monthlyIncome - Total anticipated net monthly income.
  * @property {number} fixedBills - Non-negotiable recurring commitments (rent, EMI, loans).
@@ -216,7 +216,7 @@
  * @property {string|null} currentCycleStartDate - Explicit start date override (YYYY-MM-DD).
  * @property {string|null} nextPaydayOverride - Explicit next payday override (YYYY-MM-DD).
  * @property {string} currencySymbol - Base display currency symbol (e.g., "₹", "$", "€").
- * 
+ *
  * // --- Future Extensibility Slots ---
  * @property {'monthly'|'biweekly'|'weekly'} [payFrequency] - Frequency of earnings.
  * @property {Array<{ name: string, target: number, current: number }>} [savingsBuckets] - Goal pots.
@@ -224,7 +224,7 @@
 
 /**
  * Computed daily budget pacing and trajectory metrics for a given date.
- * 
+ *
  * @typedef {Object} DailyBudgetMetrics
  * @property {number} monthlyIncome - Configured base income.
  * @property {number} fixedBills - Configured fixed overheads.
@@ -257,7 +257,7 @@
 
 /**
  * Individual debt resolution stream from debtor to creditor.
- * 
+ *
  * @typedef {Object} PairwiseSettlement
  * @property {string} from - Name of the person who owes money.
  * @property {string} to - Name of the person who should receive money.
@@ -266,7 +266,7 @@
 
 /**
  * Complete household financial balance and pairwise settlement breakdown.
- * 
+ *
  * @typedef {Object} SettlementAnalysis
  * @property {string[]} members - All participating members.
  * @property {number} sharedExpensesCount - Count of shared transactions analyzed.
@@ -281,7 +281,7 @@
 
 /**
  * Permanent record of a completed debt repayment or reimbursement between members.
- * 
+ *
  * @typedef {Object} SettlementRecord
  * @property {string} id - Unique settlement ID (e.g., "stl-1724000000-abcd").
  * @property {string} from - Payer member name.
@@ -296,7 +296,7 @@
 
 /**
  * Scheduled recurring household utility bill definition.
- * 
+ *
  * @typedef {Object} RecurringBill
  * @property {string} id - Unique bill ID (e.g., "rec-1").
  * @property {string} title - Bill title (e.g., "Airtel Fiber Broadband").
@@ -309,7 +309,7 @@
  * @property {string[]} splitWith - Members who share this utility cost.
  * @property {boolean} autoSplit - Whether marking paid automatically creates a shared expense.
  * @property {string|null} lastPaidDate - ISO date of last recorded payment cycle.
- * 
+ *
  * // --- Future Extensibility Slots ---
  * @property {string} [accountNumber] - Provider account or consumer identification number.
  * @property {boolean} [autoPay] - Flag indicating automatic bank debit.
@@ -322,7 +322,7 @@
 
 /**
  * Contextual note attached to a specific dimension of the financial timeline.
- * 
+ *
  * @typedef {Object} Note
  * @property {string} id - Unique note ID (e.g., "note-1724000000-abcd").
  * @property {string} content - Markdown or plain-text note body.
@@ -330,7 +330,7 @@
  * @property {string} relationId - Foreign key (Expense ID, YYYY-MM-DD, YYYY-Www, or YYYY-MM).
  * @property {string} createdAt - Note creation ISO timestamp.
  * @property {string} updatedAt - Note last updated ISO timestamp.
- * 
+ *
  * // --- Future Extensibility Slots ---
  * @property {string[]} [tags] - Categorical note labels.
  * @property {boolean} [isPinned] - Highlighted priority note.
@@ -343,7 +343,7 @@
 
 /**
  * User-configurable preferences for proactive desktop alerts.
- * 
+ *
  * @typedef {Object} NotificationConfig
  * @property {boolean} enableNative - Trigger OS desktop push notifications for critical items.
  * @property {boolean} dailyNudge - Show evening reminder if zero expenses were logged today.
@@ -353,7 +353,7 @@
 
 /**
  * In-app notification or system alert record.
- * 
+ *
  * @typedef {Object} Notification
  * @property {string} id - Unique notification ID (e.g., "notif-1724000000-abcd").
  * @property {'system'|'budget'|'bill'|'household'|'reminder'|'payday'} type - Notification domain.
@@ -372,7 +372,7 @@
 
 /**
  * Standardized parsing report generated by the Universal File Importer.
- * 
+ *
  * @typedef {Object} FileImportResult
  * @property {boolean} success - Whether at least one valid record was extracted.
  * @property {Partial<Expense>[]} expenses - Parsed raw transaction candidate entries.
@@ -388,7 +388,7 @@
 
 /**
  * Full disk JSON database schema contract (expenses_db.json).
- * 
+ *
  * @typedef {Object} RootData
  * @property {AccountCredentials} account - Master account credentials and settings.
  * @property {string} activeProfileId - Currently selected active profile ID.

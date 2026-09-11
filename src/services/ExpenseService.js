@@ -2,11 +2,11 @@
  * ============================================================================
  * Ledgerly — ExpenseService (Transaction, Category & Preset Service)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Domain service managing the lifecycle of expense transactions, categorization,
  * dynamic search/filtering, bulk imports, and 1-click quick presets.
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Single Responsibility: Manages financial transaction records and categories.
  * - Encapsulation: Ensures expense normalization, ID generation, and defensive checks.
@@ -23,7 +23,7 @@
 class ExpenseService {
   /**
    * Initializes the ExpenseService with injected database and profile services.
-   * 
+   *
    * @param {import('./JsonDatabase')} db - The database persistence service.
    * @param {import('./ProfileService')} profileService - The profile management service.
    */
@@ -45,7 +45,7 @@ class ExpenseService {
 
   /**
    * Appends a new expense entry to the active profile's ledger.
-   * 
+   *
    * @param {Partial<import('../types').Expense>} expense - Raw expense input data.
    * @returns {import('../types').Expense} Fully constructed and persisted expense entity.
    */
@@ -63,14 +63,14 @@ class ExpenseService {
       description: expense.description || '',
       tags: Array.isArray(expense.tags)
         ? expense.tags
-        : (expense.tags ? String(expense.tags).split(',').map(t => t.trim()) : []),
+        : expense.tags
+          ? String(expense.tags)
+              .split(',')
+              .map(t => t.trim())
+          : [],
       receiptFilename: expense.receiptFilename || null,
-      paidBy: (expense.paidBy && expense.paidBy !== 'Self')
-        ? expense.paidBy
-        : (active ? active.name : 'Self'),
-      splitWith: Array.isArray(expense.splitWith)
-        ? expense.splitWith
-        : (expense.splitWith ? [expense.splitWith] : []),
+      paidBy: expense.paidBy && expense.paidBy !== 'Self' ? expense.paidBy : active ? active.name : 'Self',
+      splitWith: Array.isArray(expense.splitWith) ? expense.splitWith : expense.splitWith ? [expense.splitWith] : [],
       isHouseholdExpense: Boolean(expense.isHouseholdExpense || (expense.splitWith && expense.splitWith.length > 0)),
 
       // Future extensibility slots
@@ -93,7 +93,7 @@ class ExpenseService {
   /**
    * Updates an existing expense record by ID.
    * Searches active profile first, then searches across all other profiles if needed.
-   * 
+   *
    * @param {Partial<import('../types').Expense> & { id: string }} updated - Fields to update.
    * @returns {import('../types').OperationResult & { expense?: import('../types').Expense }}
    */
@@ -130,24 +130,23 @@ class ExpenseService {
       expList[targetIndex] = {
         ...expList[targetIndex],
         ...updated,
-        amount: updated.amount !== undefined
-          ? (parseFloat(String(updated.amount)) || expList[targetIndex].amount)
-          : expList[targetIndex].amount,
+        amount:
+          updated.amount !== undefined
+            ? parseFloat(String(updated.amount)) || expList[targetIndex].amount
+            : expList[targetIndex].amount,
         tags: Array.isArray(updated.tags)
           ? updated.tags
-          : (typeof updated.tags === 'string'
-              ? updated.tags.split(',').map(t => t.trim())
-              : expList[targetIndex].tags),
-        receiptFilename: updated.receiptFilename !== undefined
-          ? updated.receiptFilename
-          : expList[targetIndex].receiptFilename,
+          : typeof updated.tags === 'string'
+            ? updated.tags.split(',').map(t => t.trim())
+            : expList[targetIndex].tags,
+        receiptFilename:
+          updated.receiptFilename !== undefined ? updated.receiptFilename : expList[targetIndex].receiptFilename,
         paidBy: updated.paidBy || expList[targetIndex].paidBy || 'Self',
-        splitWith: Array.isArray(updated.splitWith)
-          ? updated.splitWith
-          : (expList[targetIndex].splitWith || []),
-        isHouseholdExpense: updated.isHouseholdExpense !== undefined
-          ? Boolean(updated.isHouseholdExpense)
-          : expList[targetIndex].isHouseholdExpense
+        splitWith: Array.isArray(updated.splitWith) ? updated.splitWith : expList[targetIndex].splitWith || [],
+        isHouseholdExpense:
+          updated.isHouseholdExpense !== undefined
+            ? Boolean(updated.isHouseholdExpense)
+            : expList[targetIndex].isHouseholdExpense
       };
 
       this._db.write(root);
@@ -159,7 +158,7 @@ class ExpenseService {
 
   /**
    * Deletes an expense by ID across active profile and secondary profiles.
-   * 
+   *
    * @param {string} id - Unique ID of the expense to remove.
    * @returns {import('../types').OperationResult & { id?: string }}
    */
@@ -198,7 +197,7 @@ class ExpenseService {
 
   /**
    * Clears all expense records in the active profile.
-   * 
+   *
    * @returns {import('../types').OperationResult & { clearedCount: number }}
    */
   clearAll() {
@@ -216,7 +215,7 @@ class ExpenseService {
 
   /**
    * Retrieves all expenses for the active profile.
-   * 
+   *
    * @returns {import('../types').Expense[]}
    */
   getAll() {
@@ -226,7 +225,7 @@ class ExpenseService {
 
   /**
    * Retrieves a single expense by ID across active profile and secondary profiles.
-   * 
+   *
    * @param {string} id - Unique expense identifier.
    * @returns {import('../types').OperationResult & { expense?: import('../types').Expense }}
    */
@@ -261,7 +260,7 @@ class ExpenseService {
 
   /**
    * Filters active profile expenses by query text, category, tag, and date range.
-   * 
+   *
    * @param {import('../types').ExpenseFilters} [filters] - Filter parameters.
    * @returns {import('../types').ExpenseQueryResult} Filtered results with totals.
    */
@@ -288,10 +287,11 @@ class ExpenseService {
 
     if (filters.query) {
       const q = filters.query.toLowerCase();
-      result = result.filter(e =>
-        (e.title && e.title.toLowerCase().includes(q)) ||
-        (e.description && e.description.toLowerCase().includes(q)) ||
-        (e.category && e.category.toLowerCase().includes(q))
+      result = result.filter(
+        e =>
+          (e.title && e.title.toLowerCase().includes(q)) ||
+          (e.description && e.description.toLowerCase().includes(q)) ||
+          (e.category && e.category.toLowerCase().includes(q))
       );
     }
 
@@ -306,7 +306,7 @@ class ExpenseService {
 
   /**
    * Bulk inserts an array of parsed expenses (e.g. from CSV or bank statement import).
-   * 
+   *
    * @param {Array<Partial<import('../types').Expense>>} expenseArray - Expenses to import.
    * @returns {{ success: boolean, imported: number, errors: string[] }}
    */
@@ -337,11 +337,16 @@ class ExpenseService {
           description: exp.description || '',
           tags: Array.isArray(exp.tags)
             ? exp.tags
-            : (exp.tags ? String(exp.tags).split(',').map(t => t.trim()) : ['imported']),
-          receiptFilename: null,
-          paidBy: 'Self',
-          splitWith: [],
-          isHouseholdExpense: false
+            : exp.tags
+              ? String(exp.tags)
+                  .split(',')
+                  .map(t => t.trim())
+              : ['imported'],
+          receiptFilename: exp.receiptFilename || null,
+          paidBy: exp.paidBy || 'Self',
+          splitWith: Array.isArray(exp.splitWith) ? exp.splitWith : [],
+          isHouseholdExpense: Boolean(exp.isHouseholdExpense),
+          metadata: exp.metadata || undefined
         };
 
         data.expenses.unshift(newExpense);
@@ -361,7 +366,7 @@ class ExpenseService {
 
   /**
    * Retrieves categories configured for the active profile.
-   * 
+   *
    * @returns {string[]} List of category names.
    */
   getCategories() {
@@ -371,7 +376,7 @@ class ExpenseService {
 
   /**
    * Adds a new category to the active profile.
-   * 
+   *
    * @param {string} categoryName - Name of category to append.
    * @returns {import('../types').OperationResult & { categories?: string[] }}
    */
@@ -398,7 +403,7 @@ class ExpenseService {
 
   /**
    * Deletes a category from the active profile.
-   * 
+   *
    * @param {string} categoryName - Category to remove.
    * @returns {import('../types').OperationResult & { categories?: string[] }}
    */
@@ -425,7 +430,7 @@ class ExpenseService {
 
   /**
    * Retrieves presets configured for the active profile.
-   * 
+   *
    * @returns {import('../types').ExpensePreset[]} List of preset objects.
    */
   getPresets() {
@@ -435,7 +440,7 @@ class ExpenseService {
 
   /**
    * Creates a new preset chip for 1-click frequent expense logging.
-   * 
+   *
    * @param {Partial<import('../types').ExpensePreset>} preset - Preset properties.
    * @returns {import('../types').OperationResult & { preset?: import('../types').ExpensePreset, presets?: import('../types').ExpensePreset[] }}
    */
@@ -462,7 +467,7 @@ class ExpenseService {
 
   /**
    * Updates an existing preset chip.
-   * 
+   *
    * @param {Partial<import('../types').ExpensePreset> & { id: string }} updated - Updated fields.
    * @returns {import('../types').OperationResult & { preset?: import('../types').ExpensePreset, presets?: import('../types').ExpensePreset[] }}
    */
@@ -477,9 +482,10 @@ class ExpenseService {
       data.presets[index] = {
         ...data.presets[index],
         ...updated,
-        amount: updated.amount !== undefined
-          ? (parseFloat(String(updated.amount)) || data.presets[index].amount)
-          : data.presets[index].amount
+        amount:
+          updated.amount !== undefined
+            ? parseFloat(String(updated.amount)) || data.presets[index].amount
+            : data.presets[index].amount
       };
 
       this._profiles.saveActiveData(data);
@@ -491,7 +497,7 @@ class ExpenseService {
 
   /**
    * Deletes a preset chip by ID.
-   * 
+   *
    * @param {string} id - Preset identifier.
    * @returns {import('../types').OperationResult & { presets?: import('../types').ExpensePreset[] }}
    */

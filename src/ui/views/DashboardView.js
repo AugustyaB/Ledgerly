@@ -156,7 +156,7 @@ export class DashboardView {
    */
   unmount() {
     this.chartManager.destroyAll();
-    this.#cleanups.forEach((cleanup) => {
+    this.#cleanups.forEach(cleanup => {
       try {
         cleanup();
       } catch (err) {
@@ -207,9 +207,11 @@ export class DashboardView {
       return pool;
     }
 
-    const scoped = pool.filter((e) => {
-      return e.profileId === dashboardScope ||
-        (activeProfile && activeProfile.id === dashboardScope && (e.paidBy === activeProfile.name || !e.profileId));
+    const scoped = pool.filter(e => {
+      return (
+        e.profileId === dashboardScope ||
+        (activeProfile && activeProfile.id === dashboardScope && (e.paidBy === activeProfile.name || !e.profileId))
+      );
     });
 
     return scoped.length > 0 ? scoped : expenses;
@@ -228,7 +230,11 @@ export class DashboardView {
 
     const scoped = this.getScopedExpenses();
     const budgetGoal = parseFloat(this.state?.get('budgetGoal')) || 30000;
-    const salaryConfig = this.state?.get('salaryConfig') || { monthlyIncome: 60000, fixedBills: 20000, savingsGoal: 10000 };
+    const salaryConfig = this.state?.get('salaryConfig') || {
+      monthlyIncome: 60000,
+      fixedBills: 20000,
+      savingsGoal: 10000
+    };
     const workspaceMode = this.state?.get('workspaceMode') || 'household';
     const dashboardScope = this.state?.get('dashboardScope') || 'ALL';
     const activeProfile = this.state?.get('activeProfile');
@@ -243,9 +249,12 @@ export class DashboardView {
 
     const spentSubEl = document.getElementById('metric-spent-subtitle');
     if (spentSubEl) {
-      spentSubEl.textContent = workspaceMode === 'solo'
-        ? 'Personal outflow'
-        : (dashboardScope === 'ALL' ? 'All household members' : 'Selected profile');
+      spentSubEl.textContent =
+        workspaceMode === 'solo'
+          ? 'Personal outflow'
+          : dashboardScope === 'ALL'
+            ? 'All household members'
+            : 'Selected profile';
     }
 
     // 2. Discretionary Remaining Card
@@ -272,7 +281,8 @@ export class DashboardView {
       if (this.api?.getDailyBudgetMetrics) {
         salaryCycleMetrics = await this.api.getDailyBudgetMetrics();
         if (salaryCycleMetrics) {
-          if (salaryCycleMetrics.remainingDays !== undefined) remainingDays = Math.max(1, salaryCycleMetrics.remainingDays);
+          if (salaryCycleMetrics.remainingDays !== undefined)
+            remainingDays = Math.max(1, salaryCycleMetrics.remainingDays);
           if (salaryCycleMetrics.elapsedDays !== undefined) elapsedDays = Math.max(1, salaryCycleMetrics.elapsedDays);
           if (salaryCycleMetrics.totalDaysInCycle) totalDaysSpan = salaryCycleMetrics.totalDaysInCycle;
         }
@@ -283,7 +293,7 @@ export class DashboardView {
 
     const dailyAllowance = Math.max(0, budgetRemaining / remainingDays);
     const todayStr = now.toISOString().split('T')[0];
-    const todaySpent = scoped.filter((e) => e.date === todayStr).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+    const todaySpent = scoped.filter(e => e.date === todayStr).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
 
     const dailyValEl = document.getElementById('daily-pace-metric-val');
     if (dailyValEl) {
@@ -307,15 +317,18 @@ export class DashboardView {
       if (todaySpent <= dailyAllowance) {
         paceBadge.textContent = 'On Track';
         paceBadge.classList.add('badge-emerald');
-        if (paceSubtitle) paceSubtitle.innerHTML = '<span class="pace-badge badge-emerald" id="daily-pace-badge">On Track</span>';
+        if (paceSubtitle)
+          paceSubtitle.innerHTML = '<span class="pace-badge badge-emerald" id="daily-pace-badge">On Track</span>';
       } else if (todaySpent <= dailyAllowance * 1.3) {
         paceBadge.textContent = 'Caution';
         paceBadge.classList.add('badge-amber');
-        if (paceSubtitle) paceSubtitle.innerHTML = '<span class="pace-badge badge-amber" id="daily-pace-badge">Caution</span>';
+        if (paceSubtitle)
+          paceSubtitle.innerHTML = '<span class="pace-badge badge-amber" id="daily-pace-badge">Caution</span>';
       } else {
         paceBadge.textContent = 'Over Pace';
         paceBadge.classList.add('badge-rose');
-        if (paceSubtitle) paceSubtitle.innerHTML = '<span class="pace-badge badge-rose" id="daily-pace-badge">Over Pace</span>';
+        if (paceSubtitle)
+          paceSubtitle.innerHTML = '<span class="pace-badge badge-rose" id="daily-pace-badge">Over Pace</span>';
       }
     }
 
@@ -367,7 +380,7 @@ export class DashboardView {
 
     // 6. Primary Expense Driver (Top Category)
     const catTotals = {};
-    scoped.forEach((e) => {
+    scoped.forEach(e => {
       const c = e.category || 'Miscellaneous';
       catTotals[c] = (catTotals[c] || 0) + (parseFloat(e.amount) || 0);
     });
@@ -431,7 +444,8 @@ export class DashboardView {
       if (contextTitle) contextTitle.textContent = 'Solo Velocity';
       if (contextIconBox) contextIconBox.className = 'metric-icon-box icon-purple';
       if (contextIcon) contextIcon.setAttribute('data-icon', 'zap');
-      if (contextVal) contextVal.innerHTML = `<span style="font-size: 20px; font-weight: 800;">${scoped.length} Logs</span>`;
+      if (contextVal)
+        contextVal.innerHTML = `<span style="font-size: 20px; font-weight: 800;">${scoped.length} Logs</span>`;
       if (contextSub) contextSub.textContent = 'Personal mode';
     } else {
       if (contextTitle) contextTitle.textContent = 'Household Balance';
@@ -441,7 +455,7 @@ export class DashboardView {
       try {
         const settlement = await this.api?.getHouseholdSettlement();
         const activeName = activeProfile ? activeProfile.name : 'Self';
-        const userNet = settlement?.balances ? (settlement.balances[activeName] || 0) : 0;
+        const userNet = settlement?.balances ? settlement.balances[activeName] || 0 : 0;
 
         if (contextVal) {
           if (userNet > 0.01) {
@@ -598,7 +612,9 @@ export class DashboardView {
       return;
     }
 
-    container.innerHTML = presets.map((p, idx) => `
+    container.innerHTML = presets
+      .map(
+        (p, idx) => `
       <div class="preset-chip" data-action="log-preset" data-id="${escapeHTML(p.id)}" title="Click to log ${formatCurrency(p.amount)} for ${escapeHTML(p.title)} (Right-click to edit)">
         <span class="preset-chip-icon">${safeIcon(p.icon || 'tag', 14)}</span>
         <span class="preset-chip-title">${escapeHTML(p.title)}</span>
@@ -608,7 +624,9 @@ export class DashboardView {
           ${safeIcon('pencil', 12)}
         </span>
       </div>
-    `).join('');
+    `
+      )
+      .join('');
   }
 
   /**
@@ -617,7 +635,7 @@ export class DashboardView {
    */
   async logPresetExpense(presetId) {
     const presets = this.state?.get('presets') || [];
-    const preset = presets.find((p) => p.id === presetId);
+    const preset = presets.find(p => p.id === presetId);
     if (!preset) {
       showToast('⚠️ Preset chip not found');
       return;
@@ -694,11 +712,15 @@ export class DashboardView {
             </div>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            ${dueBills.map(b => `
+            ${dueBills
+              .map(
+                b => `
               <button type="button" class="btn btn-primary btn-sm" data-action="pay-due-bill" data-bill-id="${escapeHTML(b.id)}" style="font-size: 11.5px; padding: 6px 12px; background: #F59E0B; border-color: #F59E0B; color: #0F172A; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
                 ${safeIcon('check', 13)} Pay ${escapeHTML(b.title)}
               </button>
-            `).join('')}
+            `
+              )
+              .join('')}
             <button type="button" class="btn btn-secondary btn-sm" data-action="dismiss-due-bills" title="Dismiss banner" style="padding: 6px 10px; font-size: 11.5px;">
               ${safeIcon('x', 14)}
             </button>
@@ -732,8 +754,9 @@ export class DashboardView {
     const filterSort = this.state?.get('filterSort') || 'DATE_DESC';
     const notes = this.state?.get('notes') || [];
 
-    let filtered = scoped.filter((item) => {
-      const matchesSearch = !filterSearch ||
+    let filtered = scoped.filter(item => {
+      const matchesSearch =
+        !filterSearch ||
         item.title.toLowerCase().includes(filterSearch.toLowerCase()) ||
         (item.description && item.description.toLowerCase().includes(filterSearch.toLowerCase()));
 
@@ -761,12 +784,14 @@ export class DashboardView {
       return;
     }
 
-    tbody.innerHTML = filtered.slice(0, 50).map((item) => {
-      const expenseNotes = notes.filter((n) => n.relation === 'transaction' && n.relationId === item.id);
-      const hasNotes = expenseNotes.length > 0;
-      const isShared = Boolean(item.isHouseholdExpense);
+    tbody.innerHTML = filtered
+      .slice(0, 50)
+      .map(item => {
+        const expenseNotes = notes.filter(n => n.relation === 'transaction' && n.relationId === item.id);
+        const hasNotes = expenseNotes.length > 0;
+        const isShared = Boolean(item.isHouseholdExpense);
 
-      return `
+        return `
         <tr>
           <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">${escapeHTML(item.date)}</td>
           <td>
@@ -782,11 +807,15 @@ export class DashboardView {
           </td>
           <td class="amount-text">-${formatCurrency(parseFloat(item.amount) || 0)}</td>
           <td>
-            ${item.receiptFilename ? `
+            ${
+              item.receiptFilename
+                ? `
               <button type="button" class="action-btn" data-action="view-receipt" data-filename="${escapeHTML(item.receiptFilename)}" title="View Receipt Image">
                 ${safeIcon('camera', 13)} Receipt
               </button>
-            ` : '<span style="color:var(--text-dim); font-size:11px;">—</span>'}
+            `
+                : '<span style="color:var(--text-dim); font-size:11px;">—</span>'
+            }
           </td>
           <td class="actions-cell">
             <button type="button" class="action-btn note-indicator-btn ${hasNotes ? 'has-notes' : ''}"
@@ -806,7 +835,8 @@ export class DashboardView {
           </td>
         </tr>
       `;
-    }).join('');
+      })
+      .join('');
   }
 
   // ==========================================================================
@@ -843,9 +873,10 @@ export class DashboardView {
 
     const selectedSplits = this.state?.get('selectedSplits') || new Set();
 
-    container.innerHTML = settlement.settlements.map((s, idx) => {
-      const isChecked = selectedSplits.has(idx);
-      return `
+    container.innerHTML = settlement.settlements
+      .map((s, idx) => {
+        const isChecked = selectedSplits.has(idx);
+        return `
         <div class="split-pending-item">
           <div class="split-pending-info">
             <span class="split-pending-avatar">${safeMonogram(s.from, 24)}</span>
@@ -857,7 +888,8 @@ export class DashboardView {
           <input type="checkbox" class="split-pending-checkbox" data-index="${idx}" ${isChecked ? 'checked' : ''}>
         </div>
       `;
-    }).join('');
+      })
+      .join('');
 
     if (settleBtn) {
       settleBtn.disabled = selectedSplits.size === 0;
@@ -892,7 +924,7 @@ export class DashboardView {
 
     // 1. Concentric Category Breakdown Donut Chart
     const catTotals = {};
-    scoped.forEach((e) => {
+    scoped.forEach(e => {
       const c = e.category || 'Miscellaneous';
       catTotals[c] = (catTotals[c] || 0) + (parseFloat(e.amount) || 0);
     });
@@ -901,13 +933,13 @@ export class DashboardView {
     // 2. Cash Flow Trends Bar Chart
     const dateTotals = {};
     const sortedExp = [...scoped].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    sortedExp.forEach((e) => {
+    sortedExp.forEach(e => {
       dateTotals[e.date] = (dateTotals[e.date] || 0) + (parseFloat(e.amount) || 0);
     });
 
     const dates = Object.keys(dateTotals).slice(-7);
     const displayDates = dates.length ? dates : [new Date().toISOString().split('T')[0]];
-    const amounts = displayDates.map((d) => dateTotals[d] || 0);
+    const amounts = displayDates.map(d => dateTotals[d] || 0);
 
     // Calculate Daily Pace Benchmark Line
     const budgetGoal = parseFloat(this.state?.get('budgetGoal')) || 30000;
@@ -960,7 +992,7 @@ export class DashboardView {
     if (typeof document === 'undefined') return;
 
     const presets = this.state?.get('presets') || [];
-    const preset = presets.find((p) => p.id === id);
+    const preset = presets.find(p => p.id === id);
     if (!preset) {
       showToast('⚠️ Preset chip not found');
       return;
@@ -1009,7 +1041,8 @@ export class DashboardView {
     const bar = document.getElementById('what-if-toggle-bar');
     if (!toggleBtn || !card) return;
 
-    const isCollapsed = typeof localStorage !== 'undefined' && localStorage.getItem('ledgerly-what-if-collapsed') !== 'false';
+    const isCollapsed =
+      typeof localStorage !== 'undefined' && localStorage.getItem('ledgerly-what-if-collapsed') !== 'false';
     card.classList.toggle('collapsed', isCollapsed);
     bar?.classList.toggle('expanded', !isCollapsed);
 
@@ -1046,7 +1079,7 @@ export class DashboardView {
 
     if (!slider) return;
 
-    const testAmt = extraAmount !== null ? extraAmount : (parseFloat(slider.value) || 500);
+    const testAmt = extraAmount !== null ? extraAmount : parseFloat(slider.value) || 500;
     if (displayEl) displayEl.textContent = `${currSym()}${testAmt.toLocaleString('en-IN')}`;
 
     if (this.api?.simulateWhatIf) {
@@ -1125,7 +1158,7 @@ export class DashboardView {
 
     const expressForm = document.getElementById('express-nlp-form');
     if (expressForm) {
-      const submitHandler = async (e) => {
+      const submitHandler = async e => {
         e.preventDefault();
         const text = nlpInput?.value.trim();
         if (!text) return;
@@ -1292,7 +1325,7 @@ export class DashboardView {
     // Household Split Checklist Checkbox Delegated Change
     const splitPendingList = document.getElementById('split-pending-list');
     if (splitPendingList) {
-      const handleSplitCheckbox = (e) => {
+      const handleSplitCheckbox = e => {
         const target = /** @type {HTMLInputElement} */ (e.target);
         if (!target || !target.classList.contains('split-pending-checkbox')) return;
 
@@ -1354,15 +1387,17 @@ export class DashboardView {
     bindEl('preset-modal-close', 'click', () => this.closePresetModal());
     bindEl('preset-cancel-btn', 'click', () => this.closePresetModal());
 
-    bindEl('preset-form', 'submit', async (e) => {
+    bindEl('preset-form', 'submit', async e => {
       e.preventDefault();
       const id = /** @type {HTMLInputElement} */ (document.getElementById('form-preset-id'))?.value;
       const presetData = {
         icon: /** @type {HTMLInputElement} */ (document.getElementById('preset-form-icon'))?.value || 'tag',
         title: /** @type {HTMLInputElement} */ (document.getElementById('preset-form-title'))?.value || '',
         amount: parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('preset-form-amount'))?.value) || 0,
-        category: /** @type {HTMLSelectElement} */ (document.getElementById('preset-form-category'))?.value || 'Food & Dining',
-        paymentMethod: /** @type {HTMLSelectElement} */ (document.getElementById('preset-form-payment'))?.value || 'UPI / GPay'
+        category:
+          /** @type {HTMLSelectElement} */ (document.getElementById('preset-form-category'))?.value || 'Food & Dining',
+        paymentMethod:
+          /** @type {HTMLSelectElement} */ (document.getElementById('preset-form-payment'))?.value || 'UPI / GPay'
       };
 
       if (id) {
@@ -1416,19 +1451,19 @@ export class DashboardView {
       }
     };
 
-    const handleSearchInput = (e) => {
+    const handleSearchInput = e => {
       if (this.state) this.state.set('filterSearch', e.target.value);
       this.renderRecentTable();
     };
     bindEl('search-input', 'input', handleSearchInput);
     bindEl('filter-search', 'input', handleSearchInput);
 
-    bindEl('filter-category', 'change', (e) => {
+    bindEl('filter-category', 'change', e => {
       if (this.state) this.state.set('filterCategory', e.target.value);
       this.renderRecentTable();
     });
 
-    bindEl('filter-sort', 'change', (e) => {
+    bindEl('filter-sort', 'change', e => {
       if (this.state) this.state.set('filterSort', e.target.value);
       this.renderRecentTable();
     });
@@ -1444,9 +1479,12 @@ export class DashboardView {
   updateSalaryModalPreview() {
     if (typeof document === 'undefined') return;
 
-    const income = parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-income'))?.value) || 0;
-    const bills = parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-bills'))?.value) || 0;
-    const savings = parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-savings'))?.value) || 0;
+    const income =
+      parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-income'))?.value) || 0;
+    const bills =
+      parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-bills'))?.value) || 0;
+    const savings =
+      parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-savings'))?.value) || 0;
 
     const discretionary = Math.max(0, income - bills - savings);
     const now = new Date();
@@ -1495,7 +1533,12 @@ export class DashboardView {
   openSalaryModal() {
     if (typeof document === 'undefined') return;
 
-    const s = this.state?.get('salaryConfig') || { monthlyIncome: 60000, fixedBills: 20000, savingsGoal: 10000, payday: 1 };
+    const s = this.state?.get('salaryConfig') || {
+      monthlyIncome: 60000,
+      fixedBills: 20000,
+      savingsGoal: 10000,
+      payday: 1
+    };
     const incInput = /** @type {HTMLInputElement} */ (document.getElementById('salary-input-income'));
     const billsInput = /** @type {HTMLInputElement} */ (document.getElementById('salary-input-bills'));
     const savInput = /** @type {HTMLInputElement} */ (document.getElementById('salary-input-savings'));
@@ -1556,10 +1599,15 @@ export class DashboardView {
     document.querySelectorAll('#modal-payday-shift-chips .btn-shift-chip').forEach(chip => {
       const chipHandler = () => {
         const shiftDays = parseInt(chip.getAttribute('data-modal-shift') || '0', 10);
-        document.querySelectorAll('#modal-payday-shift-chips .btn-shift-chip').forEach(c => c.classList.remove('active'));
+        document
+          .querySelectorAll('#modal-payday-shift-chips .btn-shift-chip')
+          .forEach(c => c.classList.remove('active'));
         chip.classList.add('active');
 
-        const payday = parseInt(/** @type {HTMLSelectElement} */ (document.getElementById('salary-input-payday'))?.value || '1', 10);
+        const payday = parseInt(
+          /** @type {HTMLSelectElement} */ (document.getElementById('salary-input-payday'))?.value || '1',
+          10
+        );
         const now = new Date();
         const cycleMonth = now.getDate() >= payday ? now.getMonth() : now.getMonth() - 1;
         const cycleYear = now.getFullYear();
@@ -1583,14 +1631,22 @@ export class DashboardView {
     });
 
     // Salary Form submission
-    bindEl('salary-form', 'submit', async (e) => {
+    bindEl('salary-form', 'submit', async e => {
       e.preventDefault();
-      const income = parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-income'))?.value) || 0;
-      const bills = parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-bills'))?.value) || 0;
-      const savings = parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-savings'))?.value) || 0;
-      const payday = parseInt(/** @type {HTMLSelectElement} */ (document.getElementById('salary-input-payday'))?.value || '1', 10);
-      const actualDate = /** @type {HTMLInputElement} */ (document.getElementById('salary-input-actual-date'))?.value || null;
-      const nextOverride = /** @type {HTMLInputElement} */ (document.getElementById('salary-input-next-override'))?.value || null;
+      const income =
+        parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-income'))?.value) || 0;
+      const bills =
+        parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-bills'))?.value) || 0;
+      const savings =
+        parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('salary-input-savings'))?.value) || 0;
+      const payday = parseInt(
+        /** @type {HTMLSelectElement} */ (document.getElementById('salary-input-payday'))?.value || '1',
+        10
+      );
+      const actualDate =
+        /** @type {HTMLInputElement} */ (document.getElementById('salary-input-actual-date'))?.value || null;
+      const nextOverride =
+        /** @type {HTMLInputElement} */ (document.getElementById('salary-input-next-override'))?.value || null;
 
       const currentConfig = this.state?.get('salaryConfig') || {};
       const newConfig = {
@@ -1629,7 +1685,7 @@ export class DashboardView {
   #bindExportModal() {
     let pendingExportType = 'csv';
 
-    const openExportScopeModal = (type) => {
+    const openExportScopeModal = type => {
       pendingExportType = type;
       const now = new Date();
       const monthStr = now.toISOString().substring(0, 7);
@@ -1664,9 +1720,7 @@ export class DashboardView {
 
     bindEl('btn-export-this-month', 'click', async () => {
       document.getElementById('export-scope-modal')?.classList.remove('active');
-      const res = pendingExportType === 'excel'
-        ? await this.api?.exportExcel?.()
-        : await this.api?.exportCSV?.();
+      const res = pendingExportType === 'excel' ? await this.api?.exportExcel?.() : await this.api?.exportCSV?.();
       if (res?.success) {
         showToast(`Exported ${pendingExportType.toUpperCase()} file successfully!`);
       } else if (res && !res.canceled) {
@@ -1676,9 +1730,7 @@ export class DashboardView {
 
     bindEl('btn-export-all-time', 'click', async () => {
       document.getElementById('export-scope-modal')?.classList.remove('active');
-      const res = pendingExportType === 'excel'
-        ? await this.api?.exportExcel?.()
-        : await this.api?.exportCSV?.();
+      const res = pendingExportType === 'excel' ? await this.api?.exportExcel?.() : await this.api?.exportCSV?.();
       if (res?.success) {
         showToast(`Exported all-time ${pendingExportType.toUpperCase()} file!`);
       } else if (res && !res.canceled) {
@@ -1687,4 +1739,3 @@ export class DashboardView {
     });
   }
 }
-

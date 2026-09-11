@@ -23,15 +23,9 @@ export const CHART_PALETTES = {
     '#E11D48', // Rose
     '#8B5CF6', // Purple
     '#F59E0B', // Amber
-    '#38BDF8'  // Sky
+    '#38BDF8' // Sky
   ],
-  householdMembers: [
-    '#D9822B',
-    '#10B981',
-    '#38BDF8',
-    '#E11D48',
-    '#C084FC'
-  ]
+  householdMembers: ['#D9822B', '#10B981', '#38BDF8', '#E11D48', '#C084FC']
 };
 
 // ============================================================================
@@ -85,12 +79,14 @@ export class ChartManager {
       type: 'doughnut',
       data: {
         labels: labels.length ? labels : ['No Outflow Recorded'],
-        datasets: [{
-          data: data.length ? data : [1],
-          backgroundColor: labels.length ? palette.slice(0, labels.length) : ['#2D303C'],
-          borderWidth: 2,
-          borderColor: '#1A1C23'
-        }]
+        datasets: [
+          {
+            data: data.length ? data : [1],
+            backgroundColor: labels.length ? palette.slice(0, labels.length) : ['#2D303C'],
+            borderWidth: 2,
+            borderColor: '#1A1C23'
+          }
+        ]
       },
       options: {
         responsive: true,
@@ -232,7 +228,7 @@ export class ChartManager {
     let startAngle = -Math.PI / 2;
 
     const memberSpendMap = {};
-    expenses.forEach((e) => {
+    expenses.forEach(e => {
       const key = e.paidBy || 'Personal';
       memberSpendMap[key] = (memberSpendMap[key] || 0) + (parseFloat(e.amount) || 0);
     });

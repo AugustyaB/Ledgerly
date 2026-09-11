@@ -2,12 +2,12 @@
  * ============================================================================
  * Ledgerly — JsonDatabase Service (Disk Persistence Layer)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Low-level persistence service encapsulating all file system I/O for Ledgerly.
  * Handles database path resolution, directory initialization, safe schema initialization,
  * atomic write-renaming (.tmp -> .json), and automated rotating backups (.bak).
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Single Responsibility: Exclusively responsible for physical file I/O and integrity.
  * - Encapsulation: Hides raw fs calls from domain services.
@@ -29,7 +29,7 @@ class JsonDatabase {
   /**
    * Initializes the JsonDatabase instance with a target file path.
    * Resolves to Electron's userData directory by default if no path is provided.
-   * 
+   *
    * @param {string} [customPath] - Explicit file path override (useful for testing).
    */
   constructor(customPath) {
@@ -52,7 +52,7 @@ class JsonDatabase {
 
   /**
    * Returns the absolute file path on disk for this database.
-   * 
+   *
    * @returns {string} Absolute path to primary JSON file.
    */
   getFilePath() {
@@ -62,7 +62,7 @@ class JsonDatabase {
   /**
    * Returns the size of the database file on disk in bytes.
    * Returns 0 if the file does not exist.
-   * 
+   *
    * @returns {number} File size in bytes.
    */
   getFileSize() {
@@ -81,7 +81,7 @@ class JsonDatabase {
   /**
    * Guarantees that the storage directory and primary file exist.
    * Generates a baseline schema if the database is missing.
-   * 
+   *
    * @returns {void}
    */
   ensureStorageExists() {
@@ -108,7 +108,7 @@ class JsonDatabase {
    * Reads and parses the root database object from disk.
    * Recovers transparently from the rotating backup (.bak) if primary file
    * is missing or contains corrupt/invalid JSON.
-   * 
+   *
    * @returns {import('../types').RootData} Parsed root database object.
    */
   read() {
@@ -160,7 +160,7 @@ class JsonDatabase {
    * Atomically persists root database object to disk.
    * Writes to a temporary file first (.tmp), rotates current file to (.bak),
    * then executes an atomic rename to prevent corruption during sudden power loss.
-   * 
+   *
    * @param {import('../types').RootData} rootData - Complete root data object to write.
    * @returns {import('../types').OperationResult} Status result object.
    */
@@ -226,7 +226,7 @@ class JsonDatabase {
 
   /**
    * Generates a pristine baseline root database schema with 0 expenses.
-   * 
+   *
    * @private
    * @returns {import('../types').RootData} Baseline schema.
    */
@@ -262,11 +262,46 @@ class JsonDatabase {
               'Miscellaneous'
             ],
             presets: [
-              { id: 'pst-1', icon: 'coffee', title: 'Chai / Coffee', amount: 20.00, category: 'Food & Dining', paymentMethod: 'UPI / GPay' },
-              { id: 'pst-2', icon: 'utensils', title: 'Lunch / Snacks', amount: 120.00, category: 'Food & Dining', paymentMethod: 'UPI / GPay' },
-              { id: 'pst-3', icon: 'fuel', title: 'Petrol / Fuel', amount: 300.00, category: 'Transportation', paymentMethod: 'UPI / GPay' },
-              { id: 'pst-4', icon: 'car', title: 'Auto / Cab / Metro', amount: 80.00, category: 'Transportation', paymentMethod: 'UPI / GPay' },
-              { id: 'pst-5', icon: 'shopping-cart', title: 'Groceries & Kirana', amount: 450.00, category: 'Food & Dining', paymentMethod: 'UPI / GPay' }
+              {
+                id: 'pst-1',
+                icon: 'coffee',
+                title: 'Chai / Coffee',
+                amount: 20.0,
+                category: 'Food & Dining',
+                paymentMethod: 'UPI / GPay'
+              },
+              {
+                id: 'pst-2',
+                icon: 'utensils',
+                title: 'Lunch / Snacks',
+                amount: 120.0,
+                category: 'Food & Dining',
+                paymentMethod: 'UPI / GPay'
+              },
+              {
+                id: 'pst-3',
+                icon: 'fuel',
+                title: 'Petrol / Fuel',
+                amount: 300.0,
+                category: 'Transportation',
+                paymentMethod: 'UPI / GPay'
+              },
+              {
+                id: 'pst-4',
+                icon: 'car',
+                title: 'Auto / Cab / Metro',
+                amount: 80.0,
+                category: 'Transportation',
+                paymentMethod: 'UPI / GPay'
+              },
+              {
+                id: 'pst-5',
+                icon: 'shopping-cart',
+                title: 'Groceries & Kirana',
+                amount: 450.0,
+                category: 'Food & Dining',
+                paymentMethod: 'UPI / GPay'
+              }
             ],
             salaryConfig: {
               monthlyIncome: 60000,
@@ -332,7 +367,7 @@ class JsonDatabase {
 
   /**
    * Sanitizes a parsed root data object to ensure accounts and profile arrays exist.
-   * 
+   *
    * @private
    * @param {any} parsed - Parsed data to validate.
    * @returns {import('../types').RootData} Sanitized root data.
@@ -378,7 +413,7 @@ class JsonDatabase {
 
   /**
    * Executes a self-healing audit pass across this database file using DatabaseAuditor.
-   * 
+   *
    * @returns {{ healthy: boolean, issuesFound: string[], repairsApplied: string[], backupCreated: string|null, timestamp: string }}
    */
   runIntegrityAudit() {

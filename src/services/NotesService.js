@@ -2,11 +2,11 @@
  * ============================================================================
  * Ledgerly — NotesService (Contextual Journaling & Annotation Engine)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Domain service managing contextual notes and memos attached to transactions,
  * individual days, ISO calendar weeks, and monthly planning periods.
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Single Responsibility: Manages multi-dimensional financial annotations.
  * - Encapsulation: Insulates relation types, validation, and multi-profile note lookups.
@@ -27,7 +27,7 @@ const VALID_RELATIONS = Object.freeze(Object.values(NoteRelation));
 class NotesService {
   /**
    * Initializes NotesService with injected persistence and profile services.
-   * 
+   *
    * @param {import('./JsonDatabase')} db - Database persistence service.
    * @param {import('./ProfileService')} profileService - Profile management service.
    */
@@ -49,7 +49,7 @@ class NotesService {
 
   /**
    * Ensures the notes array exists in the given data partition.
-   * 
+   *
    * @private
    * @param {object} data - Profile data object.
    * @returns {object} Normalized data object.
@@ -70,7 +70,7 @@ class NotesService {
 
   /**
    * Retrieves notes for the active profile, optionally filtered by relation type or ID.
-   * 
+   *
    * @param {{ relation?: string, relationId?: string }} [filters={}] - Query filters.
    * @returns {import('../types').Note[]} Notes matching the filters.
    */
@@ -91,7 +91,7 @@ class NotesService {
 
   /**
    * Retrieves all notes attached to a specific transaction ID.
-   * 
+   *
    * @param {string} expenseId - Expense transaction ID.
    * @returns {import('../types').Note[]} Notes attached to the expense.
    */
@@ -101,7 +101,7 @@ class NotesService {
 
   /**
    * Retrieves all notes attached to a specific date (YYYY-MM-DD).
-   * 
+   *
    * @param {string} dateStr - Target date string.
    * @returns {import('../types').Note[]} Notes attached to the date.
    */
@@ -111,7 +111,7 @@ class NotesService {
 
   /**
    * Retrieves all notes attached to a specific ISO week (e.g., "2026-W34").
-   * 
+   *
    * @param {string} weekStr - Target ISO week string.
    * @returns {import('../types').Note[]} Notes attached to the week.
    */
@@ -121,7 +121,7 @@ class NotesService {
 
   /**
    * Retrieves all notes attached to a specific calendar month (e.g., "2026-08").
-   * 
+   *
    * @param {string} monthStr - Target month string.
    * @returns {import('../types').Note[]} Notes attached to the month.
    */
@@ -135,7 +135,7 @@ class NotesService {
 
   /**
    * Creates a new contextual note in the active profile's journal.
-   * 
+   *
    * @param {Partial<import('../types').Note>} note - Note input data.
    * @returns {import('../types').OperationResult & { note?: import('../types').Note }}
    */
@@ -185,7 +185,7 @@ class NotesService {
   /**
    * Updates an existing note's content by ID.
    * Checks the active profile first, then searches secondary profiles if needed.
-   * 
+   *
    * @param {{ id: string, content: string }} updated - Note ID and new text content.
    * @returns {import('../types').OperationResult & { note?: import('../types').Note }}
    */
@@ -234,7 +234,7 @@ class NotesService {
 
   /**
    * Deletes a note by ID across active and secondary profiles.
-   * 
+   *
    * @param {string} id - Note unique identifier.
    * @returns {import('../types').OperationResult & { id?: string }}
    */

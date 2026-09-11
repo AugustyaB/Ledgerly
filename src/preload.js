@@ -2,7 +2,7 @@
  * ============================================================================
  * Ledgerly — Preload IPC Bridge & Safe Invoker (Phase 5)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Electron contextBridge script exposing sanitized, safe `window.electronAPI`
  * to the renderer process. Integrates with the Phase 5 standardized response
@@ -19,7 +19,7 @@ const { contextBridge, ipcRenderer } = require('electron');
  * - Array responses: attached with `.success = true` and `.data = arr` for dual array and envelope compatibility.
  * - Object responses: preserves `.success`, `.data`, and all payload properties.
  * - Failure responses: returns standardized `{ success: false, error, code, details }`.
- * 
+ *
  * @param {string} channel - The IPC channel name.
  * @param {...any} args - Invocations arguments.
  * @returns {Promise<any>}
@@ -43,66 +43,67 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Account Authentication & Remember-Me
   getAccountStatus: () => invokeIPC('account-get-status'),
-  setupAccount: (payload) => invokeIPC('account-setup', payload),
-  loginAccount: (payload) => invokeIPC('account-login', payload),
+  setupAccount: payload => invokeIPC('account-setup', payload),
+  loginAccount: payload => invokeIPC('account-login', payload),
   logoutAccount: () => invokeIPC('account-logout'),
-  updateAccountPreferences: (prefs) => invokeIPC('account-update-prefs', prefs),
+  updateAccountPreferences: prefs => invokeIPC('account-update-prefs', prefs),
 
   // Multi-User Profile Management
   getProfiles: () => invokeIPC('get-profiles'),
   getActiveProfile: () => invokeIPC('get-active-profile'),
-  switchProfile: (profileId) => invokeIPC('switch-profile', profileId),
-  createProfile: (profileData) => invokeIPC('create-profile', profileData),
-  updateProfile: (profileData) => invokeIPC('update-profile', profileData),
-  deleteProfile: (profileId) => invokeIPC('delete-profile', profileId),
+  switchProfile: profileId => invokeIPC('switch-profile', profileId),
+  createProfile: profileData => invokeIPC('create-profile', profileData),
+  updateProfile: profileData => invokeIPC('update-profile', profileData),
+  deleteProfile: profileId => invokeIPC('delete-profile', profileId),
 
   // Storage CRUD & Query operations
   getExpenses: () => invokeIPC('get-expenses'),
   getCombinedExpenses: () => invokeIPC('get-combined-expenses'),
-  getExpenseById: (id) => invokeIPC('get-expense-by-id', id),
-  getFilteredExpenses: (filters) => invokeIPC('get-filtered-expenses', filters),
-  addExpense: (expense) => invokeIPC('add-expense', expense),
-  updateExpense: (expense) => invokeIPC('update-expense', expense),
-  deleteExpense: (id) => invokeIPC('delete-expense', id),
-  setBudgetGoal: (amount) => invokeIPC('set-budget-goal', amount),
+  getExpenseById: id => invokeIPC('get-expense-by-id', id),
+  getFilteredExpenses: filters => invokeIPC('get-filtered-expenses', filters),
+  addExpense: expense => invokeIPC('add-expense', expense),
+  updateExpense: expense => invokeIPC('update-expense', expense),
+  deleteExpense: id => invokeIPC('delete-expense', id),
+  setBudgetGoal: amount => invokeIPC('set-budget-goal', amount),
 
   // Category Management
-  addCategory: (categoryName) => invokeIPC('add-category', categoryName),
-  deleteCategory: (categoryName) => invokeIPC('delete-category', categoryName),
+  addCategory: categoryName => invokeIPC('add-category', categoryName),
+  deleteCategory: categoryName => invokeIPC('delete-category', categoryName),
 
   // Preset Management
   getPresets: () => invokeIPC('get-presets'),
-  addPreset: (preset) => invokeIPC('add-preset', preset),
-  updatePreset: (preset) => invokeIPC('update-preset', preset),
-  deletePreset: (id) => invokeIPC('delete-preset', id),
+  addPreset: preset => invokeIPC('add-preset', preset),
+  updatePreset: preset => invokeIPC('update-preset', preset),
+  deletePreset: id => invokeIPC('delete-preset', id),
 
   // Salary Allocator & Daily Budget
   getSalaryConfig: () => invokeIPC('get-salary-config'),
-  setSalaryConfig: (config) => invokeIPC('set-salary-config', config),
-  getDailyBudgetMetrics: (targetDateStr) => invokeIPC('get-daily-budget-metrics', targetDateStr),
+  setSalaryConfig: config => invokeIPC('set-salary-config', config),
+  getDailyBudgetMetrics: targetDateStr => invokeIPC('get-daily-budget-metrics', targetDateStr),
 
   // Household Members & Split Settlement
   getHouseholdMembers: () => invokeIPC('get-household-members'),
-  addHouseholdMember: (name) => invokeIPC('add-household-member', name),
-  deleteHouseholdMember: (name) => invokeIPC('delete-household-member', name),
+  addHouseholdMember: name => invokeIPC('add-household-member', name),
+  deleteHouseholdMember: name => invokeIPC('delete-household-member', name),
   getHouseholdSettlement: () => invokeIPC('get-household-settlement'),
 
   // Settlements & Repayments
   getSettlements: () => invokeIPC('get-settlements'),
-  addSettlement: (settlementData) => invokeIPC('add-settlement', settlementData),
-  deleteSettlement: (id) => invokeIPC('delete-settlement', id),
+  addSettlement: settlementData => invokeIPC('add-settlement', settlementData),
+  deleteSettlement: id => invokeIPC('delete-settlement', id),
 
   // Recurring Utility Bills
   getRecurringBills: () => invokeIPC('get-recurring-bills'),
-  saveRecurringBill: (billData) => invokeIPC('save-recurring-bill', billData),
-  deleteRecurringBill: (id) => invokeIPC('delete-recurring-bill', id),
+  saveRecurringBill: billData => invokeIPC('save-recurring-bill', billData),
+  deleteRecurringBill: id => invokeIPC('delete-recurring-bill', id),
   markRecurringBillPaid: (id, paymentDetails) => invokeIPC('mark-recurring-bill-paid', id, paymentDetails),
 
   // Receipt Image Storage
   selectReceiptFile: () => invokeIPC('select-receipt-file'),
-  saveReceipt: (sourceFilePath) => invokeIPC('save-receipt', sourceFilePath),
-  deleteReceipt: (filename) => invokeIPC('delete-receipt', filename),
-  getReceiptPath: (filename) => invokeIPC('get-receipt-path', filename),
+  selectReceiptDocuments: () => invokeIPC('select-receipt-documents'),
+  saveReceipt: sourceFilePath => invokeIPC('save-receipt', sourceFilePath),
+  deleteReceipt: filename => invokeIPC('delete-receipt', filename),
+  getReceiptPath: filename => invokeIPC('get-receipt-path', filename),
 
   // File Exports
   exportCSV: () => invokeIPC('export-csv'),
@@ -111,49 +112,49 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // File Import
   importFile: () => invokeIPC('import-file'),
-  importFilePath: (filePath) => invokeIPC('import-file-path', filePath),
-  confirmImport: (expenses) => invokeIPC('confirm-import', expenses),
+  importFilePath: filePath => invokeIPC('import-file-path', filePath),
+  confirmImport: expenses => invokeIPC('confirm-import', expenses),
 
   // Contextual Notes
-  getNotes: (filters) => invokeIPC('get-notes', filters),
-  getNotesForExpense: (expenseId) => invokeIPC('get-notes-for-expense', expenseId),
-  getNotesForDate: (dateStr) => invokeIPC('get-notes-for-date', dateStr),
-  getNotesForWeek: (weekStr) => invokeIPC('get-notes-for-week', weekStr),
-  getNotesForMonth: (monthStr) => invokeIPC('get-notes-for-month', monthStr),
-  addNote: (note) => invokeIPC('add-note', note),
-  updateNote: (note) => invokeIPC('update-note', note),
-  deleteNote: (id) => invokeIPC('delete-note', id),
+  getNotes: filters => invokeIPC('get-notes', filters),
+  getNotesForExpense: expenseId => invokeIPC('get-notes-for-expense', expenseId),
+  getNotesForDate: dateStr => invokeIPC('get-notes-for-date', dateStr),
+  getNotesForWeek: weekStr => invokeIPC('get-notes-for-week', weekStr),
+  getNotesForMonth: monthStr => invokeIPC('get-notes-for-month', monthStr),
+  addNote: note => invokeIPC('add-note', note),
+  updateNote: note => invokeIPC('update-note', note),
+  deleteNote: id => invokeIPC('delete-note', id),
 
   // Frictionless UX & Ambient Intelligence
-  saveReceiptBuffer: (bufferBase64) => invokeIPC('save-receipt-buffer', bufferBase64),
+  saveReceiptBuffer: bufferBase64 => invokeIPC('save-receipt-buffer', bufferBase64),
   hideQuickPill: () => invokeIPC('quick-pill-hide'),
-  submitQuickPillExpense: (expenseData) => invokeIPC('quick-pill-submit', expenseData),
+  submitQuickPillExpense: expenseData => invokeIPC('quick-pill-submit', expenseData),
   nlpParse: (phrase, knownMembers) => invokeIPC('nlp-parse', phrase, knownMembers),
-  predictCategory: (title) => invokeIPC('predict-category', title),
+  predictCategory: title => invokeIPC('predict-category', title),
   learnCategoryKeyword: (keyword, category) => invokeIPC('learn-category-keyword', keyword, category),
   getCategoryKeywords: () => invokeIPC('get-category-keywords'),
-  deleteCategoryKeyword: (keyword) => invokeIPC('delete-category-keyword', keyword),
+  deleteCategoryKeyword: keyword => invokeIPC('delete-category-keyword', keyword),
   getStorageDiagnostics: () => invokeIPC('get-storage-diagnostics'),
   clearAllExpenses: () => invokeIPC('clear-all-expenses'),
   simulateWhatIf: (extraAmount, targetDateStr) => invokeIPC('simulate-what-if', extraAmount, targetDateStr),
   getWorkspaceMode: () => invokeIPC('get-workspace-mode'),
-  setWorkspaceMode: (mode) => invokeIPC('set-workspace-mode', mode),
+  setWorkspaceMode: mode => invokeIPC('set-workspace-mode', mode),
 
   // Notifications Engine APIs
   getNotifications: () => invokeIPC('get-notifications'),
   evaluateNotifications: () => invokeIPC('evaluate-notifications'),
-  addNotification: (notif) => invokeIPC('add-notification', notif),
-  markNotificationRead: (id) => invokeIPC('mark-notification-read', id),
+  addNotification: notif => invokeIPC('add-notification', notif),
+  markNotificationRead: id => invokeIPC('mark-notification-read', id),
   markAllNotificationsRead: () => invokeIPC('mark-all-notifications-read'),
-  deleteNotification: (id) => invokeIPC('delete-notification', id),
+  deleteNotification: id => invokeIPC('delete-notification', id),
   clearAllNotifications: () => invokeIPC('clear-all-notifications'),
   getNotificationConfig: () => invokeIPC('get-notification-config'),
-  saveNotificationConfig: (cfg) => invokeIPC('save-notification-config', cfg),
-  showNativeNotification: (payload) => invokeIPC('show-native-notification', payload),
+  saveNotificationConfig: cfg => invokeIPC('save-notification-config', cfg),
+  showNativeNotification: payload => invokeIPC('show-native-notification', payload),
 
   // Crash Diagnostics & Error Telemetry (Phase 6)
-  reportRendererError: (payload) => invokeIPC('report-renderer-error', payload),
-  getCrashLogs: (maxLines) => invokeIPC('get-crash-logs', maxLines),
+  reportRendererError: payload => invokeIPC('report-renderer-error', payload),
+  getCrashLogs: maxLines => invokeIPC('get-crash-logs', maxLines),
   clearCrashLogs: () => invokeIPC('clear-crash-logs'),
 
   // Enterprise Resilience & Telemetry (Phase 7)
@@ -166,34 +167,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   normalizeDocument: (input, options) => invokeIPC('normalize-document', input, options),
   getNativeAddonStatus: () => invokeIPC('get-native-addon-status'),
   scanReceiptDocument: (input, options) => invokeIPC('scan-receipt-document', input, options),
+  analyzeDocumentStructure: (pages, filename) => invokeIPC('analyze-document-structure', pages, filename),
 
   // Model Manager & Downloader Engine (Phase 0.5.4)
-  listModels: (currency) => invokeIPC('list-models', currency),
+  listModels: currency => invokeIPC('list-models', currency),
   downloadModel: (modelId, options) => invokeIPC('download-model', modelId, options),
-  cancelModelDownload: (modelId) => invokeIPC('cancel-model-download', modelId),
-  deleteModel: (modelId) => invokeIPC('delete-model', modelId),
-  setActiveModel: (modelId) => invokeIPC('set-active-model', modelId),
-  verifyModelIntegrity: (modelId) => invokeIPC('verify-model-integrity', modelId),
+  cancelModelDownload: modelId => invokeIPC('cancel-model-download', modelId),
+  deleteModel: modelId => invokeIPC('delete-model', modelId),
+  setActiveModel: modelId => invokeIPC('set-active-model', modelId),
+  verifyModelIntegrity: modelId => invokeIPC('verify-model-integrity', modelId),
   getModelsStorageUsage: () => invokeIPC('get-models-storage-usage'),
   getActiveModel: () => invokeIPC('get-active-model'),
 
   // Event Subscriptions
-  onNavigateToTab: (callback) => {
+  onNavigateToTab: callback => {
     ipcRenderer.removeAllListeners('navigate-to-tab');
     ipcRenderer.on('navigate-to-tab', (event, tab) => callback(tab));
   },
 
-  onDataUpdated: (callback) => {
+  onDataUpdated: callback => {
     ipcRenderer.removeAllListeners('data-updated');
     ipcRenderer.on('data-updated', (event, data) => callback(data));
   },
 
-  onModelDownloadProgress: (callback) => {
+  onModelDownloadProgress: callback => {
     ipcRenderer.removeAllListeners('model-download-progress');
     ipcRenderer.on('model-download-progress', (event, data) => callback(data));
   },
 
-  onActiveModelChanged: (callback) => {
+  onActiveModelChanged: callback => {
     ipcRenderer.removeAllListeners('active-model-changed');
     ipcRenderer.on('active-model-changed', (event, data) => callback(data));
   }

@@ -9,7 +9,6 @@
  * Extracted from: src/app.js L44-60
  */
 
-
 // ============================================================================
 //  Currency Formatting
 // ============================================================================
@@ -32,7 +31,6 @@ export function currSym(salaryConfig) {
   return '₹';
 }
 
-
 /**
  * Formats a numeric value into a localized currency string.
  *
@@ -52,7 +50,6 @@ export function formatCurrency(amount, decimals = 2, salaryConfig) {
   return `${symbol}${formattedNumber}`;
 }
 
-
 /**
  * Formats a numeric value into an integer currency string with no decimals.
  *
@@ -63,7 +60,6 @@ export function formatCurrency(amount, decimals = 2, salaryConfig) {
 export function formatCurrencyInt(amount, salaryConfig) {
   return formatCurrency(amount, 0, salaryConfig);
 }
-
 
 // ============================================================================
 //  Date Formatting

@@ -2,12 +2,12 @@
  * ============================================================================
  * Ledgerly — DatabaseAuditor (Self-Healing Schema & Integrity Verifier)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Domain service providing automatic startup integrity audits, structural
  * schema validation, orphaned reference repair, negative/NaN amount cleanup,
  * and pre-repair backup snapshots.
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Single Responsibility: Audits and repairs database corruption and schema drift.
  * - Defensive Persistence: Always snapshots a recovery checkpoint before applying repairs.
@@ -22,7 +22,7 @@ const fs = require('fs');
 class DatabaseAuditor {
   /**
    * Evaluates the integrity of a root database object without applying mutations.
-   * 
+   *
    * @param {any} rootData - The in-memory or parsed root data to inspect.
    * @returns {{ healthy: boolean, issues: string[], suggestions: string[] }}
    */
@@ -142,7 +142,7 @@ class DatabaseAuditor {
    * Executes a self-healing audit pass against a JsonDatabase instance.
    * If corruption or structural issues are detected, snapshots a recovery backup
    * before applying repairs and persisting the clean state.
-   * 
+   *
    * @param {import('./JsonDatabase')} db - The database service to inspect and repair.
    * @returns {{ healthy: boolean, issuesFound: string[], repairsApplied: string[], backupCreated: string|null, timestamp: string }}
    */
@@ -171,7 +171,7 @@ class DatabaseAuditor {
 
     // Snapshot pre-repair state
     try {
-      const dbPath = (typeof db.getFilePath === 'function') ? db.getFilePath() : db.filePath;
+      const dbPath = typeof db.getFilePath === 'function' ? db.getFilePath() : db.filePath;
       if (dbPath && fs.existsSync(dbPath)) {
         backupCreated = `${dbPath}.pre-audit.bak`;
         fs.copyFileSync(dbPath, backupCreated);
@@ -208,7 +208,16 @@ class DatabaseAuditor {
           createdDate: timestamp,
           data: {
             expenses: [],
-            categories: ['Food & Dining', 'Groceries', 'Utilities', 'Transportation', 'Entertainment', 'Healthcare', 'Shopping', 'Miscellaneous'],
+            categories: [
+              'Food & Dining',
+              'Groceries',
+              'Utilities',
+              'Transportation',
+              'Entertainment',
+              'Healthcare',
+              'Shopping',
+              'Miscellaneous'
+            ],
             presets: [],
             notes: [],
             salaryConfig: { monthlyIncome: 0, fixedBills: 0, savingsGoal: 0, payday: 1 },
@@ -264,7 +273,9 @@ class DatabaseAuditor {
           const parsedAmount = parseFloat(repairedExp.amount);
           if (isNaN(parsedAmount) || !isFinite(parsedAmount) || parsedAmount < 0) {
             repairedExp.amount = 0;
-            repairsApplied.push(`${profile.name}: Sanitized invalid amount on "${repairedExp.title || repairedExp.id}" to 0.`);
+            repairsApplied.push(
+              `${profile.name}: Sanitized invalid amount on "${repairedExp.title || repairedExp.id}" to 0.`
+            );
           } else {
             repairedExp.amount = Math.round(parsedAmount * 100) / 100;
           }
@@ -272,7 +283,9 @@ class DatabaseAuditor {
           // Date sanitization
           if (!repairedExp.date || isNaN(new Date(repairedExp.date).getTime())) {
             repairedExp.date = todayStr;
-            repairsApplied.push(`${profile.name}: Sanitized invalid date on "${repairedExp.title || repairedExp.id}" to "${todayStr}".`);
+            repairsApplied.push(
+              `${profile.name}: Sanitized invalid date on "${repairedExp.title || repairedExp.id}" to "${todayStr}".`
+            );
           }
 
           // Metadata stamps for sync foundation
@@ -305,7 +318,16 @@ class DatabaseAuditor {
 
       // Collections
       if (!Array.isArray(data.categories) || data.categories.length === 0) {
-        data.categories = ['Food & Dining', 'Groceries', 'Utilities', 'Transportation', 'Entertainment', 'Healthcare', 'Shopping', 'Miscellaneous'];
+        data.categories = [
+          'Food & Dining',
+          'Groceries',
+          'Utilities',
+          'Transportation',
+          'Entertainment',
+          'Healthcare',
+          'Shopping',
+          'Miscellaneous'
+        ];
         repairsApplied.push(`${profile.name}: Restored default categories.`);
       }
 

@@ -59,11 +59,11 @@ let commandPalette = null;
  * Instantiates all views and standalone components, wiring dependencies and hooks.
  */
 function initApplication() {
-  const switchTab = (tab) => router?.switchTo(tab);
+  const switchTab = tab => router?.switchTo(tab);
 
   notesView = new NotesView(state, api, loadAppData);
   notificationView = new NotificationView(api, switchTab);
-  importView = new ImportView(state, api, loadAppData);
+  importView = new ImportView(state, api, loadAppData, switchTab);
   batchView = new BatchView(state, api, loadAppData, switchTab);
   settingsView = new SettingsView(state, api, loadAppData, switchTab);
 
@@ -85,9 +85,9 @@ function initApplication() {
     api,
     onDataChanged: loadAppData,
     onNavigateTab: switchTab,
-    onOpenExpenseModal: (id) => expenseFeedView.openEditModal(id),
+    onOpenExpenseModal: id => expenseFeedView.openEditModal(id),
     onOpenNoteModal: (id, title) => notesView.openForExpense(id, title),
-    onViewReceipt: (filename) => expenseFeedView.viewReceiptImage(filename)
+    onViewReceipt: filename => expenseFeedView.viewReceiptImage(filename)
   });
 
   authScreen = new AuthScreen({
@@ -109,9 +109,9 @@ function initApplication() {
       onExportCsv: () => document.getElementById('btn-export-csv')?.click(),
       onTogglePrivacy: () => togglePrivacyMode(),
       onOpenProfilePicker: () => authScreen.showProfilePickerScreen(),
-      onNavigateTab: (tab) => switchTab(tab),
-      onOpenExpenseModal: (id) => expenseFeedView.openEditModal(id),
-      onSetScope: (pid) => {
+      onNavigateTab: tab => switchTab(tab),
+      onOpenExpenseModal: id => expenseFeedView.openEditModal(id),
+      onSetScope: pid => {
         state.set('dashboardScope', pid);
         const select = /** @type {HTMLSelectElement|null} */ (document.getElementById('dashboard-scope-filter'));
         if (select) select.value = pid;
@@ -129,7 +129,7 @@ function initApplication() {
   notesView.mount(document.getElementById('view-notes'));
   settingsView.mount(document.getElementById('view-settings'));
   notificationView.mount();
-  importView.mount();
+  importView.mount(document.getElementById('view-import'));
   authScreen.mount();
   commandPalette.mount();
 
@@ -140,7 +140,8 @@ function initApplication() {
     batch: batchView,
     expenses: expenseFeedView,
     notes: notesView,
-    settings: settingsView
+    settings: settingsView,
+    import: importView
   });
 }
 
@@ -189,7 +190,8 @@ async function loadAppData() {
       categories: data.categories || [],
       budgetGoal: data.budgetGoal || 30000,
       presets: presets || data.presets || [],
-      salaryConfig: salaryConfig || data.salaryConfig || { monthlyIncome: 60000, fixedBills: 20000, savingsGoal: 10000 },
+      salaryConfig: salaryConfig ||
+        data.salaryConfig || { monthlyIncome: 60000, fixedBills: 20000, savingsGoal: 10000 },
       householdMembers: householdMembers || data.householdMembers || ['Self', 'Partner', 'Roommate'],
       notes: notes || [],
       settlements: settlements || [],
@@ -223,7 +225,10 @@ function updateHeaderAndSidebarUI() {
     const countEl = document.getElementById('profile-stat-count');
     if (avatarEl && typeof renderMonogram === 'function') {
       const name = activeProfile.name || 'Personal';
-      const color = activeProfile.color || activeProfile.avatar || (typeof getAvatarColor === 'function' ? getAvatarColor(name) : '#D9822B');
+      const color =
+        activeProfile.color ||
+        activeProfile.avatar ||
+        (typeof getAvatarColor === 'function' ? getAvatarColor(name) : '#D9822B');
       avatarEl.innerHTML = renderMonogram(name, 28, color);
     }
     if (nameEl) nameEl.textContent = activeProfile.name || 'Personal';
@@ -235,7 +240,8 @@ function updateHeaderAndSidebarUI() {
   const modeText = document.getElementById('menu-mode-text');
   const modeIcon = document.getElementById('menu-mode-icon');
   if (modeText) modeText.textContent = workspaceMode === 'solo' ? 'Switch to Household Mode' : 'Switch to Solo Mode';
-  if (modeIcon && typeof icon === 'function') modeIcon.innerHTML = workspaceMode === 'solo' ? icon('users', 14) : icon('user', 14);
+  if (modeIcon && typeof icon === 'function')
+    modeIcon.innerHTML = workspaceMode === 'solo' ? icon('users', 14) : icon('user', 14);
 
   // Multi-User Scope Filter in Dashboard Header
   const scopeSelect = /** @type {HTMLSelectElement|null} */ (document.getElementById('dashboard-scope-filter'));
@@ -299,12 +305,16 @@ function populateHouseholdMemberControls() {
   }
 
   if (splitWithContainer) {
-    splitWithContainer.innerHTML = members.map(m => `
+    splitWithContainer.innerHTML = members
+      .map(
+        m => `
       <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; background: var(--bg-card); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
         <input type="checkbox" name="split-member" value="${escapeHTML(m)}" checked style="width: auto;">
         ${escapeHTML(m)}
       </label>
-    `).join('');
+    `
+      )
+      .join('');
   }
 }
 
@@ -329,14 +339,16 @@ function togglePrivacyMode(forceState = null) {
 
   if (lockBadge) lockBadge.classList.toggle('hidden', !next);
   if (titlebarIcon) {
-    titlebarIcon.innerHTML = next && typeof icon === 'function'
-      ? icon('lock', 14)
-      : '<img src="../assets/icon-taskbar.png" alt="Ledgerly" class="titlebar-brand-img">';
+    titlebarIcon.innerHTML =
+      next && typeof icon === 'function'
+        ? icon('lock', 14)
+        : '<img src="../assets/icon-taskbar.png" alt="Ledgerly" class="titlebar-brand-img">';
   }
   if (dashboardBrandIcon) {
-    dashboardBrandIcon.innerHTML = next && typeof icon === 'function'
-      ? icon('lock', 18)
-      : '<img src="../assets/icon-taskbar.png" alt="Ledgerly" class="dashboard-brand-img">';
+    dashboardBrandIcon.innerHTML =
+      next && typeof icon === 'function'
+        ? icon('lock', 18)
+        : '<img src="../assets/icon-taskbar.png" alt="Ledgerly" class="dashboard-brand-img">';
   }
   if (dashboardPrivacyBadge) {
     dashboardPrivacyBadge.innerHTML = next
@@ -416,9 +428,12 @@ function setupGlobalListeners() {
     });
   });
 
-  // Settings Header Quick Link
+  // Settings & Import Header Quick Links
   document.getElementById('btn-open-settings-header')?.addEventListener('click', () => {
     router.switchTo('settings');
+  });
+  document.getElementById('btn-import-file')?.addEventListener('click', () => {
+    router.switchTo('import');
   });
 
   // Privacy Mode Triggers
@@ -426,13 +441,13 @@ function setupGlobalListeners() {
   document.getElementById('dashboard-brand-privacy-btn')?.addEventListener('click', () => togglePrivacyMode());
 
   // Scope Selector
-  document.getElementById('dashboard-scope-filter')?.addEventListener('change', (e) => {
+  document.getElementById('dashboard-scope-filter')?.addEventListener('change', e => {
     state.set('dashboardScope', /** @type {HTMLSelectElement} */ (e.target).value);
     router.refreshCurrentView();
   });
 
   // 3. Global Keyboard Shortcuts
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener('keydown', e => {
     // Ctrl+N / Cmd+N -> Focus Express NLP Entry Bar on Dashboard
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
       e.preventDefault();
@@ -453,7 +468,10 @@ function setupGlobalListeners() {
     }
 
     // P -> Privacy Mode Toggle (when not actively typing in an input)
-    if (e.key.toLowerCase() === 'p' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName || '')) {
+    if (
+      e.key.toLowerCase() === 'p' &&
+      !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName || '')
+    ) {
       e.preventDefault();
       togglePrivacyMode();
       return;
@@ -490,7 +508,7 @@ function setupGlobalListeners() {
   });
 
   // 4. Global Direct Clipboard Image Paste (Ctrl+V)
-  window.addEventListener('paste', async (e) => {
+  window.addEventListener('paste', async e => {
     const items = e.clipboardData && e.clipboardData.items;
     if (!items) return;
 
@@ -505,7 +523,9 @@ function setupGlobalListeners() {
               const res = await api.saveReceiptBuffer(base64Data);
               if (res && res.success) {
                 state.set('pendingReceiptFilename', res.filename);
-                const filenameInput = /** @type {HTMLInputElement|null} */ (document.getElementById('form-receipt-filename'));
+                const filenameInput = /** @type {HTMLInputElement|null} */ (
+                  document.getElementById('form-receipt-filename')
+                );
                 const statusText = document.getElementById('receipt-status-text');
                 if (filenameInput) filenameInput.value = res.filename;
                 if (statusText) statusText.textContent = `Attached from Clipboard: ${res.filename}`;
@@ -528,7 +548,7 @@ function setupGlobalListeners() {
   });
 
   // 5. Dynamic Merchant Category Prediction on Expense Form
-  document.getElementById('form-title')?.addEventListener('input', async (e) => {
+  document.getElementById('form-title')?.addEventListener('input', async e => {
     const title = /** @type {HTMLInputElement} */ (e.target).value.trim();
     if (title && api?.predictCategory) {
       const predicted = await api.predictCategory(title);
@@ -541,7 +561,7 @@ function setupGlobalListeners() {
     }
   });
 
-  document.getElementById('form-category')?.addEventListener('change', async (e) => {
+  document.getElementById('form-category')?.addEventListener('change', async e => {
     const title = /** @type {HTMLInputElement|null} */ (document.getElementById('form-title'))?.value.trim();
     const cat = /** @type {HTMLSelectElement} */ (e.target).value;
     if (title && cat && api?.learnCategoryKeyword) {
@@ -553,7 +573,11 @@ function setupGlobalListeners() {
   if (api?.onDataUpdated) {
     api.onDataUpdated(async () => {
       await loadAppData();
-      showActionToast({ icon: 'zap', title: 'Quick Pill Expense Logged', subtext: 'Logged via desktop floating widget' });
+      showActionToast({
+        icon: 'zap',
+        title: 'Quick Pill Expense Logged',
+        subtext: 'Logged via desktop floating widget'
+      });
     });
   }
 }
@@ -565,7 +589,7 @@ function setupGlobalListeners() {
 function setupGlobalErrorTraps() {
   if (typeof window === 'undefined') return;
 
-  window.addEventListener('error', (event) => {
+  window.addEventListener('error', event => {
     const errorDetails = {
       type: 'RENDERER_UNCAUGHT_ERROR',
       message: event.message || 'Uncaught renderer error',
@@ -585,7 +609,7 @@ function setupGlobalErrorTraps() {
     showToast(`Unexpected error: ${event.message || 'Script error'}`, 'error');
   });
 
-  window.addEventListener('unhandledrejection', (event) => {
+  window.addEventListener('unhandledrejection', event => {
     const reason = event.reason;
     const errorDetails = {
       type: 'RENDERER_UNHANDLED_REJECTION',
@@ -612,34 +636,34 @@ setupGlobalErrorTraps();
 // ============================================================================
 
 if (typeof window !== 'undefined') {
-  window.switchTab = (tab) => router?.switchTo(tab);
-  window.recoverToTab = (tab) => router?.recoverToTab(tab);
+  window.switchTab = tab => router?.switchTo(tab);
+  window.recoverToTab = tab => router?.recoverToTab(tab);
   window.togglePrivacyMode = togglePrivacyMode;
   window.toggleSidebar = toggleSidebar;
   window.openCommandPalette = () => commandPalette?.open();
   window.closeCommandPalette = () => commandPalette?.close();
   window.openProfilePickerScreen = () => authScreen?.showProfilePickerScreen();
-  window.openPersonModal = (id) => authScreen?.openPersonModal(id);
+  window.openPersonModal = id => authScreen?.openPersonModal(id);
   window.closePersonModal = () => authScreen?.closePersonModal();
   window.openManageProfilesModal = () => authScreen?.openManageProfilesModal();
   window.closeManageProfilesModal = () => authScreen?.closeManageProfilesModal();
   window.openAddModal = () => expenseFeedView?.openAddModal();
-  window.openEditModal = (id) => expenseFeedView?.openEditModal(id);
+  window.openEditModal = id => expenseFeedView?.openEditModal(id);
   window.closeModal = () => expenseFeedView?.closeModal();
-  window.viewReceiptImage = (filename) => expenseFeedView?.viewReceiptImage(filename);
+  window.viewReceiptImage = filename => expenseFeedView?.viewReceiptImage(filename);
   window.openSettleModal = (...args) => householdView?.openSettleModal(...args);
   window.closeSettleModal = () => householdView?.closeSettleModal();
   window.openAddRecurringBillModal = () => householdView?.openAddRecurringBillModal();
   window.openEditRecurringBillModal = (...args) => householdView?.openEditRecurringBillModal(...args);
   window.closeRecurringBillModal = () => householdView?.closeRecurringBillModal();
   window.openAddPresetModal = () => dashboardView?.openAddPresetModal();
-  window.openEditPresetModal = (id) => dashboardView?.openEditPresetModal(id);
+  window.openEditPresetModal = id => dashboardView?.openEditPresetModal(id);
   window.closePresetModal = () => dashboardView?.closePresetModal();
-  window.logPresetExpense = (id) => dashboardView?.logPresetExpense(id);
+  window.logPresetExpense = id => dashboardView?.logPresetExpense(id);
   window.openSalaryModal = () => dashboardView?.openSalaryModal();
   window.closeSalaryModal = () => dashboardView?.closeSalaryModal();
   window.openNoteModalForExpense = (id, title) => notesView?.openForExpense(id, title);
-  window.getCrashLogs = (maxLines) => api?.getCrashLogs?.(maxLines);
+  window.getCrashLogs = maxLines => api?.getCrashLogs?.(maxLines);
   window.undoLastAction = handleGlobalUndo;
 }
 

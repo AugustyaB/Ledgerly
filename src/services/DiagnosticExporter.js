@@ -2,12 +2,12 @@
  * ============================================================================
  * Ledgerly — DiagnosticExporter (Sanitized Offline Telemetry & Bug Bundler)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Generates privacy-safe diagnostic reports packaging system specs, runtime
  * health, database integrity metrics, and sanitized crash logs for offline
  * debugging and user support.
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Privacy First: Never exports plaintext passwords, hashes, account credentials,
  *   personal notes content, or individual transaction logs.
@@ -25,7 +25,7 @@ const crashLogger = require('../logger/crashLogger');
 class DiagnosticExporter {
   /**
    * Masks sensitive paths (e.g. C:\Users\Username or /home/username) in strings.
-   * 
+   *
    * @param {string} text - Raw string containing potential file paths.
    * @returns {string} Sanitized string with masked user identifiers.
    */
@@ -36,8 +36,9 @@ class DiagnosticExporter {
       if (home && text.includes(home)) {
         return text.split(home).join('<USER_HOME>');
       }
-      return text.replace(/[A-Za-z]:\\Users\\[^\\]+/g, 'C:\\Users\\<REDACTED>')
-                 .replace(/\/home\/[^/]+/g, '/home/<REDACTED>');
+      return text
+        .replace(/[A-Za-z]:\\Users\\[^\\]+/g, 'C:\\Users\\<REDACTED>')
+        .replace(/\/home\/[^/]+/g, '/home/<REDACTED>');
     } catch {
       return text;
     }
@@ -45,7 +46,7 @@ class DiagnosticExporter {
 
   /**
    * Masks sensitive credentials, auth tokens, passwords, and API keys.
-   * 
+   *
    * @param {string} text
    * @returns {string} Sanitized string
    */
@@ -55,16 +56,19 @@ class DiagnosticExporter {
     // Mask Bearer tokens
     sanitized = sanitized.replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [REDACTED]');
     // Mask API keys and secrets
-    sanitized = sanitized.replace(/(?:api_key|apiKey|secret|token|password|auth)\s*[=:]\s*["']?[^"'\s,;]+["']?/gi, (match) => {
-      const key = match.split(/[=:]/)[0];
-      return `${key}=[REDACTED]`;
-    });
+    sanitized = sanitized.replace(
+      /(?:api_key|apiKey|secret|token|password|auth)\s*[=:]\s*["']?[^"'\s,;]+["']?/gi,
+      match => {
+        const key = match.split(/[=:]/)[0];
+        return `${key}=[REDACTED]`;
+      }
+    );
     return sanitized;
   }
 
   /**
    * Compiles a comprehensive, privacy-sanitized diagnostic bundle.
-   * 
+   *
    * @param {import('./JsonDatabase')} db - The database service.
    * @param {string} [appVersion='0.4.7'] - Active Ledgerly application version.
    * @returns {object} Sanitized diagnostic bundle.
@@ -155,7 +159,7 @@ class DiagnosticExporter {
 
   /**
    * Generates and writes the diagnostic report to disk.
-   * 
+   *
    * @param {string} destinationPath - Absolute path where the report JSON will be written.
    * @param {import('./JsonDatabase')} db - The database service.
    * @param {string} [appVersion='0.4.7'] - Active version.

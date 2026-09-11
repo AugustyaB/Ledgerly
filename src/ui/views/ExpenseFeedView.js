@@ -1,6 +1,6 @@
 /**
  * LEDGERLY — EXPENSE FEED VIEW COMPONENT
- * 
+ *
  * High-performance transaction ledger and precision expense management hub.
  * Features:
  * - Multi-criteria live filtering (search, category, payment method, member split, date range)
@@ -167,7 +167,7 @@ export class ExpenseFeedView {
    * Unmount the view and remove all event listeners.
    */
   unmount() {
-    this.#cleanups.forEach((cleanup) => {
+    this.#cleanups.forEach(cleanup => {
       try {
         cleanup();
       } catch (err) {
@@ -202,39 +202,40 @@ export class ExpenseFeedView {
     // 1. Search Query Filter
     const q = (filters.search || '').trim().toLowerCase();
     if (q) {
-      list = list.filter((e) =>
-        (e.title && e.title.toLowerCase().includes(q)) ||
-        (e.description && e.description.toLowerCase().includes(q)) ||
-        (e.category && e.category.toLowerCase().includes(q)) ||
-        (e.tags && Array.isArray(e.tags) && e.tags.some((t) => t.toLowerCase().includes(q)))
+      list = list.filter(
+        e =>
+          (e.title && e.title.toLowerCase().includes(q)) ||
+          (e.description && e.description.toLowerCase().includes(q)) ||
+          (e.category && e.category.toLowerCase().includes(q)) ||
+          (e.tags && Array.isArray(e.tags) && e.tags.some(t => t.toLowerCase().includes(q)))
       );
     }
 
     // 2. Category Filter
     if (filters.category && filters.category !== 'ALL') {
-      list = list.filter((e) => e.category === filters.category);
+      list = list.filter(e => e.category === filters.category);
     }
 
     // 3. Payment Method Filter
     if (filters.paymentMethod && filters.paymentMethod !== 'ALL') {
-      list = list.filter((e) => (e.paymentMethod || 'UPI / GPay') === filters.paymentMethod);
+      list = list.filter(e => (e.paymentMethod || 'UPI / GPay') === filters.paymentMethod);
     }
 
     // 4. Member / Split Filter
     if (filters.member === 'SHARED') {
-      list = list.filter((e) => e.isHouseholdExpense || (e.splitWith && e.splitWith.length > 0));
+      list = list.filter(e => e.isHouseholdExpense || (e.splitWith && e.splitWith.length > 0));
     } else if (filters.member === 'PERSONAL') {
-      list = list.filter((e) => !e.isHouseholdExpense && (!e.splitWith || e.splitWith.length === 0));
+      list = list.filter(e => !e.isHouseholdExpense && (!e.splitWith || e.splitWith.length === 0));
     }
 
     // 5. Date Range Filter
     const now = new Date();
     if (filters.dateRange === 'THIS_MONTH') {
       const monthStr = now.toISOString().substring(0, 7);
-      list = list.filter((e) => e.date && e.date.startsWith(monthStr));
+      list = list.filter(e => e.date && e.date.startsWith(monthStr));
     } else if (filters.dateRange === 'LAST_30') {
       const cutoff = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString().split('T')[0];
-      list = list.filter((e) => e.date && e.date >= cutoff);
+      list = list.filter(e => e.date && e.date >= cutoff);
     }
 
     // 6. Sorting
@@ -283,9 +284,10 @@ export class ExpenseFeedView {
     // Update Pagination Display
     const infoEl = document.getElementById('feed-pagination-info');
     if (infoEl) {
-      infoEl.textContent = totalCount > 0
-        ? `Showing ${startIndex + 1}–${Math.min(startIndex + pageSize, totalCount)} of ${totalCount} records`
-        : '0 records found';
+      infoEl.textContent =
+        totalCount > 0
+          ? `Showing ${startIndex + 1}–${Math.min(startIndex + pageSize, totalCount)} of ${totalCount} records`
+          : '0 records found';
     }
 
     const pageBadge = document.getElementById('feed-current-page-badge');
@@ -316,11 +318,11 @@ export class ExpenseFeedView {
     let html = '';
     let rowIdx = 0;
 
-    pagedList.forEach((item) => {
+    pagedList.forEach(item => {
       const groupLabel = getDateGroupLabel(item.date);
       if (groupLabel !== lastDateGroup) {
         lastDateGroup = groupLabel;
-        const groupItems = pagedList.filter((x) => getDateGroupLabel(x.date) === groupLabel);
+        const groupItems = pagedList.filter(x => getDateGroupLabel(x.date) === groupLabel);
         const groupSubtotal = groupItems.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
 
         html += `
@@ -336,7 +338,7 @@ export class ExpenseFeedView {
       }
 
       const isChecked = selectedIds.has(item.id);
-      const expenseNotes = notes.filter((n) => n.relation === 'transaction' && n.relationId === item.id);
+      const expenseNotes = notes.filter(n => n.relation === 'transaction' && n.relationId === item.id);
       const hasNotes = expenseNotes.length > 0;
       const isShared = Boolean(item.isHouseholdExpense);
       const currentIndex = rowIdx++;
@@ -367,11 +369,15 @@ export class ExpenseFeedView {
             -${formatCurrency(parseFloat(item.amount) || 0)}
           </td>
           <td>
-            ${item.receiptFilename ? `
+            ${
+              item.receiptFilename
+                ? `
               <button type="button" class="action-btn" data-action="view-receipt" data-filename="${escapeHTML(item.receiptFilename)}" title="View Receipt Image">
                 ${safeIcon('camera', 13)} View
               </button>
-            ` : '<span style="color:var(--text-dim); font-size:11px;">—</span>'}
+            `
+                : '<span style="color:var(--text-dim); font-size:11px;">—</span>'
+            }
           </td>
           <td class="actions-cell">
             <button type="button" class="action-btn note-indicator-btn ${hasNotes ? 'has-notes' : ''}"
@@ -407,7 +413,7 @@ export class ExpenseFeedView {
     const categories = this.state?.get('categories') || [];
     const catSelect = /** @type {HTMLSelectElement|null} */ (document.getElementById('feed-filter-category'));
     if (catSelect && catSelect.options.length <= 1) {
-      categories.forEach((c) => {
+      categories.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c;
         opt.textContent = c;
@@ -417,7 +423,7 @@ export class ExpenseFeedView {
 
     const formCat = /** @type {HTMLSelectElement|null} */ (document.getElementById('form-category'));
     if (formCat && formCat.options.length === 0) {
-      categories.forEach((c) => {
+      categories.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c;
         opt.textContent = c;
@@ -433,7 +439,7 @@ export class ExpenseFeedView {
     if (typeof document === 'undefined') return;
 
     const sort = this.state?.get('feedSort') || { column: 'date', direction: 'desc' };
-    ['date', 'title', 'category', 'amount'].forEach((c) => {
+    ['date', 'title', 'category', 'amount'].forEach(c => {
       const iconEl = document.getElementById(`feed-sort-${c}-icon`);
       if (iconEl) {
         if (sort.column === c) {
@@ -462,7 +468,9 @@ export class ExpenseFeedView {
     }
     if (allCheckbox) {
       const visibleCheckboxes = document.querySelectorAll('.feed-row-checkbox');
-      const allChecked = visibleCheckboxes.length > 0 && Array.from(visibleCheckboxes).every((cb) => /** @type {HTMLInputElement} */ (cb).checked);
+      const allChecked =
+        visibleCheckboxes.length > 0 &&
+        Array.from(visibleCheckboxes).every(cb => /** @type {HTMLInputElement} */ (cb).checked);
       allCheckbox.checked = allChecked;
     }
   }
@@ -478,7 +486,7 @@ export class ExpenseFeedView {
    */
   async startInlineEditTitle(cell, expenseId) {
     const expenses = this.state?.get('expenses') || [];
-    const item = expenses.find((e) => e.id === expenseId);
+    const item = expenses.find(e => e.id === expenseId);
     if (!item) {
       showToast('⚠️ Expense record not found');
       return;
@@ -512,7 +520,7 @@ export class ExpenseFeedView {
     };
 
     input.addEventListener('blur', save);
-    input.addEventListener('keydown', (e) => {
+    input.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
         input.blur();
@@ -531,7 +539,7 @@ export class ExpenseFeedView {
    */
   async startInlineEditAmount(cell, expenseId) {
     const expenses = this.state?.get('expenses') || [];
-    const item = expenses.find((e) => e.id === expenseId);
+    const item = expenses.find(e => e.id === expenseId);
     if (!item) {
       showToast('⚠️ Expense record not found');
       return;
@@ -565,7 +573,7 @@ export class ExpenseFeedView {
     };
 
     input.addEventListener('blur', save);
-    input.addEventListener('keydown', (e) => {
+    input.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
         input.blur();
@@ -584,7 +592,7 @@ export class ExpenseFeedView {
    */
   async startInlineEditCategory(cell, expenseId) {
     const expenses = this.state?.get('expenses') || [];
-    const item = expenses.find((e) => e.id === expenseId);
+    const item = expenses.find(e => e.id === expenseId);
     if (!item) {
       showToast('⚠️ Expense record not found');
       return;
@@ -592,7 +600,9 @@ export class ExpenseFeedView {
 
     const currentVal = item.category;
     const categories = this.state?.get('categories') || [];
-    const options = categories.map((c) => `<option value="${escapeHTML(c)}" ${c === currentVal ? 'selected' : ''}>${escapeHTML(c)}</option>`).join('');
+    const options = categories
+      .map(c => `<option value="${escapeHTML(c)}" ${c === currentVal ? 'selected' : ''}>${escapeHTML(c)}</option>`)
+      .join('');
 
     cell.classList.add('inline-editing-cell');
     cell.innerHTML = `<select class="inline-cell-select">${options}</select>`;
@@ -621,7 +631,7 @@ export class ExpenseFeedView {
 
     select.addEventListener('blur', save);
     select.addEventListener('change', () => select.blur());
-    select.addEventListener('keydown', (e) => {
+    select.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         saved = true;
         this.render();
@@ -678,7 +688,7 @@ export class ExpenseFeedView {
     if (typeof document === 'undefined') return;
 
     let expenses = this.state?.get('expenses') || [];
-    let item = expenses.find((e) => e.id === id);
+    let item = expenses.find(e => e.id === id);
 
     if (!item && this.api?.getExpenseById) {
       const res = await this.api.getExpenseById(id);
@@ -714,7 +724,9 @@ export class ExpenseFeedView {
     if (descInput) descInput.value = item.description || '';
     if (receiptInput) receiptInput.value = item.receiptFilename || '';
     if (receiptStatus) {
-      receiptStatus.textContent = item.receiptFilename ? `Attached: ${item.receiptFilename}` : 'No receipt image attached';
+      receiptStatus.textContent = item.receiptFilename
+        ? `Attached: ${item.receiptFilename}`
+        : 'No receipt image attached';
     }
 
     const isHousehold = Boolean(item.isHouseholdExpense);
@@ -751,20 +763,22 @@ export class ExpenseFeedView {
     const splitContainer = document.getElementById('form-split-with-container');
 
     if (paidBySelect) {
-      paidBySelect.innerHTML = members.map((m) => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
+      paidBySelect.innerHTML = members.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
       paidBySelect.value = paidBy || members[0] || 'Self';
     }
 
     if (splitContainer) {
-      splitContainer.innerHTML = members.map((m) => {
-        const isChecked = splitWith && splitWith.length > 0 ? splitWith.includes(m) : true;
-        return `
+      splitContainer.innerHTML = members
+        .map(m => {
+          const isChecked = splitWith && splitWith.length > 0 ? splitWith.includes(m) : true;
+          return `
           <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; background: var(--bg-card); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
             <input type="checkbox" name="split-member" value="${escapeHTML(m)}" ${isChecked ? 'checked' : ''} style="width: auto;">
             ${escapeHTML(m)}
           </label>
         `;
-      }).join('');
+        })
+        .join('');
     }
   }
 
@@ -861,11 +875,11 @@ export class ExpenseFeedView {
       this.render();
     };
 
-    bindInput('feed-search-input', 'input', (e) => updateFilter('search', e.target.value));
-    bindInput('feed-filter-category', 'change', (e) => updateFilter('category', e.target.value));
-    bindInput('feed-filter-payment', 'change', (e) => updateFilter('paymentMethod', e.target.value));
-    bindInput('feed-filter-member', 'change', (e) => updateFilter('member', e.target.value));
-    bindInput('feed-filter-date-range', 'change', (e) => updateFilter('dateRange', e.target.value));
+    bindInput('feed-search-input', 'input', e => updateFilter('search', e.target.value));
+    bindInput('feed-filter-category', 'change', e => updateFilter('category', e.target.value));
+    bindInput('feed-filter-payment', 'change', e => updateFilter('paymentMethod', e.target.value));
+    bindInput('feed-filter-member', 'change', e => updateFilter('member', e.target.value));
+    bindInput('feed-filter-date-range', 'change', e => updateFilter('dateRange', e.target.value));
 
     bindInput('feed-btn-reset-filters', 'click', () => {
       if (this.state) {
@@ -973,7 +987,7 @@ export class ExpenseFeedView {
     // Delegated Row Checkbox Click with Shift+Click range support
     const tbody = document.getElementById('feed-expense-table-body');
     if (tbody) {
-      const handleCheckbox = (event) => {
+      const handleCheckbox = event => {
         const target = /** @type {HTMLInputElement} */ (event.target);
         if (!target || !target.classList.contains('feed-row-checkbox')) return;
 
@@ -1014,7 +1028,7 @@ export class ExpenseFeedView {
       this.#cleanups.push(() => tbody.removeEventListener('click', handleCheckbox));
 
       // Delegated Double-Click for Inline Editing
-      const handleDblClick = (event) => {
+      const handleDblClick = event => {
         const cell = /** @type {HTMLElement} */ (event.target)?.closest('td');
         if (!cell) return;
 
@@ -1049,11 +1063,11 @@ export class ExpenseFeedView {
     };
 
     // Select all checkbox
-    bindEl('feed-select-all-checkbox', 'change', (e) => {
+    bindEl('feed-select-all-checkbox', 'change', e => {
       const isChecked = /** @type {HTMLInputElement} */ (e.target).checked;
       const selectedIds = this.state?.get('feedSelectedIds') || new Set();
 
-      document.querySelectorAll('.feed-row-checkbox').forEach((cb) => {
+      document.querySelectorAll('.feed-row-checkbox').forEach(cb => {
         const input = /** @type {HTMLInputElement} */ (cb);
         input.checked = isChecked;
         const id = input.getAttribute('data-id');
@@ -1071,7 +1085,7 @@ export class ExpenseFeedView {
     bindEl('feed-btn-deselect-all', 'click', () => {
       const selectedIds = this.state?.get('feedSelectedIds') || new Set();
       selectedIds.clear();
-      document.querySelectorAll('.feed-row-checkbox').forEach((cb) => {
+      document.querySelectorAll('.feed-row-checkbox').forEach(cb => {
         /** @type {HTMLInputElement} */ (cb).checked = false;
       });
       if (this.state) this.state.set('feedSelectedIds', selectedIds);
@@ -1164,20 +1178,20 @@ export class ExpenseFeedView {
     bindEl('form-cancel-btn', 'click', () => this.closeModal());
 
     // Household split toggle checkbox
-    bindEl('form-is-household', 'change', (e) => {
+    bindEl('form-is-household', 'change', e => {
       const checked = /** @type {HTMLInputElement} */ (e.target).checked;
       document.getElementById('form-split-options')?.classList.toggle('hidden', !checked);
     });
 
     // Expense Form submission
-    bindEl('expense-form', 'submit', async (e) => {
+    bindEl('expense-form', 'submit', async e => {
       e.preventDefault();
       const id = /** @type {HTMLInputElement} */ (document.getElementById('form-expense-id'))?.value;
       const isHousehold = /** @type {HTMLInputElement} */ (document.getElementById('form-is-household'))?.checked;
 
       let splitWithMembers = [];
       if (isHousehold) {
-        document.querySelectorAll('input[name="split-member"]:checked').forEach((cb) => {
+        document.querySelectorAll('input[name="split-member"]:checked').forEach(cb => {
           splitWithMembers.push(/** @type {HTMLInputElement} */ (cb).value);
         });
       }
@@ -1189,7 +1203,8 @@ export class ExpenseFeedView {
         category: /** @type {HTMLSelectElement} */ (document.getElementById('form-category'))?.value,
         paymentMethod: /** @type {HTMLSelectElement} */ (document.getElementById('form-payment'))?.value,
         description: /** @type {HTMLTextAreaElement} */ (document.getElementById('form-description'))?.value || '',
-        receiptFilename: /** @type {HTMLInputElement} */ (document.getElementById('form-receipt-filename'))?.value || null,
+        receiptFilename:
+          /** @type {HTMLInputElement} */ (document.getElementById('form-receipt-filename'))?.value || null,
         paidBy: /** @type {HTMLSelectElement} */ (document.getElementById('form-paid-by'))?.value || 'Self',
         splitWith: splitWithMembers,
         isHouseholdExpense: Boolean(isHousehold),
@@ -1240,14 +1255,14 @@ export class ExpenseFeedView {
     // Receipt Dropzone drag-and-drop
     const dropzone = document.getElementById('receipt-dropzone');
     if (dropzone) {
-      const onDragOver = (e) => {
+      const onDragOver = e => {
         e.preventDefault();
         dropzone.classList.add('drag-active');
       };
       const onDragLeave = () => {
         dropzone.classList.remove('drag-active');
       };
-      const onDrop = async (e) => {
+      const onDrop = async e => {
         e.preventDefault();
         dropzone.classList.remove('drag-active');
         if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
@@ -1282,7 +1297,7 @@ export class ExpenseFeedView {
   /**
    * Processes a receipt file: saves to disk and scans with Tier 1 ML engine.
    * @private
-   * @param {string} filePath 
+   * @param {string} filePath
    */
   async #handleReceiptFile(filePath) {
     if (!filePath || !this.api?.saveReceipt) return;
@@ -1322,9 +1337,12 @@ export class ExpenseFeedView {
 
           // User requirement: Notify if active engine fell back to Tier 1
           if (data.fallbackTriggered) {
-            const reqEngineName = data.requestedEngine === 'tier2-visionpro'
-              ? 'Tier 2 Vision-Pro'
-              : (data.requestedEngine === 'tier3-regional-in' ? 'Tier 3 Regional India' : (data.requestedEngine || 'Selected engine'));
+            const reqEngineName =
+              data.requestedEngine === 'tier2-visionpro'
+                ? 'Tier 2 Vision-Pro'
+                : data.requestedEngine === 'tier3-regional-in'
+                  ? 'Tier 3 Regional India'
+                  : data.requestedEngine || 'Selected engine';
             showToast(`⚠️ ${reqEngineName} was unavailable. Switched to Tier 1 Fast-Lite.`, 'warning');
           }
 
@@ -1336,9 +1354,12 @@ export class ExpenseFeedView {
 
             this.#autofillExpenseForm(data);
 
-            const engineLabel = data.engineUsed === 'tier2-visionpro'
-              ? 'Vision-Pro (Table Parsed)'
-              : (data.engineUsed === 'tier3-regional-in' ? 'Regional India' : 'Fast-Lite');
+            const engineLabel =
+              data.engineUsed === 'tier2-visionpro'
+                ? 'Vision-Pro (Table Parsed)'
+                : data.engineUsed === 'tier3-regional-in'
+                  ? 'Regional India'
+                  : 'Fast-Lite';
 
             if (statusText) {
               statusText.textContent = `Attached: ${saveRes.filename} (${engineLabel}: ₹${data.total.toFixed(2)})`;
@@ -1430,8 +1451,10 @@ export class ExpenseFeedView {
 
       if (paymentEl && data.paymentMethod) {
         for (let i = 0; i < paymentEl.options.length; i++) {
-          if (paymentEl.options[i].value.toLowerCase().includes(data.paymentMethod.toLowerCase()) ||
-              data.paymentMethod.toLowerCase().includes(paymentEl.options[i].value.toLowerCase())) {
+          if (
+            paymentEl.options[i].value.toLowerCase().includes(data.paymentMethod.toLowerCase()) ||
+            data.paymentMethod.toLowerCase().includes(paymentEl.options[i].value.toLowerCase())
+          ) {
             paymentEl.selectedIndex = i;
             break;
           }

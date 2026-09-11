@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  inputEl.addEventListener('keydown', async (e) => {
+  inputEl.addEventListener('keydown', async e => {
     if (e.key === 'Enter') {
       e.preventDefault();
       await handleSubmit();
@@ -79,29 +79,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const receiptBtn = document.getElementById('pill-receipt-btn');
   const container = document.getElementById('quick-pill-container');
 
-  const processReceiptPath = async (filePath) => {
+  const processReceiptPath = async filePath => {
     if (!filePath || !window.electronAPI?.scanReceiptDocument) return;
 
     let activeModelId = 'tier1-fastlite';
     if (window.electronAPI?.getActiveModel) {
       try {
         const modelRes = await window.electronAPI.getActiveModel();
-        activeModelId = typeof modelRes === 'string' ? modelRes : (modelRes?.data || 'tier1-fastlite');
+        activeModelId = typeof modelRes === 'string' ? modelRes : modelRes?.data || 'tier1-fastlite';
       } catch {
         // Default to tier1
       }
     }
 
-    const engineName = activeModelId === 'tier2-visionpro'
-      ? 'Tier 2 Vision-Pro'
-      : (activeModelId === 'tier3-regional-in' ? 'Tier 3 Regional India' : 'Tier 1 Fast-Lite');
+    const engineName =
+      activeModelId === 'tier2-visionpro'
+        ? 'Tier 2 Vision-Pro'
+        : activeModelId === 'tier3-regional-in'
+          ? 'Tier 3 Regional India'
+          : 'Tier 1 Fast-Lite';
 
     inputEl.placeholder = `Scanning with ${engineName}...`;
     try {
       const scanRes = await window.electronAPI.scanReceiptDocument(filePath);
 
       if (scanRes?.data?.fallbackTriggered) {
-        const reqEngine = scanRes.data.requestedEngine === 'tier2-visionpro' ? 'Tier 2 Vision-Pro' : 'Tier 3 Regional India';
+        const reqEngine =
+          scanRes.data.requestedEngine === 'tier2-visionpro' ? 'Tier 2 Vision-Pro' : 'Tier 3 Regional India';
         if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
           window.showToast(`⚠️ ${reqEngine} unavailable. Switched to Tier 1 Fast-Lite.`, 'warning');
         }
@@ -160,14 +164,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (container) {
-    container.addEventListener('dragover', (e) => {
+    container.addEventListener('dragover', e => {
       e.preventDefault();
       container.style.borderColor = '#E5943C';
     });
     container.addEventListener('dragleave', () => {
       container.style.borderColor = '#D9822B';
     });
-    container.addEventListener('drop', async (e) => {
+    container.addEventListener('drop', async e => {
       e.preventDefault();
       container.style.borderColor = '#D9822B';
       if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {

@@ -16,13 +16,11 @@
 import { escapeHTML, delegateEvent, setInnerHTML } from '../helpers/dom.js';
 import { showToast } from '../helpers/toast.js';
 
-
 // ============================================================================
 //  SettingsView Class
 // ============================================================================
 
 export class SettingsView {
-
   /** @type {HTMLElement|null} */
   #container = null;
 
@@ -41,6 +39,8 @@ export class SettingsView {
   /** @type {Array<function(): void>} */
   #cleanupListeners = [];
 
+  /** @type {string} */
+  #activeModelFilter = 'all';
 
   // ==========================================================================
   //  Constructor
@@ -58,7 +58,6 @@ export class SettingsView {
     this.#refreshAppData = refreshAppData;
     this.#tabSwitcher = tabSwitcher;
   }
-
 
   // ==========================================================================
   //  Lifecycle Interface (ViewContract)
@@ -81,9 +80,11 @@ export class SettingsView {
     this.#bindReducedMotion();
     this.#bindModelManager();
 
-    const backBtn = document.getElementById('btn-settings-back-dashboard') || this.#container.querySelector('button[onclick*="dashboard"]');
+    const backBtn =
+      document.getElementById('btn-settings-back-dashboard') ||
+      this.#container.querySelector('button[onclick*="dashboard"]');
     if (backBtn) {
-      const clickHandler = (e) => {
+      const clickHandler = e => {
         e.preventDefault();
         this.#tabSwitcher('dashboard');
       };
@@ -93,7 +94,6 @@ export class SettingsView {
 
     this.render();
   }
-
 
   /**
    * Orchestrates rendering across all settings panels.
@@ -154,7 +154,6 @@ export class SettingsView {
     }
   }
 
-
   /**
    * Unmounts the settings view and tears down listeners.
    *
@@ -166,7 +165,6 @@ export class SettingsView {
     }
     this.#cleanupListeners = [];
   }
-
 
   // ==========================================================================
   //  Salary Cycle Banner
@@ -191,7 +189,7 @@ export class SettingsView {
 
       const currSym = this.#state.get('salaryConfig')?.currencySymbol || '₹';
 
-      const formatDate = (dateStr) => {
+      const formatDate = dateStr => {
         if (!dateStr) return '—';
         const d = new Date(dateStr);
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -217,7 +215,6 @@ export class SettingsView {
     }
   }
 
-
   // ==========================================================================
   //  Categories & Auto-Categorizer Keywords
   // ==========================================================================
@@ -235,17 +232,21 @@ export class SettingsView {
     // 1. Render Category Chips with delegated delete
     const chipsContainer = document.getElementById('settings-category-chips');
     if (chipsContainer) {
-      const chipsHtml = categories.map(cat => `
+      const chipsHtml = categories
+        .map(
+          cat => `
         <span class="settings-category-chip">
           ${escapeHTML(cat)}
           <button type="button" class="chip-delete-btn" data-action="delete-category" data-cat-name="${escapeHTML(cat)}" title="Remove ${escapeHTML(cat)}">×</button>
         </span>
-      `).join('');
+      `
+        )
+        .join('');
 
       setInnerHTML(chipsContainer, chipsHtml);
 
       delegateEvent(chipsContainer, {
-        'delete-category': async (target) => {
+        'delete-category': async target => {
           const catName = target.getAttribute('data-cat-name');
           if (!catName) return;
           if (confirm(`Remove category "${catName}"? Existing expenses won't be affected.`)) {
@@ -264,7 +265,7 @@ export class SettingsView {
     const addForm = document.getElementById('settings-add-category-form');
     if (addForm && !addForm.dataset.modularWired) {
       addForm.dataset.modularWired = 'true';
-      addForm.addEventListener('submit', async (e) => {
+      addForm.addEventListener('submit', async e => {
         e.preventDefault();
         const input = document.getElementById('settings-new-category-input');
         const name = input?.value.trim();
@@ -290,9 +291,14 @@ export class SettingsView {
         const entries = Object.entries(keywords || {});
 
         if (entries.length === 0) {
-          setInnerHTML(tbody, '<tr><td colspan="3" style="text-align: center; color: var(--text-dim); padding: 16px;">No keyword rules yet. Add one below to teach the auto-categorizer.</td></tr>');
+          setInnerHTML(
+            tbody,
+            '<tr><td colspan="3" style="text-align: center; color: var(--text-dim); padding: 16px;">No keyword rules yet. Add one below to teach the auto-categorizer.</td></tr>'
+          );
         } else {
-          const rowsHtml = entries.map(([kw, cat]) => `
+          const rowsHtml = entries
+            .map(
+              ([kw, cat]) => `
             <tr class="keyword-rule-row">
               <td style="font-weight: 600;">${escapeHTML(kw)}</td>
               <td>${escapeHTML(cat)}</td>
@@ -302,12 +308,14 @@ export class SettingsView {
                 </button>
               </td>
             </tr>
-          `).join('');
+          `
+            )
+            .join('');
 
           setInnerHTML(tbody, rowsHtml);
 
           delegateEvent(tbody, {
-            'delete-keyword': async (target) => {
+            'delete-keyword': async target => {
               const kw = target.getAttribute('data-kw-name');
               if (!kw) return;
               const res = await this.#api.deleteCategoryKeyword(kw);
@@ -333,7 +341,7 @@ export class SettingsView {
     const kwForm = document.getElementById('settings-add-keyword-form');
     if (kwForm && !kwForm.dataset.modularWired) {
       kwForm.dataset.modularWired = 'true';
-      kwForm.addEventListener('submit', async (e) => {
+      kwForm.addEventListener('submit', async e => {
         e.preventDefault();
         const kwInput = document.getElementById('settings-new-keyword-input');
         const catSel = document.getElementById('settings-keyword-category-select');
@@ -350,7 +358,6 @@ export class SettingsView {
       });
     }
   }
-
 
   // ==========================================================================
   //  Data & Storage Diagnostics
@@ -374,7 +381,9 @@ export class SettingsView {
       const fileSizeMB = (diag.fileSizeBytes / (1024 * 1024)).toFixed(2);
       const sizeDisplay = diag.fileSizeBytes > 1048576 ? `${fileSizeMB} MB` : `${fileSizeKB} KB`;
 
-      setInnerHTML(diagContainer, `
+      setInnerHTML(
+        diagContainer,
+        `
         <div class="diagnostics-grid">
           <div class="diagnostics-item">
             <span class="diagnostics-label">Database Path</span>
@@ -405,7 +414,8 @@ export class SettingsView {
             <span class="diagnostics-value">${sizeDisplay}</span>
           </div>
         </div>
-      `);
+      `
+      );
     } catch {
       diagContainer.textContent = 'Failed to load storage diagnostics';
     }
@@ -416,7 +426,8 @@ export class SettingsView {
       clearBtn.dataset.modularWired = 'true';
       clearBtn.addEventListener('click', async () => {
         if (!confirm('⚠️ Are you sure you want to delete ALL stored expenses? This cannot be undone.')) return;
-        if (!confirm('This is your final confirmation. All expense records will be permanently erased. Continue?')) return;
+        if (!confirm('This is your final confirmation. All expense records will be permanently erased. Continue?'))
+          return;
 
         const res = await this.#api.clearAllExpenses();
         if (res?.success) {
@@ -530,7 +541,10 @@ export class SettingsView {
           if (!logs || logs.length === 0) {
             showToast('No crash or error entries recorded.');
           } else {
-            const summary = logs.slice(0, 10).map(l => `[${l.timestamp}] ${l.type}: ${l.message}`).join('\n');
+            const summary = logs
+              .slice(0, 10)
+              .map(l => `[${l.timestamp}] ${l.type}: ${l.message}`)
+              .join('\n');
             alert(`Recent Application Error / Crash Logs (${logs.length} total):\n\n${summary}`);
           }
         } catch (err) {
@@ -539,7 +553,6 @@ export class SettingsView {
       });
     }
   }
-
 
   // ==========================================================================
   //  Notification Settings
@@ -569,7 +582,7 @@ export class SettingsView {
       const form = document.getElementById('settings-notif-form');
       if (form && !form.dataset.modularWired) {
         form.dataset.modularWired = 'true';
-        form.addEventListener('submit', async (e) => {
+        form.addEventListener('submit', async e => {
           e.preventDefault();
           const updated = {
             enableNative: !!nativeToggle?.checked,
@@ -589,7 +602,6 @@ export class SettingsView {
     }
   }
 
-
   // ==========================================================================
   //  Private Form & Navigation Handlers
   // ==========================================================================
@@ -605,7 +617,7 @@ export class SettingsView {
     let scrollTimer = null;
 
     navItems.forEach(item => {
-      const clickHandler = (e) => {
+      const clickHandler = e => {
         e.preventDefault();
         const targetId = item.getAttribute('data-settings-target');
         if (!targetId) return;
@@ -635,7 +647,7 @@ export class SettingsView {
 
       const containerTop = appContent ? appContent.getBoundingClientRect().top : 0;
       const isAtBottom = appContent
-        ? (appContent.scrollHeight - appContent.scrollTop - appContent.clientHeight) < 80
+        ? appContent.scrollHeight - appContent.scrollTop - appContent.clientHeight < 80
         : false;
 
       let currentActiveId = null;
@@ -676,14 +688,13 @@ export class SettingsView {
     }
   }
 
-
   #bindSalaryForm() {
     if (typeof document === 'undefined') return;
 
     const form = document.getElementById('settings-salary-form');
     if (form && !form.dataset.modularWired) {
       form.dataset.modularWired = 'true';
-      form.addEventListener('submit', async (e) => {
+      form.addEventListener('submit', async e => {
         e.preventDefault();
         const income = parseFloat(document.getElementById('settings-salary-income')?.value) || 0;
         const bills = parseFloat(document.getElementById('settings-salary-bills')?.value) || 0;
@@ -728,14 +739,13 @@ export class SettingsView {
     });
   }
 
-
   #bindPreferencesForm() {
     if (typeof document === 'undefined') return;
 
     const form = document.getElementById('settings-prefs-form');
     if (form && !form.dataset.modularWired) {
       form.dataset.modularWired = 'true';
-      form.addEventListener('submit', async (e) => {
+      form.addEventListener('submit', async e => {
         e.preventDefault();
         const currencySymbol = document.getElementById('settings-pref-currency')?.value || '₹';
         const workspaceMode = document.getElementById('settings-pref-workspace-mode')?.value || 'household';
@@ -761,7 +771,6 @@ export class SettingsView {
     }
   }
 
-
   #bindReducedMotion() {
     if (typeof document === 'undefined') return;
 
@@ -784,7 +793,6 @@ export class SettingsView {
     }
   }
 
-
   // ==========================================================================
   //  On-Device AI Models & Intelligence (Phase 0.5.4)
   // ==========================================================================
@@ -797,7 +805,7 @@ export class SettingsView {
 
     const refreshBtn = document.getElementById('btn-refresh-models');
     if (refreshBtn) {
-      const onRefresh = (e) => {
+      const onRefresh = e => {
         e.preventDefault();
         this.renderModelsPane();
         showToast('Model catalog refreshed.');
@@ -809,7 +817,7 @@ export class SettingsView {
     // Delegate clicks inside #models-cards-grid
     const gridEl = document.getElementById('models-cards-grid');
     if (gridEl) {
-      const onGridClick = async (e) => {
+      const onGridClick = async e => {
         const btn = e.target.closest('button[data-model-action]');
         if (!btn) return;
         e.preventDefault();
@@ -832,9 +840,30 @@ export class SettingsView {
       this.#cleanupListeners.push(() => gridEl.removeEventListener('click', onGridClick));
     }
 
+    // Filter bar tabs delegation (#models-filter-bar)
+    const filterBar = document.getElementById('models-filter-bar');
+    if (filterBar) {
+      const onFilterClick = e => {
+        const btn = e.target.closest('button[data-action="filter-models"]');
+        if (!btn) return;
+        e.preventDefault();
+        const filter = btn.getAttribute('data-filter') || 'all';
+        this.#activeModelFilter = filter;
+        filterBar.querySelectorAll('.models-filter-btn').forEach(b => {
+          b.classList.remove('btn-primary');
+          b.classList.add('btn-secondary');
+        });
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('btn-primary');
+        this.renderModelsPane();
+      };
+      filterBar.addEventListener('click', onFilterClick);
+      this.#cleanupListeners.push(() => filterBar.removeEventListener('click', onFilterClick));
+    }
+
     // Subscribe to IPC download progress events
     if (this.#api?.onModelDownloadProgress) {
-      this.#api.onModelDownloadProgress((progress) => {
+      this.#api.onModelDownloadProgress(progress => {
         this.#updateDownloadProgressUI(progress);
       });
     }
@@ -861,13 +890,25 @@ export class SettingsView {
 
     try {
       if (!this.#api?.listModels) {
-        setInnerHTML(gridEl, '<div style="color: var(--text-muted); padding: 16px;">Model management API unavailable.</div>');
+        setInnerHTML(
+          gridEl,
+          '<div style="color: var(--text-muted); padding: 16px;">Model management API unavailable.</div>'
+        );
         return;
       }
 
       const activeCurrency = this.#state.get('salaryConfig')?.currencySymbol || '₹';
       const modelsRes = await this.#api.listModels(activeCurrency);
-      const models = Array.isArray(modelsRes) ? modelsRes : (modelsRes?.data || []);
+      let models = Array.isArray(modelsRes) ? modelsRes : modelsRes?.data || [];
+
+      // Filter by active region/tier tab
+      if (this.#activeModelFilter && this.#activeModelFilter !== 'all') {
+        if (this.#activeModelFilter === 'vision') {
+          models = models.filter(m => m.tier === 2 || (m.id && m.id.includes('vision')));
+        } else {
+          models = models.filter(m => m.region === this.#activeModelFilter);
+        }
+      }
 
       // Update storage pill
       if (this.#api.getModelsStorageUsage) {
@@ -879,7 +920,10 @@ export class SettingsView {
       }
 
       if (!models || models.length === 0) {
-        setInnerHTML(gridEl, '<div style="color: var(--text-muted); padding: 16px;">No models found in catalog.</div>');
+        setInnerHTML(
+          gridEl,
+          '<div style="color: var(--text-muted); padding: 16px;">No models found matching the selected filter.</div>'
+        );
         return;
       }
 
@@ -895,30 +939,36 @@ export class SettingsView {
       // Render cards
       let html = '';
       for (const m of models) {
-        const cardBorder = m.isActive 
-          ? 'border-color: #10B981; box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);' 
-          : '';
-        
+        const cardBorder = m.isActive ? 'border-color: #10B981; box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);' : '';
+
         let statusBadge = '';
         if (m.isActive) {
-          statusBadge = '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399; font-weight: 700; font-size: 11px;">✓ ACTIVE ENGINE</span>';
+          statusBadge =
+            '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399; font-weight: 700; font-size: 11px;">✓ ACTIVE ENGINE</span>';
         } else if (m.isBundled) {
-          statusBadge = '<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; font-weight: 600; font-size: 11px;">BUNDLED (OFFLINE)</span>';
+          statusBadge =
+            '<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; font-weight: 600; font-size: 11px;">BUNDLED (OFFLINE)</span>';
         } else if (m.isDownloaded) {
-          statusBadge = '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10B981; font-weight: 600; font-size: 11px;">INSTALLED</span>';
+          statusBadge =
+            '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10B981; font-weight: 600; font-size: 11px;">INSTALLED</span>';
         } else {
-          statusBadge = '<span class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-muted); font-size: 11px;">AVAILABLE FOR DOWNLOAD</span>';
+          statusBadge =
+            '<span class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-muted); font-size: 11px;">AVAILABLE FOR DOWNLOAD</span>';
         }
 
-        const recommendationBadge = m.isRecommended 
-          ? '<span class="badge" style="background: rgba(217, 130, 43, 0.25); color: var(--accent-primary); font-weight: 700; font-size: 10.5px; border: 1px solid rgba(217, 130, 43, 0.4);">⭐ Recommended for your currency</span>' 
+        const recommendationBadge = m.isRecommended
+          ? '<span class="badge" style="background: rgba(217, 130, 43, 0.25); color: var(--accent-primary); font-weight: 700; font-size: 10.5px; border: 1px solid rgba(217, 130, 43, 0.4);">⭐ Recommended for your currency</span>'
           : '';
 
-        const featuresHtml = (m.features || []).map(f => `
+        const featuresHtml = (m.features || [])
+          .map(
+            f => `
           <div style="font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
             <span style="color: var(--accent-primary); font-weight: 700;">✓</span> ${escapeHTML(f)}
           </div>
-        `).join('');
+        `
+          )
+          .join('');
 
         let actionsHtml = '';
         if (m.isActive) {
@@ -933,11 +983,15 @@ export class SettingsView {
               <button class="btn btn-primary btn-sm" data-model-action="set-active" data-model-id="${m.id}" style="flex: 1;">
                 <i data-icon="zap" data-icon-size="13"></i> Set as Active
               </button>
-              ${!m.isBundled ? `
+              ${
+                !m.isBundled
+                  ? `
                 <button class="btn btn-secondary btn-sm" data-model-action="delete" data-model-id="${m.id}" title="Delete model to reclaim disk space" style="color: #FB7185; border-color: rgba(251, 113, 133, 0.3);">
                   <i data-icon="trash-2" data-icon-size="13"></i>
                 </button>
-              ` : ''}
+              `
+                  : ''
+              }
             </div>
           `;
         } else if (m.isDownloading) {
@@ -964,7 +1018,7 @@ export class SettingsView {
           <div class="model-card" id="card-${m.id}" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; display: flex; flex-direction: column; justify-content: space-between; ${cardBorder}">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
-                <span style="font-size: 10.5px; font-weight: 700; color: var(--accent-primary); letter-spacing: 0.5px;">TIER ${m.tier}</span>
+                <span style="font-size: 10.5px; font-weight: 700; color: var(--accent-primary); letter-spacing: 0.5px;">${m.flag ? `<span style="font-size: 13px; margin-right: 4px;">${m.flag}</span>` : ''}TIER ${m.tier}</span>
                 ${statusBadge}
               </div>
 
@@ -1046,17 +1100,28 @@ export class SettingsView {
   }
 
   #promptActivateDownloadedModel(modelId) {
-    const meta = {
-      'tier2-visionpro': 'Vision-Pro (Tier 2)',
-      'tier3-regional-in': 'India GST Specialist (Tier 3)'
-    }[modelId] || modelId;
+    const meta =
+      {
+        'tier2-visionpro': 'Vision-Pro (Tier 2)',
+        'tier2-vision-precision': 'Vision Precision & Inpainting (Tier 2)',
+        'tier2-vision-degraded': 'Degraded & Thermal Paper (Tier 2)',
+        'tier2-vision-handwritten': 'Handwritten Chits & Vouchers (Tier 2)',
+        'tier2-vision-multilingual': 'Travel & Multi-Script Vision (Tier 2)',
+        'tier3-regional-in': 'India GST & UPI Specialist (Tier 3)',
+        'tier3-regional-us': 'North America Tax & Tips Specialist (Tier 3)',
+        'tier3-regional-eu': 'Europe & UK VAT Specialist (Tier 3)',
+        'tier3-regional-apac': 'Australia & Japan Specialist (Tier 3)'
+      }[modelId] || modelId;
 
     showToast(`${meta} is ready! Click 'Set as Active' in AI Models to use it.`);
   }
 
   async #handleDeleteModel(modelId, btn) {
     if (!this.#api?.deleteModel) return;
-    if (typeof confirm === 'function' && !confirm('Are you sure you want to delete this model? You can re-download it anytime.')) {
+    if (
+      typeof confirm === 'function' &&
+      !confirm('Are you sure you want to delete this model? You can re-download it anytime.')
+    ) {
       return;
     }
 
@@ -1110,7 +1175,6 @@ export class SettingsView {
       if (btn) btn.disabled = false;
     }
   }
-
 
   #updateShiftChips(salary) {
     const chips = document.querySelectorAll('.btn-shift-chip');

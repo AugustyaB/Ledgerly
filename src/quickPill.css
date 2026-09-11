@@ -2,7 +2,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   user-select: none;
 }
 
@@ -21,19 +21,21 @@ body {
   height: 56px;
   background: rgba(20, 22, 28, 0.96);
   backdrop-filter: blur(20px);
-  border: 1.5px solid #D9822B;
+  border: 1.5px solid #d9822b;
   border-radius: 28px;
   display: flex;
   align-items: center;
   padding: 0 14px 0 16px;
   gap: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 20px rgba(217, 130, 43, 0.22);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.7),
+    0 0 20px rgba(217, 130, 43, 0.22);
   -webkit-app-region: drag;
 }
 
 .pill-drag-icon {
   font-size: 18px;
-  color: #D9822B;
+  color: #d9822b;
   flex-shrink: 0;
 }
 
@@ -44,12 +46,12 @@ body {
   outline: none;
   font-size: 14.5px;
   font-weight: 600;
-  color: #F3F4F6;
+  color: #f3f4f6;
   -webkit-app-region: no-drag;
 }
 
 .pill-input::placeholder {
-  color: #64748B;
+  color: #64748b;
   font-weight: 500;
   font-size: 13.5px;
 }
@@ -73,27 +75,27 @@ body {
 
 .pill-amt {
   background: rgba(217, 130, 43, 0.18);
-  color: #E5943C;
+  color: #e5943c;
   border: 1px solid rgba(217, 130, 43, 0.35);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .pill-cat {
   background: rgba(56, 189, 248, 0.14);
-  color: #38BDF8;
+  color: #38bdf8;
   border: 1px solid rgba(56, 189, 248, 0.25);
 }
 
 .pill-split {
   background: rgba(16, 185, 129, 0.14);
-  color: #10B981;
+  color: #10b981;
   border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
 .pill-action-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #D9822B;
+  color: #d9822b;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -101,7 +103,10 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
@@ -109,7 +114,7 @@ body {
 .pill-action-btn:hover {
   transform: scale(1.06);
   background: rgba(217, 130, 43, 0.22);
-  border-color: #D9822B;
+  border-color: #d9822b;
 }
 
 .pill-action-btn:active {
@@ -117,9 +122,9 @@ body {
 }
 
 .pill-submit-btn {
-  background: linear-gradient(135deg, #D9822B, #B86618);
+  background: linear-gradient(135deg, #d9822b, #b86618);
   border: none;
-  color: #FFFFFF;
+  color: #ffffff;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -130,14 +135,16 @@ body {
   font-size: 14px;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(217, 130, 43, 0.35);
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
 
 .pill-submit-btn:hover {
   transform: scale(1.06);
-  background: linear-gradient(135deg, #E5943C, #D9822B);
+  background: linear-gradient(135deg, #e5943c, #d9822b);
 }
 
 .pill-submit-btn:active {
