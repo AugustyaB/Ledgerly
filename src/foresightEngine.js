@@ -10,7 +10,7 @@ class ForesightEngine {
    * @returns {Object} Simulation analysis and forecast
    */
   static simulatePurchase(extraAmount, salaryConfig, spentMonthToDate, targetDate = new Date()) {
-    const d = (targetDate instanceof Date) ? targetDate : new Date(targetDate);
+    const d = targetDate instanceof Date ? targetDate : new Date(targetDate);
     const year = d.getFullYear();
     const month = d.getMonth();
     const dayOfMonth = d.getDate();
@@ -46,11 +46,11 @@ class ForesightEngine {
       riskLevel = 'CRITICAL';
       statusHeadline = 'Budget Overdraft Warning';
       statusMessage = `Exceeds your remaining discretionary pool by ${sym}${(testAmount - remainingDiscretionary).toFixed(0)}. Subsequent daily allowance drops to ${sym}0.`;
-    } else if (projectedPace < (baselineDailyAllowance * 0.45) || dropPercentage > 40) {
+    } else if (projectedPace < baselineDailyAllowance * 0.45 || dropPercentage > 40) {
       riskLevel = 'CRITICAL';
       statusHeadline = 'High Burnout Risk';
       statusMessage = `Reduces daily breathing room by ${dropPercentage.toFixed(0)}% (drops to ${sym}${projectedPace.toFixed(0)}/day). High risk of month-end budget deficit.`;
-    } else if (projectedPace < (baselineDailyAllowance * 0.75) || dropPercentage > 15) {
+    } else if (projectedPace < baselineDailyAllowance * 0.75 || dropPercentage > 15) {
       riskLevel = 'CAUTION';
       statusHeadline = 'Moderate Spending Impact';
       statusMessage = `Daily allowance tightens by ${sym}${dailyDrop.toFixed(0)}/day (new safe pace: ${sym}${projectedPace.toFixed(0)}/day).`;

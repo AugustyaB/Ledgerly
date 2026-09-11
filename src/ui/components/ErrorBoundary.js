@@ -4,12 +4,12 @@
  * ============================================================================
  * Ledgerly — UI Error Boundary & Graceful Section Fallback Component (Phase 6)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Isolates rendering failures to their local container, rendering a graceful,
  * theme-consistent fallback card with actionable recovery controls (Retry,
  * Reset to Dashboard, Copy Diagnostics). Prevents blank whiteout screens.
- * 
+ *
  * Architecture Position: src/ui/components/ErrorBoundary.js
  * Dependencies: src/ui/helpers/dom.js (escapeHTML)
  *               src/ui/helpers/toast.js (showToast)
@@ -21,7 +21,7 @@ import { showToast } from '../helpers/toast.js';
 export class ErrorBoundary {
   /**
    * Renders an isolated fallback error card into the target DOM container.
-   * 
+   *
    * @param {HTMLElement|null} container - Container element to render fallback card inside
    * @param {Object} options
    * @param {Error|string|any} options.error - Caught exception or message
@@ -35,14 +35,18 @@ export class ErrorBoundary {
 
     const errorObj = error instanceof Error ? error : new Error(String(error || 'Unknown runtime error'));
     const timestamp = new Date().toISOString();
-    const diagnosticPayload = JSON.stringify({
-      component: componentName,
-      timestamp,
-      version: 'v0.4.6',
-      name: errorObj.name || 'Error',
-      message: errorObj.message,
-      stack: errorObj.stack || '(no stack trace available)'
-    }, null, 2);
+    const diagnosticPayload = JSON.stringify(
+      {
+        component: componentName,
+        timestamp,
+        version: 'v0.4.6',
+        name: errorObj.name || 'Error',
+        message: errorObj.message,
+        stack: errorObj.stack || '(no stack trace available)'
+      },
+      null,
+      2
+    );
 
     const safeTitle = escapeHTML(componentName);
     const safeMsg = escapeHTML(errorObj.message || 'An unexpected rendering error occurred.');
@@ -82,25 +86,30 @@ export class ErrorBoundary {
     }
 
     // Attach local event listeners directly to avoid inline event handlers
-    const retryBtn = typeof container.querySelector === 'function' ? container.querySelector('[data-action="retry-section"]') : null;
+    const retryBtn =
+      typeof container.querySelector === 'function' ? container.querySelector('[data-action="retry-section"]') : null;
     if (retryBtn && typeof onRetry === 'function') {
-      retryBtn.addEventListener('click', (e) => {
+      retryBtn.addEventListener('click', e => {
         e.preventDefault();
         onRetry();
       });
     }
 
-    const resetBtn = typeof container.querySelector === 'function' ? container.querySelector('[data-action="goto-dashboard"]') : null;
+    const resetBtn =
+      typeof container.querySelector === 'function' ? container.querySelector('[data-action="goto-dashboard"]') : null;
     if (resetBtn && typeof onReset === 'function') {
-      resetBtn.addEventListener('click', (e) => {
+      resetBtn.addEventListener('click', e => {
         e.preventDefault();
         onReset();
       });
     }
 
-    const copyBtn = typeof container.querySelector === 'function' ? container.querySelector('[data-action="copy-diagnostics"]') : null;
+    const copyBtn =
+      typeof container.querySelector === 'function'
+        ? container.querySelector('[data-action="copy-diagnostics"]')
+        : null;
     if (copyBtn) {
-      copyBtn.addEventListener('click', async (e) => {
+      copyBtn.addEventListener('click', async e => {
         e.preventDefault();
         try {
           if (navigator?.clipboard?.writeText) {
@@ -119,7 +128,7 @@ export class ErrorBoundary {
   /**
    * Safely wraps a view rendering execution block inside an error boundary.
    * If an exception occurs, catches it, displays the fallback card, and reports telemetry.
-   * 
+   *
    * @param {HTMLElement|null} container - Target DOM container
    * @param {function(): any} renderFn - Rendering function to execute safely
    * @param {Object} [contextInfo={}] - Supplementary context (componentName, tabName)
@@ -136,7 +145,7 @@ export class ErrorBoundary {
       if (result && typeof result.then === 'function') {
         return result
           .then(() => true)
-          .catch((asyncErr) => {
+          .catch(asyncErr => {
             console.error(`[ErrorBoundary] Async render error in "${componentName}":`, asyncErr);
             ErrorBoundary._handleRenderFailure(container, asyncErr, componentName, renderFn, contextInfo, fallbackOpts);
             return false;
@@ -173,13 +182,15 @@ export class ErrorBoundary {
     // 2. Dispatch telemetry to main process crash logger if bridge exists
     if (typeof window !== 'undefined' && window.electronAPI?.reportRendererError) {
       try {
-        window.electronAPI.reportRendererError({
-          type: 'UI_ERROR_BOUNDARY',
-          component: componentName,
-          tab: contextInfo.tabName || 'unknown',
-          message: error?.message || String(error),
-          stack: error?.stack || ''
-        }).catch(() => {});
+        window.electronAPI
+          .reportRendererError({
+            type: 'UI_ERROR_BOUNDARY',
+            component: componentName,
+            tab: contextInfo.tabName || 'unknown',
+            message: error?.message || String(error),
+            stack: error?.stack || ''
+          })
+          .catch(() => {});
       } catch {
         // Prevent telemetry delivery recursion
       }

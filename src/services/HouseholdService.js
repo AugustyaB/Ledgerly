@@ -2,11 +2,11 @@
  * ============================================================================
  * Ledgerly — HouseholdService (Shared Splitting, Settlements & Utility Bills)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Domain service managing shared living finances, member rosters, pairwise debt
  * resolution matrix algorithms, historical repayments, and recurring utility bills.
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Single Responsibility: Manages multi-member expenses, split math, and utility bills.
  * - Encapsulation: Insulates pairwise settlement optimization and split-cost allocation.
@@ -24,7 +24,7 @@
 class HouseholdService {
   /**
    * Initializes HouseholdService with injected dependencies.
-   * 
+   *
    * @param {import('./JsonDatabase')} db - The database persistence service.
    * @param {import('./ProfileService')} profileService - The profile management service.
    * @param {import('./ExpenseService')} expenseService - The expense management service.
@@ -50,7 +50,7 @@ class HouseholdService {
 
   /**
    * Retrieves the list of household members configured for the active profile.
-   * 
+   *
    * @returns {string[]} List of member names.
    */
   getMembers() {
@@ -61,7 +61,7 @@ class HouseholdService {
 
   /**
    * Adds a new member to the active profile's household roster.
-   * 
+   *
    * @param {string} name - Display name of the member.
    * @returns {import('../types').OperationResult & { householdMembers?: string[] }}
    */
@@ -92,7 +92,7 @@ class HouseholdService {
   /**
    * Removes a member from the active profile's household roster.
    * Prevents removing the primary user ('Self').
-   * 
+   *
    * @param {string} name - Name of the member to remove.
    * @returns {import('../types').OperationResult & { householdMembers?: string[] }}
    */
@@ -124,7 +124,7 @@ class HouseholdService {
   /**
    * Computes the complete household financial breakdown, net balance matrix,
    * and minimal pairwise transfer settlements.
-   * 
+   *
    * @returns {import('../types').SettlementAnalysis} Full pairwise settlement analysis.
    */
   calculateHouseholdSettlement() {
@@ -155,7 +155,7 @@ class HouseholdService {
         paidMap[payer] = amount;
       }
 
-      const splitList = (Array.isArray(e.splitWith) && e.splitWith.length > 0) ? e.splitWith : members;
+      const splitList = Array.isArray(e.splitWith) && e.splitWith.length > 0 ? e.splitWith : members;
       const sharePerPerson = amount / splitList.length;
 
       splitList.forEach(m => {
@@ -238,7 +238,7 @@ class HouseholdService {
 
   /**
    * Alias for calculateHouseholdSettlement() for backward compatibility.
-   * 
+   *
    * @returns {import('../types').SettlementAnalysis}
    */
   getHouseholdSettlement() {
@@ -251,7 +251,7 @@ class HouseholdService {
 
   /**
    * Ensures the settlements array exists in root data.
-   * 
+   *
    * @private
    * @param {object} root - Root schema.
    * @returns {object} Root schema.
@@ -265,7 +265,7 @@ class HouseholdService {
 
   /**
    * Retrieves all recorded settlement transactions.
-   * 
+   *
    * @returns {import('../types').SettlementRecord[]} List of settlement records.
    */
   getSettlements() {
@@ -276,7 +276,7 @@ class HouseholdService {
 
   /**
    * Records a completed settlement payment between two household members.
-   * 
+   *
    * @param {Partial<import('../types').SettlementRecord>} settlementData - Settlement details.
    * @returns {import('../types').OperationResult & { settlement?: import('../types').SettlementRecord }}
    */
@@ -308,7 +308,7 @@ class HouseholdService {
 
   /**
    * Deletes a recorded settlement record by ID.
-   * 
+   *
    * @param {string} id - Settlement identifier.
    * @returns {import('../types').OperationResult}
    */
@@ -333,7 +333,7 @@ class HouseholdService {
 
   /**
    * Returns standard default recurring utility bills baseline.
-   * 
+   *
    * @returns {import('../types').RecurringBill[]}
    */
   static getDefaultRecurringBills() {
@@ -382,7 +382,7 @@ class HouseholdService {
 
   /**
    * Ensures the recurring bills collection exists and is seeded if needed.
-   * 
+   *
    * @private
    * @param {object} root - Root schema.
    * @returns {object} Root schema.
@@ -396,7 +396,7 @@ class HouseholdService {
 
   /**
    * Retrieves configured recurring utility bills.
-   * 
+   *
    * @returns {import('../types').RecurringBill[]}
    */
   getRecurringBills() {
@@ -407,7 +407,7 @@ class HouseholdService {
 
   /**
    * Creates or updates a recurring utility bill.
-   * 
+   *
    * @param {Partial<import('../types').RecurringBill>} billData - Bill details.
    * @returns {import('../types').OperationResult & { bills: import('../types').RecurringBill[] }}
    */
@@ -421,8 +421,10 @@ class HouseholdService {
         root.recurringBills[idx] = {
           ...root.recurringBills[idx],
           ...billData,
-          amount: billData.amount !== undefined ? (parseFloat(String(billData.amount)) || 0) : root.recurringBills[idx].amount,
-          dueDay: billData.dueDay !== undefined ? (parseInt(String(billData.dueDay), 10) || 1) : root.recurringBills[idx].dueDay
+          amount:
+            billData.amount !== undefined ? parseFloat(String(billData.amount)) || 0 : root.recurringBills[idx].amount,
+          dueDay:
+            billData.dueDay !== undefined ? parseInt(String(billData.dueDay), 10) || 1 : root.recurringBills[idx].dueDay
         };
       }
     } else {
@@ -455,7 +457,7 @@ class HouseholdService {
 
   /**
    * Deletes a recurring utility bill by ID.
-   * 
+   *
    * @param {string} id - Bill identifier.
    * @returns {import('../types').OperationResult & { bills: import('../types').RecurringBill[] }}
    */
@@ -472,7 +474,7 @@ class HouseholdService {
   /**
    * Marks a recurring bill as paid for the current cycle and automatically
    * records a shared expense in the ledger if configured.
-   * 
+   *
    * @param {string} id - Bill ID to mark as cleared.
    * @param {{ paymentMethod?: string, paidBy?: string }} [paymentDetails={}] - Payment metadata.
    * @returns {import('../types').OperationResult & { bill?: import('../types').RecurringBill }}

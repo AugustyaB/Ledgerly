@@ -9,7 +9,6 @@
  * Dependencies: window.hydrateIcons (from icons.js)
  */
 
-
 // ============================================================================
 //  HTML Sanitization
 // ============================================================================
@@ -30,7 +29,6 @@ export function escapeHTML(str) {
     .replace(/'/g, '&#39;');
 }
 
-
 // ============================================================================
 //  Event Delegation
 // ============================================================================
@@ -50,7 +48,7 @@ export function delegateEvent(container, handlers, actionAttribute = 'data-actio
     return () => {};
   }
 
-  const listener = (event) => {
+  const listener = event => {
     // Find closest element with the action attribute up to container
     const target = event.target.closest(`[${actionAttribute}]`);
     if (!target || !container.contains(target)) {
@@ -70,7 +68,6 @@ export function delegateEvent(container, handlers, actionAttribute = 'data-actio
     container.removeEventListener('click', listener);
   };
 }
-
 
 // ============================================================================
 //  DOM Insertion with Icon Hydration

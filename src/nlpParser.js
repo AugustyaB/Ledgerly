@@ -65,10 +65,36 @@ class NLPParser {
     // -------------------------------------------------------------------------
     const today = new Date();
     const dateTokens = [
-      { regex: /\b(yesterday|yday)\b/i, handler: () => { const d = new Date(today); d.setDate(d.getDate() - 1); return { date: d, label: 'Yesterday' }; } },
-      { regex: /\b(today)\b/i, handler: () => { return { date: new Date(today), label: 'Today' }; } },
-      { regex: /\b(tomorrow)\b/i, handler: () => { const d = new Date(today); d.setDate(d.getDate() + 1); return { date: d, label: 'Tomorrow' }; } },
-      { regex: /\b-(\d+)(?:d|days)?\b/i, handler: (m) => { const d = new Date(today); d.setDate(d.getDate() - parseInt(m[1], 10)); return { date: d, label: `${m[1]}d ago` }; } }
+      {
+        regex: /\b(yesterday|yday)\b/i,
+        handler: () => {
+          const d = new Date(today);
+          d.setDate(d.getDate() - 1);
+          return { date: d, label: 'Yesterday' };
+        }
+      },
+      {
+        regex: /\b(today)\b/i,
+        handler: () => {
+          return { date: new Date(today), label: 'Today' };
+        }
+      },
+      {
+        regex: /\b(tomorrow)\b/i,
+        handler: () => {
+          const d = new Date(today);
+          d.setDate(d.getDate() + 1);
+          return { date: d, label: 'Tomorrow' };
+        }
+      },
+      {
+        regex: /\b-(\d+)(?:d|days)?\b/i,
+        handler: m => {
+          const d = new Date(today);
+          d.setDate(d.getDate() - parseInt(m[1], 10));
+          return { date: d, label: `${m[1]}d ago` };
+        }
+      }
     ];
 
     for (const dt of dateTokens) {

@@ -2,11 +2,11 @@
  * ============================================================================
  * Ledgerly — ReceiptTier1Engine (Fast-Lite On-Device ML Document Intelligence)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Tier 1 (Fast-Lite) on-device receipt processing and document intelligence
  * engine for Ledgerly (Version 0.5.3).
- * 
+ *
  * DESIGN PRINCIPLES:
  * - 100% Offline & Bundled: Operates entirely locally with pre-packaged models
  *   in assets/models/tesseract/. Zero external cloud calls, zero network ping.
@@ -65,10 +65,38 @@ const BOILERPLATE_HEADER_PATTERNS = [
  * Financial keyword lexicon for transaction verification.
  */
 const FINANCIAL_KEYWORDS = Object.freeze([
-  'total', 'subtotal', 'amount', 'paid', 'invoice', 'receipt', 'bill',
-  'due', 'balance', 'gst', 'tax', 'cgst', 'sgst', 'igst', 'vat', 'hsn',
-  'mrp', 'cash', 'card', 'payment', 'order', 'price', 'qty', 'rate',
-  'debit', 'credit', 'upi', 'gpay', 'phonepe', 'paytm', 'bhim', 'netbanking'
+  'total',
+  'subtotal',
+  'amount',
+  'paid',
+  'invoice',
+  'receipt',
+  'bill',
+  'due',
+  'balance',
+  'gst',
+  'tax',
+  'cgst',
+  'sgst',
+  'igst',
+  'vat',
+  'hsn',
+  'mrp',
+  'cash',
+  'card',
+  'payment',
+  'order',
+  'price',
+  'qty',
+  'rate',
+  'debit',
+  'credit',
+  'upi',
+  'gpay',
+  'phonepe',
+  'paytm',
+  'bhim',
+  'netbanking'
 ]);
 
 class ReceiptTier1Engine {
@@ -86,7 +114,7 @@ class ReceiptTier1Engine {
 
   /**
    * Initializes or returns the cached offline Tesseract WASM worker.
-   * 
+   *
    * @returns {Promise<any|null>}
    */
   async getWorker() {
@@ -128,7 +156,7 @@ class ReceiptTier1Engine {
 
   /**
    * Terminates the background worker to release memory.
-   * 
+   *
    * @returns {Promise<void>}
    */
   async terminateWorker() {
@@ -148,7 +176,7 @@ class ReceiptTier1Engine {
 
   /**
    * Processes a document (PDF or image) through the Tier 1 pipeline.
-   * 
+   *
    * @param {string|Buffer|Uint8Array|Object} input - File path, buffer, or pre-normalized doc object
    * @param {Object} [options] - Configuration options
    * @returns {Promise<{ success: boolean, data: Object|null, error: string|null, code: string }>}
@@ -159,9 +187,17 @@ class ReceiptTier1Engine {
     try {
       // 1. Resolve normalized payload
       let norm;
-      if (input && typeof input === 'object' && input.fastPathText !== undefined) {
+      const isExplicitFilePath =
+        typeof input === 'string' &&
+        !input.includes('\n') &&
+        (/\.(png|jpe?g|webp|bmp|pdf)$/i.test(input) || input.includes('/') || input.includes('\\'));
+
+      if (input && typeof input === 'object' && (input.fastPathText !== undefined || input.rawText !== undefined)) {
         // Input is already normalized data object
         norm = { success: true, data: input, error: null, code: 'OK' };
+      } else if (typeof input === 'string' && !isExplicitFilePath && (input.includes('\n') || options.isFastPath)) {
+        // Direct raw text input passed to engine
+        norm = { success: true, data: { fastPathText: input, rawText: input }, error: null, code: 'OK' };
       } else {
         // Run intake normalization through DocumentNormalizer
         norm = await this.normalizer.normalizeDocument(input, options);
@@ -184,6 +220,14 @@ class ReceiptTier1Engine {
       if (docData.fastPathText || docData.rawText || docData.text) {
         rawText = docData.fastPathText || docData.rawText || docData.text;
         isVectorFastPath = Boolean(docData.isPdf && docData.hasFastPath);
+      } else if (docData.isPdf) {
+        // PDF contains no vector text stream and cannot be read by OCR
+        return {
+          success: false,
+          data: null,
+          error: 'PDF document contains no readable text streams.',
+          code: ErrorCode.ERR_UNSUPPORTED_FORMAT
+        };
       } else if (docData.processedBuffer || docData.documentBuffer) {
         const imageBuf = docData.processedBuffer || docData.documentBuffer;
         rawText = await this._extractOcrText(imageBuf);
@@ -197,7 +241,12 @@ class ReceiptTier1Engine {
       if (!rawText || !rawText.trim()) {
         return {
           success: true,
-          data: this._buildNegativeResult('EMPTY_DOCUMENT_TEXT', 'No legible text characters could be identified in this file.', rawText, Date.now() - startTime),
+          data: this._buildNegativeResult(
+            'EMPTY_DOCUMENT_TEXT',
+            'No legible text characters could be identified in this file.',
+            rawText,
+            Date.now() - startTime
+          ),
           error: null,
           code: 'OK'
         };
@@ -246,7 +295,7 @@ class ReceiptTier1Engine {
       }
 
       const totalAmount = totalExtraction.total;
-      const subtotal = totalExtraction.subtotal !== null ? totalExtraction.subtotal : (taxInfo.subtotal || null);
+      const subtotal = totalExtraction.subtotal !== null ? totalExtraction.subtotal : taxInfo.subtotal || null;
       const taxAmount = taxInfo.taxAmount;
 
       const elapsed = Date.now() - startTime;
@@ -278,7 +327,6 @@ class ReceiptTier1Engine {
         error: null,
         code: 'OK'
       };
-
     } catch (err) {
       return {
         success: false,
@@ -295,9 +343,9 @@ class ReceiptTier1Engine {
 
   /**
    * Runs local WASM OCR over an image buffer.
-   * 
+   *
    * @private
-   * @param {Buffer} buffer 
+   * @param {Buffer} buffer
    * @returns {Promise<string>}
    */
   async _extractOcrText(buffer) {
@@ -320,9 +368,9 @@ class ReceiptTier1Engine {
 
   /**
    * Fast fallback extracting printable character chunks if OCR worker is unavailable.
-   * 
+   *
    * @private
-   * @param {Buffer} buffer 
+   * @param {Buffer} buffer
    * @returns {string}
    */
   _extractReadableAsciiFallback(buffer) {
@@ -339,7 +387,7 @@ class ReceiptTier1Engine {
   /**
    * Evaluates whether the extracted text represents a financial transaction
    * or a non-transaction document (negative control).
-   * 
+   *
    * @param {string} text - Raw document text
    * @param {Array<string>} lines - Non-empty text lines
    * @returns {{ isTransaction: boolean, confidence: number, reason: string, message: string }}
@@ -370,7 +418,10 @@ class ReceiptTier1Engine {
     const hasDecimalPrice = /\b\d{1,6}[.,]\d{2}\b/.test(text);
     const hasCurrencySymbol = /(?:₹|rs\.?|inr|\$|eur|€|£)/i.test(text);
     const hasTaxStructure = /(?:gst|cgst|sgst|igst|vat|tax|hsn)/i.test(text);
-    const hasTotalStructure = /(?:grand\s*total|total\s*paid|net\s*amount|amount\s*due|total\s*amount|subtotal|total|amount\s*[:=]|amount\s*paid|paid\s*to|payment\s*to|paid\s*successfully)/i.test(lower);
+    const hasTotalStructure =
+      /(?:grand\s*total|total\s*paid|net\s*amount|amount\s*due|total\s*amount|subtotal|total|amount\s*[:=]|amount\s*paid|paid\s*to|payment\s*to|paid\s*successfully)/i.test(
+        lower
+      );
 
     // 3. Negative signals: typical non-financial document indicators
     const hasNonFinancialSignals = [
@@ -386,14 +437,13 @@ class ReceiptTier1Engine {
 
     // Decision Logic:
     // To qualify as a transaction, it MUST have a total structure OR (financial keywords >= 2 AND decimal price)
-    const financialScore = (
+    const financialScore =
       (hasTotalStructure ? 0.45 : 0.0) +
       (hasDecimalPrice ? 0.25 : 0.0) +
       (hasTaxStructure ? 0.15 : 0.0) +
-      (hasCurrencySymbol ? 0.10 : 0.0) +
-      (Math.min(keywordCount, 5) * 0.05) -
-      (nonFinancialHitCount * 0.35)
-    );
+      (hasCurrencySymbol ? 0.1 : 0.0) +
+      Math.min(keywordCount, 5) * 0.05 -
+      nonFinancialHitCount * 0.35;
 
     if (financialScore >= 0.55 && (hasTotalStructure || (hasDecimalPrice && keywordCount >= 2))) {
       return {
@@ -418,9 +468,9 @@ class ReceiptTier1Engine {
 
   /**
    * Scans lines from bottom-to-top to extract grand total and subtotal.
-   * 
-   * @param {Array<string>} lines 
-   * @param {string} fullText 
+   *
+   * @param {Array<string>} lines
+   * @param {string} fullText
    * @returns {{ total: number|null, subtotal: number|null, confidence: number }}
    */
   extractTotal(lines, fullText) {
@@ -428,13 +478,16 @@ class ReceiptTier1Engine {
     let subtotal = null;
 
     // Pattern A: Explicit Grand Total / Total Paid / Amount Due anchors
-    const explicitTotalRegex = /(?:grand\s*total|total\s*paid|net\s*payable|amount\s*due|invoice\s*total|final\s*bill|total\s*amount|total\s*inr|total\s*usd|total\s*eur|total\s*gbp|amount\s*paid|amount)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,6}(?:[.,][0-9]{2}))/i;
+    const explicitTotalRegex =
+      /(?:grand\s*total|total\s*paid|net\s*payable|amount\s*due|invoice\s*total|final\s*bill|total\s*amount|total\s*inr|total\s*usd|total\s*eur|total\s*gbp|amount\s*paid|amount)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,6}(?:[.,][0-9]{2}))/i;
 
     // Pattern B: General Total anchors
-    const standardTotalRegex = /(?:^|\s)(?:total|balance|net|paid)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,6}(?:[.,][0-9]{2}))/i;
+    const standardTotalRegex =
+      /(?:^|\s)(?:total|balance|net|paid)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,6}(?:[.,][0-9]{2}))/i;
 
     // Pattern C: Subtotal anchors
-    const subtotalRegex = /(?:subtotal|sub-total|item\s+total|items\s+total)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,6}(?:[.,][0-9]{2}))/i;
+    const subtotalRegex =
+      /(?:subtotal|sub-total|item\s+total|items\s+total)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,6}(?:[.,][0-9]{2}))/i;
 
     // 1. Reverse scan for explicit grand total
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -518,9 +571,9 @@ class ReceiptTier1Engine {
 
   /**
    * Detects date strings and normalizes to ISO YYYY-MM-DD.
-   * 
-   * @param {Array<string>} lines 
-   * @param {string} fullText 
+   *
+   * @param {Array<string>} lines
+   * @param {string} fullText
    * @returns {{ date: string|null, rawDate: string|null }}
    */
   extractDate(lines, fullText) {
@@ -536,13 +589,27 @@ class ReceiptTier1Engine {
     }
 
     // Priority 2: Textual Month (e.g. 14 Aug 2026 or 14-August-2026 or Aug 14, 2026)
-    const textMonthRegex = /\b(0?[1-9]|[12]\d|3[01])[-/\s]+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/,\s]+(20\d{2})\b/i;
+    const textMonthRegex =
+      /\b(0?[1-9]|[12]\d|3[01])[-/\s]+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/,\s]+(20\d{2})\b/i;
     const textMatch = fullText.match(textMonthRegex);
     if (textMatch) {
       const day = textMatch[1].padStart(2, '0');
       const monthStr = textMatch[2].slice(0, 3).toLowerCase();
       const year = textMatch[3];
-      const monthMap = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+      const monthMap = {
+        jan: '01',
+        feb: '02',
+        mar: '03',
+        apr: '04',
+        may: '05',
+        jun: '06',
+        jul: '07',
+        aug: '08',
+        sep: '09',
+        oct: '10',
+        nov: '11',
+        dec: '12'
+      };
       const month = monthMap[monthStr] || '01';
       return { date: `${year}-${month}-${day}`, rawDate: textMatch[0] };
     }
@@ -582,8 +649,8 @@ class ReceiptTier1Engine {
   /**
    * Scans document header lines to identify the merchant/vendor name,
    * filtering out receipt boilerplate keywords.
-   * 
-   * @param {Array<string>} lines 
+   *
+   * @param {Array<string>} lines
    * @returns {string}
    */
   extractMerchant(lines) {
@@ -635,9 +702,9 @@ class ReceiptTier1Engine {
 
   /**
    * Extracts Indian GSTIN, CGST/SGST/IGST breakdown, or general sales tax.
-   * 
-   * @param {Array<string>} lines 
-   * @param {string} fullText 
+   *
+   * @param {Array<string>} lines
+   * @param {string} fullText
    * @returns {{ gstin: string|null, cgst: number|null, sgst: number|null, igst: number|null, taxAmount: number|null, subtotal: number|null }}
    */
   extractTaxAndGstin(lines, fullText) {
@@ -669,7 +736,9 @@ class ReceiptTier1Engine {
       if (igstMatch) igst = this._parseCleanFloat(igstMatch[1]);
 
       // General Tax / VAT / Sales Tax
-      const taxMatch = line.match(/(?:tax\s*\/?\s*vat|sales\s+tax|total\s+tax|tax\s+amount)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*(\d{1,6}(?:[.,]\d{2}))/i);
+      const taxMatch = line.match(
+        /(?:tax\s*\/?\s*vat|sales\s+tax|total\s+tax|tax\s+amount)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*(\d{1,6}(?:[.,]\d{2}))/i
+      );
       if (taxMatch && taxAmount === null) taxAmount = this._parseCleanFloat(taxMatch[1]);
 
       // Subtotal
@@ -693,8 +762,8 @@ class ReceiptTier1Engine {
 
   /**
    * Infers payment method from text tokens.
-   * 
-   * @param {string} text 
+   *
+   * @param {string} text
    * @returns {string}
    */
   extractPaymentMethod(text) {
@@ -729,10 +798,10 @@ class ReceiptTier1Engine {
 
   /**
    * Predicts expense category using CategoryMatcher.
-   * 
-   * @param {string} merchant 
-   * @param {string} rawText 
-   * @param {Array<Object>} [lineItems] 
+   *
+   * @param {string} merchant
+   * @param {string} rawText
+   * @param {Array<Object>} [lineItems]
    * @returns {string}
    */
   inferCategory(merchant, rawText, lineItems = []) {
@@ -765,8 +834,8 @@ class ReceiptTier1Engine {
 
   /**
    * Parses tabular line items (description, quantity, amount).
-   * 
-   * @param {Array<string>} lines 
+   *
+   * @param {Array<string>} lines
    * @returns {Array<{ description: string, quantity: number, amount: number }>}
    */
   extractLineItems(lines) {
@@ -812,7 +881,7 @@ class ReceiptTier1Engine {
 
   /**
    * Builds standardized negative rejection response.
-   * 
+   *
    * @private
    */
   _buildNegativeResult(reason, message, rawText, latencyMs, confidence = 0.95, isVectorFastPath = false) {
@@ -841,9 +910,9 @@ class ReceiptTier1Engine {
 
   /**
    * Converts a numeric string to a clean float, handling commas and dots.
-   * 
+   *
    * @private
-   * @param {string} str 
+   * @param {string} str
    * @returns {number}
    */
   _parseCleanFloat(str) {

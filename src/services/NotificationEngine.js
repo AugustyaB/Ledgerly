@@ -2,12 +2,12 @@
  * ============================================================================
  * Ledgerly — NotificationEngine (Proactive Alerts & Trigger Rules Engine)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Domain service managing user notification preferences, in-app notification CRUD,
  * 24-hour smart deduplication, and automated background evaluation rules
  * (budget exhaustion, bill due dates, overdue debts, evening nudges, and payday countdowns).
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Single Responsibility: Evaluates proactive financial health alerts and user notices.
  * - Encapsulation: Insulates trigger evaluation math, deduplication windows, and alert tiers.
@@ -22,10 +22,10 @@
  * @readonly
  */
 const DEFAULT_NOTIFICATION_CONFIG = Object.freeze({
-  enableNative: true,           // Native Windows popups for critical alerts (Bill due today, 100% budget)
-  dailyNudge: true,             // Evening reminder if 0 expenses logged
-  nudgeTime: '18:00',           // Configurable nudge time (default 18:00 / 6 PM)
-  overdueDebtAlerts: true       // Flag shared debts & bills overdue past 7 days (in-app)
+  enableNative: true, // Native Windows popups for critical alerts (Bill due today, 100% budget)
+  dailyNudge: true, // Evening reminder if 0 expenses logged
+  nudgeTime: '18:00', // Configurable nudge time (default 18:00 / 6 PM)
+  overdueDebtAlerts: true // Flag shared debts & bills overdue past 7 days (in-app)
 });
 
 /**
@@ -35,7 +35,7 @@ const DEFAULT_NOTIFICATION_CONFIG = Object.freeze({
 class NotificationEngine {
   /**
    * Initializes the NotificationEngine with injected domain service dependencies.
-   * 
+   *
    * @param {import('./JsonDatabase')} db - The database persistence service.
    * @param {import('./ProfileService')} profileService - The profile management service.
    * @param {import('./BudgetService')} budgetService - The budget and salary calculation service.
@@ -43,7 +43,9 @@ class NotificationEngine {
    */
   constructor(db, profileService, budgetService, householdService) {
     if (!db || !profileService || !budgetService || !householdService) {
-      throw new Error('NotificationEngine requires valid JsonDatabase, ProfileService, BudgetService, and HouseholdService instances.');
+      throw new Error(
+        'NotificationEngine requires valid JsonDatabase, ProfileService, BudgetService, and HouseholdService instances.'
+      );
     }
 
     /** @private */
@@ -65,7 +67,7 @@ class NotificationEngine {
 
   /**
    * Returns default notification preferences.
-   * 
+   *
    * @returns {import('../types').NotificationConfig}
    */
   getDefaultConfig() {
@@ -74,7 +76,7 @@ class NotificationEngine {
 
   /**
    * Retrieves notification preferences for the active profile, merged with defaults.
-   * 
+   *
    * @returns {import('../types').NotificationConfig}
    */
   getConfig() {
@@ -87,7 +89,7 @@ class NotificationEngine {
 
   /**
    * Updates notification preferences for the active profile.
-   * 
+   *
    * @param {Partial<import('../types').NotificationConfig>} cfg - Preference updates.
    * @returns {import('../types').OperationResult & { config: import('../types').NotificationConfig }}
    */
@@ -109,7 +111,7 @@ class NotificationEngine {
 
   /**
    * Retrieves all notifications for the active profile, sorted newest first.
-   * 
+   *
    * @returns {import('../types').Notification[]} List of notifications.
    */
   getNotifications() {
@@ -122,7 +124,7 @@ class NotificationEngine {
   /**
    * Appends a new notification, preventing duplicates within a 24-hour window.
    * Retains up to 50 most recent notifications.
-   * 
+   *
    * @param {Partial<import('../types').Notification>} notif - Notification payload.
    * @returns {import('../types').OperationResult & { notification?: import('../types').Notification, duplicate?: boolean }}
    */
@@ -138,10 +140,8 @@ class NotificationEngine {
 
     // Avoid duplicate unread notifications with the same title within 24 hours
     const nowMs = Date.now();
-    const existing = data.notifications.find(n =>
-      n.title === notif.title &&
-      !n.read &&
-      (nowMs - new Date(n.createdAt).getTime()) < 24 * 60 * 60 * 1000
+    const existing = data.notifications.find(
+      n => n.title === notif.title && !n.read && nowMs - new Date(n.createdAt).getTime() < 24 * 60 * 60 * 1000
     );
 
     if (existing) {
@@ -178,7 +178,7 @@ class NotificationEngine {
 
   /**
    * Marks a single notification as read by ID.
-   * 
+   *
    * @param {string} id - Notification identifier.
    * @returns {import('../types').OperationResult & { notification?: import('../types').Notification }}
    */
@@ -200,7 +200,7 @@ class NotificationEngine {
 
   /**
    * Marks all notifications as read for the active profile.
-   * 
+   *
    * @returns {import('../types').OperationResult & { count: number }}
    */
   markAllNotificationsRead() {
@@ -217,7 +217,7 @@ class NotificationEngine {
 
   /**
    * Deletes a notification by ID.
-   * 
+   *
    * @param {string} id - Notification identifier.
    * @returns {import('../types').OperationResult & { notification?: import('../types').Notification }}
    */
@@ -239,7 +239,7 @@ class NotificationEngine {
 
   /**
    * Clears all notifications for the active profile.
-   * 
+   *
    * @returns {import('../types').OperationResult}
    */
   clearAllNotifications() {
@@ -257,7 +257,7 @@ class NotificationEngine {
   /**
    * Evaluates all proactive alert triggers based on real-time spending,
    * scheduled bills, shared balances, and time of day.
-   * 
+   *
    * @returns {import('../types').Notification[] & { criticalAlerts?: import('../types').Notification[] }}
    */
   evaluateAutoNotifications() {
@@ -383,7 +383,7 @@ class NotificationEngine {
       const [nudgeH, nudgeM] = (cfg.nudgeTime || '18:00').split(':').map(n => parseInt(n, 10) || 0);
       const currentH = now.getHours();
       const currentM = now.getMinutes();
-      const isPastNudgeTime = (currentH > nudgeH) || (currentH === nudgeH && currentM >= nudgeM);
+      const isPastNudgeTime = currentH > nudgeH || (currentH === nudgeH && currentM >= nudgeM);
 
       if (isPastNudgeTime) {
         const todayExpenses = (data.expenses || []).filter(e => e.date === todayStr);
@@ -419,8 +419,8 @@ class NotificationEngine {
     // Trigger 7 (In-App Only): Large Outflow Anomaly / Spike Alert
     // ------------------------------------------------------------------------
     if (discBudget > 0) {
-      const cycleExpenses = (data.expenses || []).filter(e =>
-        e.date && e.date >= metrics.cycleStartDate && e.date < metrics.nextPaydayDate
+      const cycleExpenses = (data.expenses || []).filter(
+        e => e.date && e.date >= metrics.cycleStartDate && e.date < metrics.nextPaydayDate
       );
       const largeExpense = cycleExpenses.find(e => (parseFloat(String(e.amount)) || 0) >= discBudget * 0.35);
 

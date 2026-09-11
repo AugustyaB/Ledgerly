@@ -2,12 +2,12 @@
  * ============================================================================
  * Ledgerly — AuthService (Authentication & Security Service)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Domain service responsible for user identity, secure credential management,
  * password hashing (PBKDF2-SHA512 with 210K iterations), constant-time verification,
  * brute-force rate limiting, and account preferences.
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Single Responsibility: Handles authentication, session state, and password security.
  * - Encapsulation: Password hashing and attempt counts are kept private to this service.
@@ -27,7 +27,7 @@ const { DEFAULTS } = require('../constants');
 class AuthService {
   /**
    * Initializes the AuthService with an injected database instance.
-   * 
+   *
    * @param {import('./JsonDatabase')} db - The database persistence service.
    */
   constructor(db) {
@@ -51,7 +51,7 @@ class AuthService {
 
   /**
    * Retrieves the current configuration and login state of the master account.
-   * 
+   *
    * @returns {{ isConfigured: boolean, userId: string, rememberMe: boolean, hasProfiles: boolean, activeProfileId: string|null, workspaceMode: string }}
    */
   getStatus() {
@@ -68,7 +68,7 @@ class AuthService {
 
   /**
    * Gets the active workspace view mode ('household' or 'solo').
-   * 
+   *
    * @returns {'household'|'solo'} The active workspace mode.
    */
   getWorkspaceMode() {
@@ -83,7 +83,7 @@ class AuthService {
   /**
    * Sets up the master account with a user ID and password on initial onboarding.
    * Salts and hashes the password using OWASP-compliant 210,000 PBKDF2 iterations.
-   * 
+   *
    * @param {{ userId?: string, password?: string, rememberMe?: boolean }} payload - Setup details.
    * @returns {import('../types').OperationResult & { account?: { userId: string, rememberMe: boolean, isConfigured: boolean } }}
    */
@@ -133,7 +133,7 @@ class AuthService {
   /**
    * Authenticates user credentials with rate limiting and timingSafeEqual.
    * Transparently auto-migrates legacy 1,000-iteration hashes to 210,000 iterations upon successful login.
-   * 
+   *
    * @param {{ userId?: string, password?: string, rememberMe?: boolean }} payload - Login details.
    * @returns {import('../types').OperationResult & { account?: { userId: string, rememberMe: boolean, isConfigured: boolean } }}
    */
@@ -207,7 +207,7 @@ class AuthService {
 
   /**
    * Logs out the user by de-authorizing the active session and clearing the rememberMe flag.
-   * 
+   *
    * @returns {import('../types').OperationResult}
    */
   logout() {
@@ -225,7 +225,7 @@ class AuthService {
 
   /**
    * Updates global account preferences such as rememberMe and workspace viewing mode.
-   * 
+   *
    * @param {{ rememberMe?: boolean, workspaceMode?: 'household'|'solo' }} [prefs] - Preferences.
    * @returns {import('../types').OperationResult & { rememberMe?: boolean, workspaceMode?: string }}
    */
@@ -250,7 +250,7 @@ class AuthService {
 
   /**
    * Sets the active workspace mode ('household' or 'solo').
-   * 
+   *
    * @param {'household'|'solo'} mode - The workspace mode to set.
    * @returns {import('../types').OperationResult & { workspaceMode?: string }}
    */
@@ -264,7 +264,7 @@ class AuthService {
 
   /**
    * Computes a PBKDF2-SHA512 hash key for a given password and salt.
-   * 
+   *
    * @private
    * @param {string} password - Raw user password.
    * @param {string} salt - Hex salt.
@@ -272,13 +272,9 @@ class AuthService {
    * @returns {string} Hex-encoded derived password hash.
    */
   _hashPassword(password, salt, iterations = DEFAULTS.PBKDF2_ITERATIONS) {
-    return crypto.pbkdf2Sync(
-      String(password),
-      String(salt),
-      iterations,
-      DEFAULTS.PBKDF2_KEY_LENGTH,
-      DEFAULTS.PBKDF2_DIGEST
-    ).toString('hex');
+    return crypto
+      .pbkdf2Sync(String(password), String(salt), iterations, DEFAULTS.PBKDF2_KEY_LENGTH, DEFAULTS.PBKDF2_DIGEST)
+      .toString('hex');
   }
 }
 

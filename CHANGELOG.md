@@ -27,8 +27,152 @@ Future Milestone:
 # Version 0.5: On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine
 > *Succeeds Version 0.4.7 (Major Restructuring Milestone). Introduces local, offline machine learning models for physical receipts, PDF statements, and camera photos.*
 
+## [0.5.9] - Phase 9: Subsystem Integration, Full Regression Auditing & Production Packaging (2026-09-12)
+> *Current Active Subsection — Concludes Version 0.5 Milestone*
+
+### 🚀 Full Subsystem Integration & Cross-Tier Interoperability
+- Seamless cross-tier pipeline integration across `DocumentNormalizer`, `ReceiptTier1Engine` (Fast-Lite), `ReceiptTier2VisionEngine` (Precision, Degraded, HTR, Multilingual, Balanced), `ReceiptTier3RegionalEngine` (India, US/Canada, Europe/UK, APAC), `ModelManager`, `SmartDocumentAnalyzer`, and `ExpenseService`.
+- Unified result envelopes and rich metadata persistence: statutory taxes (`gstin`, `cgst`, `sgst`, `igst`, `state`, `pan`), payment decomposition (`utr`, `app`), itemized matrices (`lineItems`, `reconciled`), inpainting provenance (`inferredMath`, `inferredByMath`), and structural classification (`smartAnalysis`).
+- Transparent fallback protocol: missing or uninstalled on-demand models automatically fall back to bundled Tier 1 Fast-Lite with telemetry feedback (`fallbackTriggered: true`, `fallbackReason`).
+
+### 🛡️ High-Throughput Stress Testing & Chaos Fuzzing
+- **Concurrency Stress Test**: 35 simultaneous scan requests executed concurrently without process deadlocks or state corruption.
+- **Chaos Fuzzing Pass**: 0-byte files rejected with `INVALID_ARGUMENT`, non-existent file paths trapped with `NOT_FOUND`, corrupted PDF headers rejected with `ERR_UNSUPPORTED_FORMAT`, and non-financial source code rejected with 0% false positive hallucination.
+- **ModelManager Invariants**: Bundled `tier1-fastlite` protected from deletion (`ERR_MODEL_PROTECTED`), dynamic model catalog SHA-256 verification, and currency-aware auto-routing.
+
+### 📦 Windows Production Packaging & Release Artifacts
+- Compiled and packaged release binaries via `electron-builder --win` into `dist/`:
+  - `dist/Ledgerly Setup 0.5.9.exe`: NSIS installer with user-selectable directory.
+  - `dist/Ledgerly 0.5.9.exe`: Standalone zero-install portable Windows executable.
+  - `dist/win-unpacked/Ledgerly.exe`: Full production unpacked executable.
+- Pre-packaged bundled model weights: `assets/models/tesseract/eng.traineddata` (5.19MB) included directly in application distribution payload for 100% offline out-of-the-box OCR.
+- Playwright E2E smoke verification (`scratch/test_phase9_production_binary.js`) confirming clean execution of packaged binary, window title, and DLS branding.
+
+### 🧪 Comprehensive Enterprise Regression Audit
+- Zero ESLint errors or warnings across entire `src/` directory (`npm run lint`).
+- Clean AST syntax verification across all 52 JavaScript files (`npm run check`).
+- 100% pass rate across all 11 automated test suites comprising over 180 individual test assertions:
+  - `test:receipt-tier1` (50/50 passed)
+  - `test:tier2` (21/21 passed)
+  - `test:tier3` (21/21 passed)
+  - `test:multi-engine` (16/16 passed)
+  - `test:model-manager` (18/18 passed)
+  - `test:normalizer` (12/12 passed)
+  - `test:ingestion-queue` (15/15 passed)
+  - `test:resilience` (11/11 passed)
+  - `test:phase9` (15/15 passed)
+
+## [0.5.8] - Phase 8: Tier 2 Vision-Pro Multi-Model Architecture & Visual Understanding (2026-09-12)
+> *Completed*
+
+### 👁️ Tier 2 Vision-Pro Multi-Model Suite (`src/services/ReceiptTier2VisionEngine.js`)
+Decomposed the heavy-duty visual document intelligence layer into 4 specialized visual models alongside the balanced `tier2-visionpro` baseline:
+- **Specialist 1: Visual Precision (`tier2-vision-precision`)**:
+  - Engineered for 6pt–8pt microtext, fine tabular print, torn paper edges, and clipped digit boundaries.
+  - **Arithmetic Constraint Inpainting Solver (`ArithmeticInpaintingSolver`)**: Recovers torn or partially obscured totals using mathematical integrity (`Subtotal + Tax - Discount == Total` / `Rounding`). Synthesizes regex candidates over corrupted digits (e.g. `2_.46` -> `26.46`) with arithmetic consistency verification.
+  - **Comprehensive Anti-Trap Filtering (`AntiTrapFilter`)**: Rejects misleading register artifacts including "Change Due" vs "Cash Tendered", promotional "You Saved $X.XX" discounts, "Balance Due: $0.00" zero totals, and Swedish cash rounding increments (`Rounding: -0.02`).
+  - **Refund & Return Detection**: Distinguishes negative return and refund chits (`REFUND`, `RETURN`, `CREDIT VOUCHER`) with automated negative amount representation and tagged metadata.
+- **Specialist 2: Physically Degraded Paper (`tier2-vision-degraded`)**:
+  - Reconstructs damaged and wrinkled receipts that defeat basic OCR pipelines.
+  - **Creased & Crumpled Paper Repair (`DegradedPaperProcessor.bridgeCreasedPaper`)**: Reconnects disjointed words broken across fold lines and vertical creases (`T O T A L`, `S U B T O T A L`, `A M O U N T`, `B A L A N C E`).
+  - **Thermal POS Bleach Recovery (`recoverThermalFade`)**: Reconnects faded decimal points and thermal print head dropouts (`1599` -> `15.99`) using contextual line semantics and subtotal cues.
+  - **Rubber Stamp Layer Separation (`separateStampLayer`)**: Detects and isolates overlaid ink stamps (`PAID`, `CANCELLED`, `RECEIVED`, `APPROVED`) and official circular seals, stripping obstructive stamp text from core transactional line items while preserving stamp state as document metadata.
+- **Specialist 3: Handwritten Chits & Hybrid Bills (`tier2-vision-handwritten`)**:
+  - Tailored for manual receipts, market chits, and hybrid printed forms with handwritten fill-ins.
+  - **Handwritten Text Recognition (HTR) Engine (`HandwrittenChitProcessor`)**: Parses informal voucher layouts, chit numbering (`Chit #`, `Slip No`, `Order #`), and handwritten date formats.
+  - **Numeral Ambiguity Resolution**: Disambiguates common handwritten confusion pairs (`0` vs `6` vs `8`, `1` vs `7`), handles European slashed zeros (`Ø`), and filters spurious pen resting / tap dots.
+- **Specialist 4: Multilingual & Travel DCC (`tier2-vision-multilingual`)**:
+  - Global document comprehension across international travel and non-Latin typography.
+  - **Dynamic Currency Conversion (DCC) Engine (`MultilingualTravelProcessor.parseDccTravel`)**: Accurately extracts dual currencies from international travel receipts—differentiating the local transaction charge (`Transaction Currency`) from the cardholder's home billing currency (`Billing Currency / Amount Charged`) and foreign exchange markup rate (`FX Rate`).
+  - **Multi-Script Glyph Understanding**: Parses Kanji/Kana receipts with Japanese yen (`¥`, `合計`, `小計`, `消費税`), Eastern Arabic numerals (`[٠-٩]`, `المجموع`, `الضريبة`), Devanagari numerals (`[०-९]`, `कुल`, `योग`), and Cyrillic receipts (`итого`, `сумма`).
+- **Balanced Baseline (`tier2-visionpro`)**:
+  - Retained 100% backward-compatible balanced Vision-Pro pipeline featuring multi-column grid matrix reconstruction, multi-line item description grouping, and cross-reconciliation.
+
+### 🧠 Intelligent Model Routing, Auto-Escalation & Catalog Integration
+- **Model Catalog Registration (`src/services/ModelManager.js`)**:
+  - Added all 4 Tier 2 specialists to `MODEL_CATALOG` with download specs, SHA-256 validation hashes, disk footprints (~185MB–220MB), and capability tags.
+- **Intelligent Auto-Escalation (`src/services/DocumentIntelligenceService.js`)**:
+  - When processing documents via Tier 1, the engine inspects visual and structural cues (e.g. low-confidence handwriting markers, severe crease artifacts) and generates non-intrusive UI recommendations (`recommendedTier2: 'tier2-vision-handwritten'`, etc.) prompting the user to re-scan with the optimal specialist model.
+- **Runtime Whitelist & Schema Hardening (`src/validation/schemaValidator.js`)**:
+  - Whitelisted all Tier 2 engine names (`tier2-visionpro`, `tier2-vision-precision`, `tier2-vision-degraded`, `tier2-vision-handwritten`, `tier2-vision-multilingual`) across IPC schemas and scanner input validators.
+- **Interactive UI Cockpit & Engine Selector (`src/index.html`, `src/ui/views/SettingsView.js`, `src/ui/views/ImportView.js`)**:
+  - Added dedicated option groups in the Ingestion Queue engine selector for all Tier 2 Vision specialists.
+  - Registered user-friendly activation labels in Settings View.
+  - Added precision status chips (`Inferred: Math Check`, `Handwritten Decoded`, `Refund / Return`, `Travel: Dual Currency`, `Stamp`) in the Scanned Bill Review Cockpit.
+
+## [0.5.7] - Phase 7: Tier 3 Regional Specialist Models Architecture (2026-09-09)
+> *Completed Subsection*
+
+### 🌍 Core 4 Regional Specialists Architecture (`src/services/RegionalIntelligenceRegistry.js`, `src/services/ReceiptTier3RegionalEngine.js`)
+- **Specialist 1: India (`tier3-regional-in`)**: Statutory 15-character GSTIN validation, state code decoding (01-38), multi-slab tax decomposition (CGST/SGST/IGST), HSN codes, and digital UPI payment rails (PhonePe, Google Pay, Paytm, BHIM, CRED).
+- **Specialist 2: North America (`tier3-regional-us`)**: IRS statutory 9-digit EIN & Canadian Business Number (BN) validation, State/Local Sales Tax extraction, Tip & Gratuity decomposition with dynamic 15%, 18%, 20% suggested tip matrix, Apple Pay DAN (Device Account Number), Venmo handles, Cash App $cashtags, and Zelle.
+- **Specialist 3: Europe & UK (`tier3-regional-eu`)**: Multi-rate VAT decomposition (Standard, Reduced, Super-Reduced), European VIES country-prefixed VAT ID verification (DE, GB, FR, IT, ES, NL, etc.), reverse charge detection, IBAN / BIC supply point routing, and European comma decimal parsing (`12,50 €`, `1.250,75 €`).
+- **Specialist 4: Australia & Japan (`tier3-regional-apac`)**:
+  - *Australia*: Statutory Australian Business Number (ABN) verification using the ATO Modulus-89 algorithm (`sum % 89 === 0`), 10% GST extraction, BPAY biller codes and reference numbers, PayID, and EFTPOS.
+  - *Japan*: National Tax Agency Qualified Invoice 13-digit T-Number verification (`T + 13 digits`), dual-rate tax breakdown (10% standard vs 8% reduced food tax), Japanese Kanji date parsing (`YYYY年MM月DD日`), whole-yen total parsing, PayPay, Line Pay, and IC cards (Suica/Pasmo).
+- **Universal Fallback & Zero Hallucination Guarantee**: Falls back gracefully to canonical merchant detection and category inference on generic or mom-and-pop receipts without hallucinating statutory IDs or non-existent taxes.
+
+### ⚡ Regional Utility & Energy Bill Layout Schemas
+- **Declarative Discom Schemas**: High-precision regex schemas for electric, gas, water, and telecom bills across all 4 regions:
+  - *United States*: Con Edison (ConEd), PG&E, Duke Energy, National Grid, Eversource; extracts Account Number, Billing Period, and Consumption in `kWh` or `therms`.
+  - *India*: BESCOM, Tata Power, MSEDCL, Adani Electricity, BSES, CESC; extracts Consumer ID and Units Consumed in `kWh`.
+  - *Europe & UK*: British Gas, EDF Energy, E.ON, Scottish Power, Octopus Energy; extracts Account Number, MPAN, and MPRN.
+  - *Australia*: EnergyAustralia, Origin Energy, AGL; extracts National Meter Identifier (NMI), Account No, and Usage in `kWh`.
+
+### 🛡️ Statutory Checksums & Regional Intelligence Registry (`src/services/RegionalIntelligenceRegistry.js`)
+- **ATO Modulus-89 Algorithm**: Exact mathematical checksum validation for Australian Business Numbers.
+- **IRS 9-Digit EIN Validation**: Validates 2-digit valid IRS campus prefixes and 7-digit sequential format.
+- **European VIES Prefix Engine**: Validates ISO-3166-1 alpha-2 country-prefixed tax IDs.
+- **Japan Qualified Invoice T-Number**: Validates official invoice registration format.
+- **Regional Monetary Parser (`parseRegionalMonetary`)**: Disambiguates comma decimals (`12,50 €`) from period decimals (`$12.50`) and yen integers (`¥1,500`).
+- **Regional Date Disambiguation (`disambiguateRegionalDate`)**: Resolves ambiguous dates (e.g. `04/11/2024` -> `2024-04-11` in US vs `2024-11-04` in EU/India/Australia).
+- **Curated Regional Merchant Directory**: Fuzzy matches hundreds of regional retail chains with canonical brand names and default expense categories.
+
+### 🧠 Dynamic Currency Auto-Routing & Model Manager (`src/services/ModelManager.js`, `src/services/DocumentIntelligenceService.js`)
+- **Model Catalog Expansion**: Registered all 4 regional models in `MODEL_CATALOG` (`tier3-regional-in`, `tier3-regional-us`, `tier3-regional-eu`, `tier3-regional-apac`) with download manifests and recommended currency bindings.
+- **Dynamic Currency Auto-Routing**: Automatically recommends and resolves the appropriate regional model based on the active user profile's currency (INR -> India, USD/CAD -> North America, EUR/GBP -> Europe, AUD/JPY -> APAC).
+- **Safe Fallback Protocol**: Transparently falls back to Tier 1 Fast-Lite if an on-demand regional model has not been downloaded, generating a user telemetry toast.
+- **IPC Runtime Boundary Whitelisting**: Whitelisted all 4 regional model identifiers in `validateReceiptScanInput` and `validateModelActionInput`.
+
+### 🖥️ Settings Hub & Review Cockpit UI Integration (`src/index.html`, `src/ui/views/SettingsView.js`, `src/ui/views/ImportView.js`)
+- **Regional Category Tabs**: Added `#models-filter-bar` in Settings Hub to filter model cards by region: `[ All ]`, `[ 🇮🇳 India ]`, `[ 🇺🇸 North America ]`, `[ 🇪🇺 Europe & UK ]`, `[ 🇦🇺/🇯🇵 Asia-Pacific ]`, `[ 👁️ Tier 2 Vision ]`.
+- **Model Card Visual Polish**: Displays regional flag icons, currency badges, and download state.
+- **Review Cockpit Regional Badges**: Dynamic `#ml-form-regional-bar` displays statutory chips (GSTIN, State, UTR, EIN, Tip, VAT ID, IBAN, ABN, BPAY, T-Number, Utility Acct/Usage) directly in the intake cockpit.
+
+---
+
+## [0.5.6] - Phase 6: Ingestion Workflow & Scanned Bill Review Queue UI (2026-09-09)
+
+### 🧾 First-Class Ingestion Workspace (`src/ui/views/ImportView.js`, `src/index.html`, `src/styles.css`)
+- **Workspace Integration**: Replaced legacy modal/tab with first-class `#view-import` workspace tab, accessible via navigation sidebar (`Import & Scan`), header button, and Command Palette (`Ctrl+K`).
+- **Segmented Sub-View Switcher**: Added pill toggle to switch between `[ 🧾 Scanned Bills & Receipts (ML Queue) ]` and `[ 📊 Bank Statements (CSV/XLSX/OFX/PDF) ]`.
+- **Intake Queue & Status Metrics**: Multi-file dropzone and file picker supporting images (JPEG, PNG, WebP) and PDFs, with real-time status counters (`Auto-Approved`, `Needs Review`, `Committed`, `Rejected`).
+
+### 🧠 Smart Document Analyzer (<1ms In-Memory 3-Way Classifier) (`src/services/SmartDocumentAnalyzer.js`)
+- **Content-Driven Classification**: Evaluates post-scan page structures without relying on brittle filenames.
+- **Three-Way Document Sensing**:
+  - `invoice`: Single unified multi-page invoice (cross-page continuation, uniform GSTIN/invoice numbers, pagination strings `Page X of Y`).
+  - `multiple-bills`: Batch scan of distinct, independent receipts (differing merchants, independent totals/footers).
+  - `statement`: Bank or credit card statement ledger (column headers for Date, Description, Debit, Credit, Balance, Account numbers).
+- **Interactive Classification Pill**: Segmented pill in the review cockpit allowing 1-click user re-classification (`1 Invoice | Multiple Bills | Statement`) with instant classification toast feedback.
+
+### ⚖️ Auto-Approval Intelligence Middle Ground
+- **Balanced Automation**: Auto-approves clean extractions (confidence `>=94%`, `<=3` line items, reconciled totals, non-generic merchant, no pending UPI prompt, no duplicate within ±2 days).
+- **Review Flagging**: Directs dense bills (`>3` items), item sum mismatches, ambiguous UPI slips, or duplicate alerts to `needs-review` for manual verification.
+- **Non-Financial Gate**: Automatically tags non-financial documents as `rejected` with 0% false positives.
+
+### 🔍 Side-by-Side Review Cockpit & Dense Bill Table
+- **Interactive Multi-Page Document Viewer**: Hardware-accelerated CSS transform matrix zoom (0.5x to 3.0x), drag pan, 90° CW/CCW rotation, and multi-page pagination controls.
+- **Editable Line Items Table**: Interactive table for dense bills with live `Qty * Unit Price == Amount` recalculation, running item sum comparison against bill total, mismatch alerts, and 1-click `Sync Total` reconciliation.
+- **Batch Processing**: 1-click `Approve All High-Confidence` batch commit button with immediate database persistence.
+
+### 💾 Backend Persistence & IPC Contracts (`src/services/ExpenseService.js`, `src/preload.js`, `src/main.js`)
+- **Metadata Preservation**: `ExpenseService.bulkAdd` preserves `receiptFilename` and complete `metadata` (`lineItems`, `gstin`, `cgst`, `sgst`, `igst`, `state`, `utr`, `reconciled`, `smartAnalysis`).
+- **IPC Multi-Document Intake**: Registered `select-receipt-documents` and `analyze-document-structure` handlers in `main.js` and exposed securely via `preload.js`.
+
+---
+
 ## [0.5.5] - Phase 5: Multi-Engine Inference Runtime & Table Layout Parsing (2026-09-09)
-> *Current Active Subsection*
 
 ### 🧠 Multi-Engine Inference Dispatcher (`src/services/DocumentIntelligenceService.js`)
 - **Dynamic Model Routing**: Intelligently routes intake documents to active or requested engine (Tier 1 Fast-Lite, Tier 2 Vision-Pro, or Tier 3 Regional India Specialist).

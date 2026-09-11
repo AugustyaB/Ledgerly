@@ -15,13 +15,11 @@
 import { escapeHTML, delegateEvent, setInnerHTML } from '../helpers/dom.js';
 import { showToast } from '../helpers/toast.js';
 
-
 // ============================================================================
 //  NotificationView Class
 // ============================================================================
 
 export class NotificationView {
-
   /** @type {any} */
   #api;
 
@@ -43,7 +41,6 @@ export class NotificationView {
   /** @type {function(): void} */
   #cleanupDocEvents = () => {};
 
-
   // ==========================================================================
   //  Constructor
   // ==========================================================================
@@ -56,7 +53,6 @@ export class NotificationView {
     this.#api = api;
     this.#tabSwitcher = tabSwitcher;
   }
-
 
   // ==========================================================================
   //  Lifecycle Interface (ViewContract)
@@ -77,12 +73,14 @@ export class NotificationView {
 
     // Start 15-minute background evaluation interval
     if (typeof setInterval !== 'undefined') {
-      this.#pollIntervalId = setInterval(async () => {
-        await this.render();
-      }, 15 * 60 * 1000);
+      this.#pollIntervalId = setInterval(
+        async () => {
+          await this.render();
+        },
+        15 * 60 * 1000
+      );
     }
   }
-
 
   /**
    * Evaluates fresh alerts from the backend and updates the bell badge
@@ -98,7 +96,7 @@ export class NotificationView {
     try {
       if (typeof this.#api.evaluateNotifications === 'function') {
         const res = await this.#api.evaluateNotifications();
-        notifications = Array.isArray(res) ? res : (res?.notifications || (await this.#api.getNotifications()) || []);
+        notifications = Array.isArray(res) ? res : res?.notifications || (await this.#api.getNotifications()) || [];
       } else {
         notifications = (await this.#api.getNotifications()) || [];
       }
@@ -121,7 +119,6 @@ export class NotificationView {
     this.#renderList(notifications);
   }
 
-
   /**
    * Unmounts the notification center, clearing background timers and event listeners.
    *
@@ -136,7 +133,6 @@ export class NotificationView {
     this.#cleanupListEvents();
     this.#cleanupDocEvents();
   }
-
 
   // ==========================================================================
   //  Dropdown Visibility Toggles
@@ -161,7 +157,6 @@ export class NotificationView {
     }
   }
 
-
   /**
    * Closes the notification dropdown panel.
    *
@@ -174,7 +169,6 @@ export class NotificationView {
       dropdown.classList.add('hidden');
     }
   }
-
 
   // ==========================================================================
   //  Action Routing & Handlers
@@ -226,7 +220,6 @@ export class NotificationView {
     await this.render();
   }
 
-
   /**
    * Marks a single notification as read.
    *
@@ -239,7 +232,6 @@ export class NotificationView {
       await this.render();
     }
   }
-
 
   /**
    * Deletes / dismisses a single notification.
@@ -254,7 +246,6 @@ export class NotificationView {
     }
   }
 
-
   /**
    * Marks all notifications as read.
    *
@@ -268,7 +259,6 @@ export class NotificationView {
     }
   }
 
-
   /**
    * Clears all notifications.
    *
@@ -281,7 +271,6 @@ export class NotificationView {
       showToast('All notifications cleared');
     }
   }
-
 
   // ==========================================================================
   //  Private Rendering & Event Helpers
@@ -309,7 +298,6 @@ export class NotificationView {
     }
   }
 
-
   /**
    * Renders the notification cards in the dropdown list.
    *
@@ -334,17 +322,20 @@ export class NotificationView {
     }
 
     if (filtered.length === 0) {
-      setInnerHTML(listEl, `
+      setInnerHTML(
+        listEl,
+        `
         <div class="notif-empty-state">
           <i data-icon="bell-off" data-icon-size="28"></i>
           <div style="font-weight: 700; font-size: 13px; color: var(--text-main); margin-bottom: 2px;">All Caught Up</div>
           <div style="font-size: 11.5px; color: var(--text-muted);">No notifications in this view.</div>
         </div>
-      `);
+      `
+      );
       return;
     }
 
-    const formatTimeAgo = (dateStr) => {
+    const formatTimeAgo = dateStr => {
       if (!dateStr) return 'Just now';
       const diffMs = Date.now() - new Date(dateStr).getTime();
       const diffSec = Math.floor(diffMs / 1000);
@@ -358,7 +349,7 @@ export class NotificationView {
       return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     };
 
-    const getActionBtnText = (tab) => {
+    const getActionBtnText = tab => {
       if (tab === 'household') return 'Settle Bill';
       if (tab === 'express') return 'Quick Log';
       if (tab === 'dashboard') return 'View Budget';
@@ -366,7 +357,9 @@ export class NotificationView {
       return 'View';
     };
 
-    const html = filtered.map(n => `
+    const html = filtered
+      .map(
+        n => `
       <div class="notification-item ${n.read ? '' : 'unread'} notif-type-${escapeHTML(n.type || 'system')}" data-notif-id="${escapeHTML(n.id)}">
         <div class="notification-icon">
           <i data-icon="${escapeHTML(n.icon || 'bell')}" data-icon-size="16"></i>
@@ -378,57 +371,66 @@ export class NotificationView {
           </div>
           <div class="notification-meta-row">
             <span class="notif-time-ago">${formatTimeAgo(n.createdAt)}</span>
-            ${n.actionTab ? `
+            ${
+              n.actionTab
+                ? `
               <button type="button" class="btn-notif-action" data-action="notif-action" data-notif-id="${escapeHTML(n.id)}">
                 ${getActionBtnText(n.actionTab)} <i data-icon="arrow-right" data-icon-size="10"></i>
               </button>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
         </div>
         <div class="notification-item-actions">
-          ${!n.read ? `
+          ${
+            !n.read
+              ? `
             <button type="button" class="btn-text-ghost" data-action="mark-read" data-notif-id="${escapeHTML(n.id)}" title="Mark as read">
               <i data-icon="check" data-icon-size="12"></i>
             </button>
-          ` : ''}
+          `
+              : ''
+          }
           <button type="button" class="btn-text-ghost" data-action="dismiss" data-notif-id="${escapeHTML(n.id)}" title="Dismiss">
             <i data-icon="x" data-icon-size="12"></i>
           </button>
         </div>
       </div>
-    `).join('');
+    `
+      )
+      .join('');
 
     setInnerHTML(listEl, html);
 
     // Re-bind delegated actions on the list container
     this.#cleanupListEvents();
     this.#cleanupListEvents = delegateEvent(listEl, {
-      'notif-action': (target) => {
+      'notif-action': target => {
         const id = target.getAttribute('data-notif-id');
         if (id) this.handleAction(id);
       },
-      'mark-read': (target) => {
+      'mark-read': target => {
         const id = target.getAttribute('data-notif-id');
         if (id) this.markAsRead(id);
       },
-      'dismiss': (target) => {
+      dismiss: target => {
         const id = target.getAttribute('data-notif-id');
         if (id) this.dismiss(id);
       }
     });
   }
 
-
   #bindDropdownControls() {
     const bellBtn = document.getElementById('btn-open-notifications');
     const dropdown = document.getElementById('notification-dropdown');
 
-    bellBtn?.addEventListener('click', async (e) => {
+    bellBtn?.addEventListener('click', async e => {
       e.stopPropagation();
       await this.toggleDropdown();
     });
 
-    const outsideClickListener = (e) => {
+    const outsideClickListener = e => {
       if (dropdown && !dropdown.classList.contains('hidden')) {
         if (!dropdown.contains(e.target) && !bellBtn?.contains(e.target)) {
           dropdown.classList.add('hidden');
@@ -436,7 +438,7 @@ export class NotificationView {
       }
     };
 
-    const keydownListener = (e) => {
+    const keydownListener = e => {
       if (e.key === 'Escape' && dropdown && !dropdown.classList.contains('hidden')) {
         dropdown.classList.add('hidden');
       }
@@ -451,7 +453,6 @@ export class NotificationView {
     };
   }
 
-
   #bindFilterChips() {
     document.querySelectorAll('.notif-filter-chip').forEach(chip => {
       chip.addEventListener('click', async () => {
@@ -463,20 +464,19 @@ export class NotificationView {
     });
   }
 
-
   #bindHeaderActions() {
-    document.getElementById('btn-mark-all-notifications-read')?.addEventListener('click', async (e) => {
+    document.getElementById('btn-mark-all-notifications-read')?.addEventListener('click', async e => {
       e.stopPropagation();
       await this.markAllRead();
     });
 
-    document.getElementById('btn-clear-all-notifications')?.addEventListener('click', async (e) => {
+    document.getElementById('btn-clear-all-notifications')?.addEventListener('click', async e => {
       e.stopPropagation();
       await this.clearAll();
     });
 
     // Native notification click routing from main process
-    this.#api?.onNavigateToTab?.((tab) => {
+    this.#api?.onNavigateToTab?.(tab => {
       if (tab) {
         this.#tabSwitcher(tab);
       }

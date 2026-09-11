@@ -2,12 +2,12 @@
  * ============================================================================
  * Ledgerly — Main Process & Runtime Crash Logger (Phase 6)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Zero-dependency persistent diagnostics and crash logging engine.
  * Records timestamped unhandled exceptions, unhandled promise rejections,
  * renderer-process failures, and telemetry to `crash.log`.
- * 
+ *
  * DESIGN PRINCIPLES:
  * - Robust against filesystem errors: all write and read operations are guarded with try/catch.
  * - 5MB size capping: rotates log file or trims oldest entries when threshold is reached.
@@ -103,7 +103,7 @@ class CrashLogger {
 
   /**
    * Logs a structured crash event to crash.log.
-   * 
+   *
    * @param {string} type - Event identifier (e.g. 'MAIN_UNCAUGHT_EXCEPTION', 'RENDERER_ERROR')
    * @param {Error|string|any} errorOrMessage - Error object or diagnostic message
    * @param {Record<string, any>} [context={}] - Optional metadata (PID, URL, channel, etc.)
@@ -157,7 +157,7 @@ class CrashLogger {
 
   /**
    * Retrieves the most recent log entries.
-   * 
+   *
    * @param {number} [maxLines=100] - Maximum lines to retrieve
    * @returns {string} Raw log content of recent lines
    */

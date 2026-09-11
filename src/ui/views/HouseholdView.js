@@ -1,6 +1,6 @@
 /**
  * LEDGERLY — HOUSEHOLD VIEW COMPONENT
- * 
+ *
  * Component orchestrating the Household Split & Settlements Center.
  * Handles pairwise debt settlement streams, recurring utility bills,
  * member roster management, and repayment transaction audit trails.
@@ -144,7 +144,7 @@ export class HouseholdView {
    * Unmount the view and detach all event listeners.
    */
   unmount() {
-    this.#cleanups.forEach((cleanup) => {
+    this.#cleanups.forEach(cleanup => {
       try {
         cleanup();
       } catch (err) {
@@ -224,7 +224,7 @@ export class HouseholdView {
     // 4. User Net Position Card
     const activeProfile = this.state ? this.state.get('activeProfile') : null;
     const activeName = activeProfile ? activeProfile.name : 'Self';
-    const userNet = settlement.balances ? (settlement.balances[activeName] || 0) : 0;
+    const userNet = settlement.balances ? settlement.balances[activeName] || 0 : 0;
 
     const userNetEl = document.getElementById('household-user-net-position');
     const userNetSubEl = document.getElementById('household-net-position-sub');
@@ -278,7 +278,9 @@ export class HouseholdView {
       return;
     }
 
-    streamsContainer.innerHTML = settlements.map((s) => `
+    streamsContainer.innerHTML = settlements
+      .map(
+        s => `
       <div class="settlement-stream-card">
         <div class="stream-flow-visual">
           <div class="stream-person-node">
@@ -309,7 +311,9 @@ export class HouseholdView {
           </button>
         </div>
       </div>
-    `).join('');
+    `
+      )
+      .join('');
   }
 
   /**
@@ -334,31 +338,36 @@ export class HouseholdView {
     const today = new Date();
     const currentDay = today.getDate();
 
-    billsContainer.innerHTML = bills.map((b) => {
-      const daysDiff = b.dueDay - currentDay;
-      let statusClass = 'status-due-soon';
-      let statusStyle = 'background: rgba(56, 189, 248, 0.15); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.3);';
-      let statusText = `Due in ${daysDiff} days`;
+    billsContainer.innerHTML = bills
+      .map(b => {
+        const daysDiff = b.dueDay - currentDay;
+        let statusClass = 'status-due-soon';
+        let statusStyle =
+          'background: rgba(56, 189, 248, 0.15); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.3);';
+        let statusText = `Due in ${daysDiff} days`;
 
-      if (b.lastPaidDate && b.lastPaidDate.startsWith(today.toISOString().substring(0, 7))) {
-        statusClass = 'status-paid';
-        statusStyle = 'background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3);';
-        statusText = `${safeIcon('check', 12)} Paid for Month`;
-      } else if (daysDiff < 0) {
-        statusClass = 'status-overdue';
-        statusStyle = 'background: rgba(225, 29, 72, 0.2); color: #FB7185; border: 1px solid rgba(225, 29, 72, 0.4);';
-        statusText = `${safeIcon('alert-triangle', 12)} Overdue by ${Math.abs(daysDiff)}d`;
-      } else if (daysDiff === 0) {
-        statusClass = 'status-due-today';
-        statusStyle = 'background: rgba(225, 29, 72, 0.25); color: #FB7185; border: 1px solid rgba(225, 29, 72, 0.5); font-weight: 800;';
-        statusText = `${safeIcon('alert-triangle', 12)} Due Today`;
-      } else if (daysDiff <= 3) {
-        statusClass = 'status-due-soon';
-        statusStyle = 'background: rgba(217, 130, 43, 0.2); color: #E5943C; border: 1px solid rgba(217, 130, 43, 0.4); font-weight: 700;';
-        statusText = `${safeIcon('zap', 12)} Due in ${daysDiff} days`;
-      }
+        if (b.lastPaidDate && b.lastPaidDate.startsWith(today.toISOString().substring(0, 7))) {
+          statusClass = 'status-paid';
+          statusStyle =
+            'background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3);';
+          statusText = `${safeIcon('check', 12)} Paid for Month`;
+        } else if (daysDiff < 0) {
+          statusClass = 'status-overdue';
+          statusStyle = 'background: rgba(225, 29, 72, 0.2); color: #FB7185; border: 1px solid rgba(225, 29, 72, 0.4);';
+          statusText = `${safeIcon('alert-triangle', 12)} Overdue by ${Math.abs(daysDiff)}d`;
+        } else if (daysDiff === 0) {
+          statusClass = 'status-due-today';
+          statusStyle =
+            'background: rgba(225, 29, 72, 0.25); color: #FB7185; border: 1px solid rgba(225, 29, 72, 0.5); font-weight: 800;';
+          statusText = `${safeIcon('alert-triangle', 12)} Due Today`;
+        } else if (daysDiff <= 3) {
+          statusClass = 'status-due-soon';
+          statusStyle =
+            'background: rgba(217, 130, 43, 0.2); color: #E5943C; border: 1px solid rgba(217, 130, 43, 0.4); font-weight: 700;';
+          statusText = `${safeIcon('zap', 12)} Due in ${daysDiff} days`;
+        }
 
-      return `
+        return `
         <div class="utility-card">
           <div class="utility-card-header">
             <div class="utility-icon-title">
@@ -387,7 +396,8 @@ export class HouseholdView {
           </div>
         </div>
       `;
-    }).join('');
+      })
+      .join('');
   }
 
   /**
@@ -412,7 +422,9 @@ export class HouseholdView {
       return;
     }
 
-    historyTbody.innerHTML = settlements.map((s) => `
+    historyTbody.innerHTML = settlements
+      .map(
+        s => `
       <tr>
         <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">${escapeHTML(s.date)}</td>
         <td><strong style="color: var(--text-main); font-size: 13px;">${escapeHTML(s.from)}</strong></td>
@@ -427,7 +439,9 @@ export class HouseholdView {
           </button>
         </td>
       </tr>
-    `).join('');
+    `
+      )
+      .join('');
   }
 
   /**
@@ -440,12 +454,16 @@ export class HouseholdView {
     if (!memberTags) return;
 
     const members = this.getMergedMemberList();
-    memberTags.innerHTML = members.map((m) => `
+    memberTags.innerHTML = members
+      .map(
+        m => `
       <span class="member-tag-chip">
         <span style="display: inline-flex; align-items: center; gap: 4px;">${safeIcon('user', 12)} ${escapeHTML(m)}</span>
         ${m !== 'Self' ? `<span class="member-tag-remove" data-action="delete-member" data-name="${escapeHTML(m)}">✕</span>` : ''}
       </span>
-    `).join('');
+    `
+      )
+      .join('');
   }
 
   // ==========================================================================
@@ -461,14 +479,14 @@ export class HouseholdView {
     const set = new Set();
 
     const householdMembers = this.state?.get('householdMembers') || [];
-    householdMembers.forEach((m) => set.add(m));
+    householdMembers.forEach(m => set.add(m));
 
     const profiles = this.state?.get('profiles') || [];
-    profiles.forEach((p) => {
+    profiles.forEach(p => {
       if (p.name) set.add(p.name);
     });
 
-    extraNames.forEach((n) => {
+    extraNames.forEach(n => {
       if (n) set.add(n);
     });
 
@@ -494,11 +512,11 @@ export class HouseholdView {
     const members = this.getMergedMemberList([from, to]);
 
     if (fromSelect) {
-      fromSelect.innerHTML = members.map((m) => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
+      fromSelect.innerHTML = members.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
       if (from) fromSelect.value = from;
     }
     if (toSelect) {
-      toSelect.innerHTML = members.map((m) => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
+      toSelect.innerHTML = members.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
       if (to) toSelect.value = to;
     }
     if (amountInput) {
@@ -548,16 +566,16 @@ export class HouseholdView {
     const catSelect = /** @type {HTMLSelectElement} */ (document.getElementById('recurring-bill-category'));
     if (catSelect) {
       const categories = this.state?.get('categories') || ['Utilities', 'Rent', 'Broadband'];
-      catSelect.innerHTML = categories.map((c) => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+      catSelect.innerHTML = categories.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
       catSelect.value = 'Utilities';
     }
 
     const payerSelect = /** @type {HTMLSelectElement} */ (document.getElementById('recurring-bill-paidby'));
     if (payerSelect) {
       const members = this.getMergedMemberList();
-      payerSelect.innerHTML = members.map((m) => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
+      payerSelect.innerHTML = members.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
       const activeProfile = this.state?.get('activeProfile');
-      payerSelect.value = activeProfile ? activeProfile.name : (members[0] || 'Self');
+      payerSelect.value = activeProfile ? activeProfile.name : members[0] || 'Self';
     }
 
     document.getElementById('recurring-bill-modal')?.classList.add('active');
@@ -570,7 +588,7 @@ export class HouseholdView {
   openEditRecurringBillModal(id) {
     if (typeof document === 'undefined') return;
 
-    const bill = (this.#recurringBills || []).find((b) => b.id === id);
+    const bill = (this.#recurringBills || []).find(b => b.id === id);
     if (!bill) {
       showToast('⚠️ Recurring utility bill not found');
       return;
@@ -598,14 +616,14 @@ export class HouseholdView {
     const catSelect = /** @type {HTMLSelectElement} */ (document.getElementById('recurring-bill-category'));
     if (catSelect) {
       const categories = this.state?.get('categories') || ['Utilities', 'Rent'];
-      catSelect.innerHTML = categories.map((c) => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+      catSelect.innerHTML = categories.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
       catSelect.value = bill.category || 'Utilities';
     }
 
     const payerSelect = /** @type {HTMLSelectElement} */ (document.getElementById('recurring-bill-paidby'));
     if (payerSelect) {
       const members = this.getMergedMemberList([bill.paidBy]);
-      payerSelect.innerHTML = members.map((m) => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
+      payerSelect.innerHTML = members.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
       payerSelect.value = bill.paidBy || members[0] || 'Self';
     }
 
@@ -646,13 +664,16 @@ export class HouseholdView {
    * @param {string} id - Recurring bill ID
    */
   async payRecurringBill(id) {
-    const bill = (this.#recurringBills || []).find((b) => b.id === id);
+    const bill = (this.#recurringBills || []).find(b => b.id === id);
     if (!bill) {
       showToast('⚠️ Recurring utility bill not found');
       return;
     }
 
-    if (typeof confirm === 'function' && !confirm(`Mark "${bill.title}" (${formatCurrency(bill.amount)}) as paid for this cycle and split with household?`)) {
+    if (
+      typeof confirm === 'function' &&
+      !confirm(`Mark "${bill.title}" (${formatCurrency(bill.amount)}) as paid for this cycle and split with household?`)
+    ) {
       return;
     }
 
@@ -763,10 +784,15 @@ export class HouseholdView {
     // Member tags removal delegated action inside member modal
     const memberModal = document.getElementById('member-modal');
     if (memberModal) {
-      const unbindMemberModal = delegateEvent(memberModal, 'click', '[data-action="delete-member"]', async (event, target) => {
-        const name = target.getAttribute('data-name');
-        if (name) await this.removeMember(name);
-      });
+      const unbindMemberModal = delegateEvent(
+        memberModal,
+        'click',
+        '[data-action="delete-member"]',
+        async (event, target) => {
+          const name = target.getAttribute('data-name');
+          if (name) await this.removeMember(name);
+        }
+      );
       this.#cleanups.push(unbindMemberModal);
     }
 
@@ -801,11 +827,12 @@ export class HouseholdView {
     bindEl('settle-modal-close', 'click', () => this.closeSettleModal());
     bindEl('settle-cancel-btn', 'click', () => this.closeSettleModal());
 
-    bindEl('settle-form', 'submit', async (e) => {
+    bindEl('settle-form', 'submit', async e => {
       e.preventDefault();
       const from = /** @type {HTMLSelectElement} */ (document.getElementById('settle-from-select'))?.value;
       const to = /** @type {HTMLSelectElement} */ (document.getElementById('settle-to-select'))?.value;
-      const amount = parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('settle-amount-input'))?.value) || 0;
+      const amount =
+        parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('settle-amount-input'))?.value) || 0;
       const paymentMethod = /** @type {HTMLSelectElement} */ (document.getElementById('settle-method-select'))?.value;
       const date = /** @type {HTMLInputElement} */ (document.getElementById('settle-date-input'))?.value;
       const notes = /** @type {HTMLInputElement} */ (document.getElementById('settle-notes-input'))?.value.trim() || '';
@@ -835,17 +862,21 @@ export class HouseholdView {
     bindEl('recurring-bill-modal-close', 'click', () => this.closeRecurringBillModal());
     bindEl('recurring-bill-cancel-btn', 'click', () => this.closeRecurringBillModal());
 
-    bindEl('recurring-bill-form', 'submit', async (e) => {
+    bindEl('recurring-bill-form', 'submit', async e => {
       e.preventDefault();
       const id = /** @type {HTMLInputElement} */ (document.getElementById('recurring-bill-id'))?.value;
       const billData = {
         title: /** @type {HTMLInputElement} */ (document.getElementById('recurring-bill-title'))?.value.trim() || '',
         icon: /** @type {HTMLInputElement} */ (document.getElementById('recurring-bill-icon'))?.value.trim() || 'zap',
-        amount: parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('recurring-bill-amount'))?.value) || 0,
-        dueDay: parseInt(/** @type {HTMLInputElement} */ (document.getElementById('recurring-bill-dueday'))?.value, 10) || 10,
-        category: /** @type {HTMLSelectElement} */ (document.getElementById('recurring-bill-category'))?.value || 'Utilities',
+        amount:
+          parseFloat(/** @type {HTMLInputElement} */ (document.getElementById('recurring-bill-amount'))?.value) || 0,
+        dueDay:
+          parseInt(/** @type {HTMLInputElement} */ (document.getElementById('recurring-bill-dueday'))?.value, 10) || 10,
+        category:
+          /** @type {HTMLSelectElement} */ (document.getElementById('recurring-bill-category'))?.value || 'Utilities',
         paidBy: /** @type {HTMLSelectElement} */ (document.getElementById('recurring-bill-paidby'))?.value || 'Self',
-        frequency: /** @type {HTMLSelectElement} */ (document.getElementById('recurring-bill-frequency'))?.value || 'monthly'
+        frequency:
+          /** @type {HTMLSelectElement} */ (document.getElementById('recurring-bill-frequency'))?.value || 'monthly'
       };
       if (id) billData.id = id;
 
@@ -879,7 +910,7 @@ export class HouseholdView {
     bindEl('member-modal-close', 'click', () => this.closeMemberModal());
     bindEl('member-close-btn', 'click', () => this.closeMemberModal());
 
-    bindEl('add-member-form', 'submit', async (e) => {
+    bindEl('add-member-form', 'submit', async e => {
       e.preventDefault();
       const input = /** @type {HTMLInputElement} */ (document.getElementById('new-member-name'));
       const name = input ? input.value.trim() : '';

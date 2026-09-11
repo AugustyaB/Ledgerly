@@ -17,13 +17,11 @@ import { escapeHTML, delegateEvent } from '../helpers/dom.js';
 import { formatCurrency } from '../helpers/formatters.js';
 import { showToast, showActionToast } from '../helpers/toast.js';
 
-
 // ============================================================================
 //  BatchView Class
 // ============================================================================
 
 export class BatchView {
-
   /** @type {HTMLElement|null} */
   #container = null;
 
@@ -45,7 +43,6 @@ export class BatchView {
   /** @type {Array<function(): void>} */
   #cleanupListeners = [];
 
-
   // ==========================================================================
   //  Constructor
   // ==========================================================================
@@ -62,7 +59,6 @@ export class BatchView {
     this.#refreshAppData = refreshAppData;
     this.#tabSwitcher = tabSwitcher;
   }
-
 
   // ==========================================================================
   //  Lifecycle Interface (ViewContract)
@@ -82,7 +78,6 @@ export class BatchView {
     this.#bindTableDelegation();
     this.render();
   }
-
 
   /**
    * Renders the batch grid. Populates initial blank rows if table body is empty.
@@ -106,7 +101,6 @@ export class BatchView {
     this.updateBatchRunningTotal();
   }
 
-
   /**
    * Unmounts the batch view, cleaning up toolbar and table listeners.
    *
@@ -119,7 +113,6 @@ export class BatchView {
     }
     this.#cleanupListeners = [];
   }
-
 
   // ==========================================================================
   //  Row Operations & Grid Management
@@ -186,9 +179,11 @@ export class BatchView {
     // Wire input listeners for running total and arrow-key cell navigation
     tr.querySelectorAll('.batch-cell-input, .batch-cell-select').forEach(input => {
       input.addEventListener('input', () => this.updateBatchRunningTotal());
-      input.addEventListener('keydown', (e) => {
+      input.addEventListener('keydown', e => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-          const colClass = Array.from(input.classList).find(c => c.startsWith('batch-') && c !== 'batch-cell-input' && c !== 'batch-cell-select');
+          const colClass = Array.from(input.classList).find(
+            c => c.startsWith('batch-') && c !== 'batch-cell-input' && c !== 'batch-cell-select'
+          );
           if (colClass) {
             const targetTr = e.key === 'ArrowDown' ? tr.nextElementSibling : tr.previousElementSibling;
             if (targetTr) {
@@ -202,11 +197,11 @@ export class BatchView {
 
     // Date input shorthand resolver on blur & Enter
     const dateInput = tr.querySelector('.batch-date');
-    dateInput?.addEventListener('blur', (e) => {
+    dateInput?.addEventListener('blur', e => {
       e.target.value = this.resolveDateShorthand(e.target.value);
       this.updateBatchRunningTotal();
     });
-    dateInput?.addEventListener('keydown', (e) => {
+    dateInput?.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.target.value = this.resolveDateShorthand(e.target.value);
         this.updateBatchRunningTotal();
@@ -215,7 +210,7 @@ export class BatchView {
 
     // Auto-add next row on Enter or Tab from the last cell
     const descInput = tr.querySelector('.batch-desc');
-    descInput?.addEventListener('keydown', (e) => {
+    descInput?.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === 'Tab') {
         const isLastRow = !tr.nextElementSibling;
         if (isLastRow) {
@@ -229,7 +224,6 @@ export class BatchView {
 
     return tr;
   }
-
 
   /**
    * Re-numbers all spreadsheet rows sequentially and recalculates live totals.
@@ -246,7 +240,6 @@ export class BatchView {
 
     this.updateBatchRunningTotal();
   }
-
 
   /**
    * Calculates running batch total, total rows, and valid rows count in the sticky footer.
@@ -278,7 +271,6 @@ export class BatchView {
     if (validRowsEl) validRowsEl.textContent = String(validCount);
     if (liveTotalEl) liveTotalEl.textContent = formatCurrency(total, 2, salaryConfig);
   }
-
 
   /**
    * Resolves friendly date shorthands into ISO YYYY-MM-DD date strings.
@@ -312,7 +304,6 @@ export class BatchView {
     }
     return val;
   }
-
 
   /**
    * Commits all valid batch spreadsheet rows to the database.
@@ -365,7 +356,6 @@ export class BatchView {
       }
     }
   }
-
 
   /**
    * Pastes tab-delimited rows from system clipboard (Excel / Google Sheets) into the grid.
@@ -431,7 +421,6 @@ export class BatchView {
     }
   }
 
-
   /**
    * Clears rows that have both empty title and empty amount.
    *
@@ -452,7 +441,6 @@ export class BatchView {
       this.addBatchRow();
     }
   }
-
 
   // ==========================================================================
   //  Private Event Binding & Delegation
@@ -484,7 +472,6 @@ export class BatchView {
     });
   }
 
-
   #bindTableDelegation() {
     if (typeof document === 'undefined') return;
 
@@ -493,7 +480,7 @@ export class BatchView {
 
     // Delegated row removal replacing inline onclick (zero onclick in rows)
     this.#cleanupTableEvents = delegateEvent(tbody, {
-      'remove-batch-row': (target) => {
+      'remove-batch-row': target => {
         const tr = target.closest('tr');
         if (tr) {
           tr.remove();

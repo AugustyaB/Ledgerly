@@ -6,7 +6,7 @@ class ReceiptStorage {
     let userDataPath;
     try {
       const { app } = require('electron');
-      userDataPath = (app && typeof app.getPath === 'function') ? app.getPath('userData') : null;
+      userDataPath = app && typeof app.getPath === 'function' ? app.getPath('userData') : null;
     } catch {
       userDataPath = null;
     }

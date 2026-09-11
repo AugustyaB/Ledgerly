@@ -17,13 +17,11 @@ import { escapeHTML, delegateEvent, setInnerHTML } from '../helpers/dom.js';
 import { formatCurrency } from '../helpers/formatters.js';
 import { showToast } from '../helpers/toast.js';
 
-
 // ============================================================================
 //  NotesView Class
 // ============================================================================
 
 export class NotesView {
-
   /** @type {HTMLElement|null} */
   #container = null;
 
@@ -48,7 +46,6 @@ export class NotesView {
   /** @type {function(): Promise<void>} */
   #refreshAppData;
 
-
   // ==========================================================================
   //  Constructor
   // ==========================================================================
@@ -63,7 +60,6 @@ export class NotesView {
     this.#api = api;
     this.#refreshAppData = refreshAppData;
   }
-
 
   // ==========================================================================
   //  Lifecycle Interface (ViewContract)
@@ -85,7 +81,6 @@ export class NotesView {
     this.render();
   }
 
-
   /**
    * Renders the notes masonry gallery and updates badge counters.
    *
@@ -105,8 +100,9 @@ export class NotesView {
 
     // 2. Filter Notes by relation and search
     const filtered = allNotes.filter(note => {
-      const matchesRelation = (activeRelation === 'ALL' || note.relation === activeRelation);
-      const matchesSearch = !searchQuery ||
+      const matchesRelation = activeRelation === 'ALL' || note.relation === activeRelation;
+      const matchesSearch =
+        !searchQuery ||
         (note.content && note.content.toLowerCase().includes(searchQuery)) ||
         (note.relationId && note.relationId.toLowerCase().includes(searchQuery));
       return matchesRelation && matchesSearch;
@@ -114,11 +110,14 @@ export class NotesView {
 
     // 3. Render Empty State
     if (filtered.length === 0) {
-      setInnerHTML(listContainer, `
+      setInnerHTML(
+        listContainer,
+        `
         <div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--text-muted); font-size: 13.5px; background: #14151B; border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
           No contextual notes found in this category. Click "+ New Note" or click the note icon on any expense in the table to log a reflection.
         </div>
-      `);
+      `
+      );
       return;
     }
 
@@ -126,40 +125,39 @@ export class NotesView {
     const expenses = this.#state.get('expenses') || [];
     const salaryConfig = this.#state.get('salaryConfig');
 
-    const html = filtered.map(note => {
-      let relationRibbon = 'ribbon-transaction';
-      let relationIconName = 'banknote';
-      let relationLabel = 'Linked Expense';
-      let targetDisplay = note.relationId;
+    const html = filtered
+      .map(note => {
+        let relationRibbon = 'ribbon-transaction';
+        let relationIconName = 'banknote';
+        let relationLabel = 'Linked Expense';
+        let targetDisplay = note.relationId;
 
-      if (note.relation === 'day') {
-        relationRibbon = 'ribbon-day';
-        relationIconName = 'calendar';
-        relationLabel = 'Daily Reflection';
-      } else if (note.relation === 'week') {
-        relationRibbon = 'ribbon-week';
-        relationIconName = 'bar-chart-2';
-        relationLabel = 'Weekly Review';
-      } else if (note.relation === 'month') {
-        relationRibbon = 'ribbon-month';
-        relationIconName = 'target';
-        relationLabel = 'Monthly Goal';
-      } else if (note.relation === 'transaction') {
-        const matchedExp = expenses.find(e => e.id === note.relationId);
-        if (matchedExp) {
-          targetDisplay = `${matchedExp.title} (-${formatCurrency(parseFloat(matchedExp.amount) || 0, 2, salaryConfig)})`;
+        if (note.relation === 'day') {
+          relationRibbon = 'ribbon-day';
+          relationIconName = 'calendar';
+          relationLabel = 'Daily Reflection';
+        } else if (note.relation === 'week') {
+          relationRibbon = 'ribbon-week';
+          relationIconName = 'bar-chart-2';
+          relationLabel = 'Weekly Review';
+        } else if (note.relation === 'month') {
+          relationRibbon = 'ribbon-month';
+          relationIconName = 'target';
+          relationLabel = 'Monthly Goal';
+        } else if (note.relation === 'transaction') {
+          const matchedExp = expenses.find(e => e.id === note.relationId);
+          if (matchedExp) {
+            targetDisplay = `${matchedExp.title} (-${formatCurrency(parseFloat(matchedExp.amount) || 0, 2, salaryConfig)})`;
+          }
         }
-      }
 
-      const dateStr = note.createdAt
-        ? new Date(note.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })
-        : '';
+        const dateStr = note.createdAt
+          ? new Date(note.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })
+          : '';
 
-      const iconFn = (typeof window !== 'undefined' && typeof window.icon === 'function')
-        ? window.icon
-        : () => '';
+        const iconFn = typeof window !== 'undefined' && typeof window.icon === 'function' ? window.icon : () => '';
 
-      return `
+        return `
         <div class="note-masonry-card ${relationRibbon}">
           <div class="note-card-header-row">
             <span class="note-relation-tag" style="display: inline-flex; align-items: center; gap: 4px;">
@@ -183,11 +181,11 @@ export class NotesView {
           </div>
         </div>
       `;
-    }).join('');
+      })
+      .join('');
 
     setInnerHTML(listContainer, html);
   }
-
 
   /**
    * Unmounts the view, tearing down event listeners and state subscriptions.
@@ -204,7 +202,6 @@ export class NotesView {
     }
     this.#unsubscribers = [];
   }
-
 
   // ==========================================================================
   //  Modal & Action Controllers
@@ -233,7 +230,6 @@ export class NotesView {
     if (modal) modal.classList.add('active');
   }
 
-
   /**
    * Opens note creation modal linked to a specific expense record.
    *
@@ -258,7 +254,6 @@ export class NotesView {
     this.updateTargetInput('transaction', expenseId);
     if (modal) modal.classList.add('active');
   }
-
 
   /**
    * Opens the note editing modal populated with existing note details.
@@ -292,7 +287,6 @@ export class NotesView {
     if (modal) modal.classList.add('active');
   }
 
-
   /**
    * Closes the note modal dialog.
    *
@@ -302,7 +296,6 @@ export class NotesView {
     const modal = document.getElementById('note-modal');
     if (modal) modal.classList.remove('active');
   }
-
 
   /**
    * Dynamically renders the target input control based on selected relation type.
@@ -318,43 +311,58 @@ export class NotesView {
     const today = new Date().toISOString().split('T')[0];
     const thisMonth = today.substring(0, 7);
     const now = new Date();
-    const weekNum = Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + 1) / 7);
+    const weekNum = Math.ceil(((now - new Date(now.getFullYear(), 0, 1)) / 86400000 + 1) / 7);
     const thisWeek = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 
     if (relation === 'transaction') {
       const expenses = this.#state.get('expenses') || [];
       const salaryConfig = this.#state.get('salaryConfig');
 
-      const options = expenses.map(e => `
+      const options = expenses
+        .map(
+          e => `
         <option value="${escapeHTML(e.id)}" ${defaultVal === e.id ? 'selected' : ''}>
           ${escapeHTML(e.title)} (-${formatCurrency(parseFloat(e.amount) || 0, 2, salaryConfig)}, ${e.date})
         </option>
-      `).join('');
+      `
+        )
+        .join('');
 
-      setInnerHTML(group, `
+      setInnerHTML(
+        group,
+        `
         <label>Select Linked Expense *</label>
         <select id="form-note-relation-id" required>
           ${options || '<option value="">No expenses available</option>'}
         </select>
-      `);
+      `
+      );
     } else if (relation === 'day') {
-      setInnerHTML(group, `
+      setInnerHTML(
+        group,
+        `
         <label>Select Date *</label>
         <input type="date" id="form-note-relation-id" value="${defaultVal || today}" required>
-      `);
+      `
+      );
     } else if (relation === 'week') {
-      setInnerHTML(group, `
+      setInnerHTML(
+        group,
+        `
         <label>Week Identifier (e.g. 2026-W34) *</label>
         <input type="text" id="form-note-relation-id" value="${defaultVal || thisWeek}" placeholder="YYYY-Www" required>
-      `);
+      `
+      );
     } else if (relation === 'month') {
-      setInnerHTML(group, `
+      setInnerHTML(
+        group,
+        `
         <label>Select Month *</label>
         <input type="month" id="form-note-relation-id" value="${defaultVal || thisMonth}" required>
-      `);
+      `
+      );
     }
   }
-
 
   /**
    * Prompts user for confirmation and deletes a note.
@@ -375,7 +383,6 @@ export class NotesView {
     }
   }
 
-
   // ==========================================================================
   //  Event Binding & Delegation
   // ==========================================================================
@@ -386,11 +393,11 @@ export class NotesView {
     // 1. Delegated click handlers on note masonry cards (zero inline onclick)
     if (listContainer) {
       this.#cleanupContainerEvents = delegateEvent(listContainer, {
-        'edit-note': (target) => {
+        'edit-note': target => {
           const id = target.getAttribute('data-note-id');
           if (id) this.openEditModal(id);
         },
-        'delete-note': (target) => {
+        'delete-note': target => {
           const id = target.getAttribute('data-note-id');
           if (id) this.confirmDelete(id);
         }
@@ -400,7 +407,7 @@ export class NotesView {
     // 2. Filter Pills delegation
     const pillsBar = document.querySelector('.notes-filter-pills-bar');
     if (pillsBar) {
-      const pillListener = (e) => {
+      const pillListener = e => {
         const btn = e.target.closest('.notes-filter-pill');
         if (!btn) return;
 
@@ -421,7 +428,7 @@ export class NotesView {
     // 3. Search Input listener
     const searchInput = document.getElementById('notes-search-input');
     if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
+      searchInput.addEventListener('input', e => {
         this.#state.set('filterNotesSearch', e.target.value);
         this.render();
       });
@@ -441,14 +448,14 @@ export class NotesView {
 
     const relationSelect = document.getElementById('form-note-relation');
     if (relationSelect) {
-      relationSelect.addEventListener('change', (e) => {
+      relationSelect.addEventListener('change', e => {
         this.updateTargetInput(e.target.value);
       });
     }
 
     const form = document.getElementById('note-form');
     if (form) {
-      form.addEventListener('submit', async (e) => {
+      form.addEventListener('submit', async e => {
         e.preventDefault();
         const id = document.getElementById('form-note-id')?.value;
         const relation = document.getElementById('form-note-relation')?.value;
@@ -486,7 +493,6 @@ export class NotesView {
     }
   }
 
-
   // ==========================================================================
   //  State Subscriptions & Helpers
   // ==========================================================================
@@ -497,7 +503,6 @@ export class NotesView {
       this.#state.subscribe('activeNoteRelation', () => this.render())
     );
   }
-
 
   #updateCountBadges(allNotes) {
     const countAllEl = document.getElementById('notes-count-all');

@@ -2,12 +2,12 @@
  * ============================================================================
  * Ledgerly — SyncEngine (Offline Vector Clock & Conflict Resolution Engine)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Foundation for offline multi-device ledger reconciliation. Implements
  * Last-Write-Wins (LWW) timestamp comparisons, vector version incrementing,
  * soft-deletion tracking, and deterministic three-way merge resolution.
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Deterministic Resolution: Same input states always produce identical merge output.
  * - Anti-Entropy: Prevents deleted records from resurrecting across sync intervals.
@@ -19,7 +19,7 @@
 class SyncEngine {
   /**
    * Generates initial sync metadata for a newly created domain record.
-   * 
+   *
    * @param {string} [originNodeId='desktop-primary'] - ID of the originating client.
    * @returns {{ updatedAt: string, version: number, originNodeId: string, deletedAt: null }}
    */
@@ -34,7 +34,7 @@ class SyncEngine {
 
   /**
    * Stamps or updates an existing entity with an incremented version and new timestamp.
-   * 
+   *
    * @param {object} entity - Entity object to stamp.
    * @param {string} [originNodeId='desktop-primary'] - ID of the editing client.
    * @returns {object} Mutated entity with updated sync stamps.
@@ -55,7 +55,7 @@ class SyncEngine {
   /**
    * Marks an entity as soft-deleted without physically removing its identity,
    * ensuring that deletion propagates cleanly to other nodes during peer sync.
-   * 
+   *
    * @param {object} entity - Entity object to soft-delete.
    * @param {string} [originNodeId='desktop-primary'] - ID of the client executing delete.
    * @returns {object} Entity marked with deletedAt timestamp and incremented version.
@@ -70,7 +70,7 @@ class SyncEngine {
 
   /**
    * Compares two versions of the same entity using LWW rules.
-   * 
+   *
    * @param {object} a - First entity.
    * @param {object} b - Second entity.
    * @returns {number} 1 if a is newer, -1 if b is newer, 0 if identical.
@@ -103,7 +103,7 @@ class SyncEngine {
 
   /**
    * Executes a deterministic three-way merge across base, local, and remote entity collections.
-   * 
+   *
    * @param {Array<object>} baseList - Common ancestor state.
    * @param {Array<object>} localList - Current local state.
    * @param {Array<object>} remoteList - Incoming remote state.
@@ -114,11 +114,7 @@ class SyncEngine {
     const localMap = new Map((localList || []).map(item => [item.id, item]));
     const remoteMap = new Map((remoteList || []).map(item => [item.id, item]));
 
-    const allIds = new Set([
-      ...baseMap.keys(),
-      ...localMap.keys(),
-      ...remoteMap.keys()
-    ]);
+    const allIds = new Set([...baseMap.keys(), ...localMap.keys(), ...remoteMap.keys()]);
 
     const merged = [];
     const details = [];

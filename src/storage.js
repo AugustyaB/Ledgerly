@@ -2,7 +2,7 @@
  * ============================================================================
  * Ledgerly — ExpenseStorage (Core Facade & Dependency Orchestrator)
  * ============================================================================
- * 
+ *
  * @fileoverview
  * Master facade delegating domain capabilities across specialized subsystem services:
  * - JsonDatabase: Atomic disk persistence, backup rotations, and schema baseline.
@@ -13,7 +13,7 @@
  * - HouseholdService: Multi-member expenses, split math, settlements, and utility bills.
  * - NotesService: Multi-dimensional contextual notes (transaction, day, week, month).
  * - NotificationEngine: In-app notifications, smart deduplication, and automated rules.
- * 
+ *
  * ARCHITECTURAL PRINCIPLES:
  * - Facade Pattern: Exposes a stable, backwards-compatible interface for IPC and UI consumers.
  * - High Cohesion & Low Coupling: All domain logic is encapsulated inside dedicated services.

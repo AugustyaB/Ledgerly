@@ -132,7 +132,7 @@ export class AuthScreen {
       this.#lockoutTimer = null;
     }
 
-    this.#cleanups.forEach((cleanup) => {
+    this.#cleanups.forEach(cleanup => {
       try {
         cleanup();
       } catch (err) {
@@ -264,12 +264,13 @@ export class AuthScreen {
     const grid = document.getElementById('netflix-picker-grid');
     if (!grid) return;
 
-    const cardsHtml = profiles.map((p) => {
-      const count = p.expenseCount || 0;
-      const color = p.color || p.avatar || safeAvatarColor(p.name);
-      const initials = safeInitials(p.name);
+    const cardsHtml = profiles
+      .map(p => {
+        const count = p.expenseCount || 0;
+        const color = p.color || p.avatar || safeAvatarColor(p.name);
+        const initials = safeInitials(p.name);
 
-      return `
+        return `
         <div class="netflix-picker-card" data-action="select-profile" data-id="${p.id}">
           <div class="netflix-picker-avatar" style="border-color: ${color}; color: ${color}; font-weight: 700; font-size: 36px;">
             ${escapeHTML(initials)}
@@ -278,7 +279,8 @@ export class AuthScreen {
           <div class="netflix-picker-badge">${count} ${count === 1 ? 'expense' : 'expenses'}</div>
         </div>
       `;
-    }).join('');
+      })
+      .join('');
 
     const addCardHtml = `
       <div class="netflix-picker-card netflix-add-card" data-action="open-add-person">
@@ -341,7 +343,7 @@ export class AuthScreen {
     const profiles = this.state?.get('profiles') || [];
 
     if (id) {
-      const p = profiles.find((prof) => prof.id === id);
+      const p = profiles.find(prof => prof.id === id);
       if (!p) return;
 
       if (headingEl) headingEl.innerHTML = `${safeIcon('pencil', 18)} Edit Profile: ${escapeHTML(p.name)}`;
@@ -382,7 +384,7 @@ export class AuthScreen {
     const hiddenInput = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-avatar'));
     if (hiddenInput) hiddenInput.value = color;
 
-    document.querySelectorAll('#avatar-color-strip .color-dot-opt').forEach((btn) => {
+    document.querySelectorAll('#avatar-color-strip .color-dot-opt').forEach(btn => {
       btn.classList.toggle('active', btn.getAttribute('data-color') === color);
     });
     this.updatePersonAvatarPreview();
@@ -395,7 +397,8 @@ export class AuthScreen {
     if (typeof document === 'undefined') return;
 
     const name = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-name'))?.value || '';
-    const color = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-avatar'))?.value || '#D9822B';
+    const color =
+      /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-avatar'))?.value || '#D9822B';
     const previewEl = document.getElementById('person-avatar-preview');
 
     if (previewEl) {
@@ -421,12 +424,13 @@ export class AuthScreen {
 
     const listEl = document.getElementById('manage-profiles-list');
     if (listEl) {
-      listEl.innerHTML = profiles.map((p) => {
-        const count = p.expenseCount || 0;
-        const color = p.color || p.avatar || safeAvatarColor(p.name);
-        const monogramHtml = safeMonogram(p.name, 36, color);
+      listEl.innerHTML = profiles
+        .map(p => {
+          const count = p.expenseCount || 0;
+          const color = p.color || p.avatar || safeAvatarColor(p.name);
+          const monogramHtml = safeMonogram(p.name, 36, color);
 
-        return `
+          return `
           <div class="manage-profile-row">
             <div class="manage-profile-info">
               <div class="manage-profile-avatar">${monogramHtml}</div>
@@ -445,7 +449,8 @@ export class AuthScreen {
             </div>
           </div>
         `;
-      }).join('');
+        })
+        .join('');
     }
 
     document.getElementById('manage-profiles-modal')?.classList.add('active');
@@ -472,7 +477,12 @@ export class AuthScreen {
       return;
     }
 
-    if (typeof confirm === 'function' && !confirm(`Are you sure you want to delete profile "${profileName}"? All associated personal records will be removed.`)) {
+    if (
+      typeof confirm === 'function' &&
+      !confirm(
+        `Are you sure you want to delete profile "${profileName}"? All associated personal records will be removed.`
+      )
+    ) {
       return;
     }
 
@@ -570,11 +580,12 @@ export class AuthScreen {
     bindEl('auth-tab-login', 'click', () => this.showAuthScreen('login'));
     bindEl('auth-tab-signup', 'click', () => this.showAuthScreen('signup'));
 
-    bindEl('auth-form', 'submit', async (e) => {
+    bindEl('auth-form', 'submit', async e => {
       e.preventDefault();
       const userId = /** @type {HTMLInputElement|null} */ (document.getElementById('auth-input-userid'))?.value.trim();
       const password = /** @type {HTMLInputElement|null} */ (document.getElementById('auth-input-password'))?.value;
-      const rememberMe = /** @type {HTMLInputElement|null} */ (document.getElementById('auth-remember-me'))?.checked ?? true;
+      const rememberMe =
+        /** @type {HTMLInputElement|null} */ (document.getElementById('auth-remember-me'))?.checked ?? true;
       const errorBanner = document.getElementById('auth-error-banner');
 
       if (errorBanner) {
@@ -697,11 +708,12 @@ export class AuthScreen {
       this.#cleanups.push(unbind);
     }
 
-    bindEl('person-form', 'submit', async (e) => {
+    bindEl('person-form', 'submit', async e => {
       e.preventDefault();
       const id = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-id'))?.value;
       const name = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-name'))?.value.trim();
-      const avatar = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-avatar'))?.value || '#D9822B';
+      const avatar =
+        /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-avatar'))?.value || '#D9822B';
       const color = avatar;
 
       if (!name) return;
@@ -733,7 +745,10 @@ export class AuthScreen {
       const id = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-id'))?.value;
       if (!id) return;
 
-      if (typeof confirm === 'function' && !confirm('Are you sure you want to delete this profile and all its stored records?')) {
+      if (
+        typeof confirm === 'function' &&
+        !confirm('Are you sure you want to delete this profile and all its stored records?')
+      ) {
         return;
       }
 
@@ -801,14 +816,14 @@ export class AuthScreen {
     const profileDropdown = document.getElementById('profile-quick-dropdown');
 
     if (profileChip && profileDropdown) {
-      const toggleDropdown = (e) => {
+      const toggleDropdown = e => {
         e.stopPropagation();
         profileDropdown.classList.toggle('hidden');
       };
       profileChip.addEventListener('click', toggleDropdown);
       this.#cleanups.push(() => profileChip.removeEventListener('click', toggleDropdown));
 
-      const closeDropdownOutside = (e) => {
+      const closeDropdownOutside = e => {
         if (!profileDropdown.contains(e.target) && !profileChip.contains(e.target)) {
           profileDropdown.classList.add('hidden');
         }
@@ -855,12 +870,16 @@ export class AuthScreen {
       const modeText = document.getElementById('menu-mode-text');
       const modeIcon = document.getElementById('menu-mode-icon');
       if (modeText) modeText.textContent = nextMode === 'solo' ? 'Switch to Household Mode' : 'Switch to Solo Mode';
-      if (modeIcon && typeof icon === 'function') modeIcon.innerHTML = nextMode === 'solo' ? icon('users', 14) : icon('user', 14);
+      if (modeIcon && typeof icon === 'function')
+        modeIcon.innerHTML = nextMode === 'solo' ? icon('users', 14) : icon('user', 14);
 
       showActionToast({
         icon: nextMode === 'solo' ? 'user' : 'users',
         title: nextMode === 'solo' ? 'Solo Workspace Activated' : 'Household Workspace Activated',
-        subtext: nextMode === 'solo' ? 'Streamlined 100% full-width ledger view' : 'Shared balances & multi-party split enabled'
+        subtext:
+          nextMode === 'solo'
+            ? 'Streamlined 100% full-width ledger view'
+            : 'Shared balances & multi-party split enabled'
       });
 
       if (this.onSessionReady) await this.onSessionReady();
