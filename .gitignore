@@ -5,6 +5,7 @@ node_modules/
 .agent/
 .gemini/
 .gsd/
+.blackboard/
 get-shit-done-for-antigravity/
 adapters/
 GSD-STYLE.md
@@ -19,6 +20,9 @@ scripts/search_repo.*
 
 # Scratch, test runs, and temporary data
 scratch/
+*.traineddata
+models/
+/android
 
 # Build and distribution outputs
 dist/

@@ -673,7 +673,53 @@ This document records the major architectural, visual design, and functional dec
 
 ---
 
-*Last Updated: 2026-09-12 (Version 0.5 Milestone — v0.5.9 Complete)*
+## ADR-021: Version 0.6 Milestone: Capacitor Mobile Companion, Zero-Cloud Local LAN Sync & iOS CI/CD (v0.6.6)
+
+- **Date**: 2026-09-24
+- **Status**: **ACCEPTED & IMPLEMENTED (PHASE 0.6.6 — CONCLUDES VERSION 0.6 MILESTONE)**
+- **Context**:
+  Users required a frictionless method to capture receipts on mobile devices and synchronize them with their desktop ledger without relying on third-party cloud backends, subscriptions, or external servers.
+  Key architectural requirements:
+  1. Offline-First Mobile Companion: Build a lightweight mobile application for Android and iOS using Capacitor 7 and Vite that works completely offline.
+  2. Hardware-Accelerated Camera Intake: Implement fast camera capture and photo gallery selection with client-side image compression and thumbnail rendering.
+  3. Persistent Staging Queue: Guarantee zero data loss for un-synced receipts and transactions using IndexedDB storage surviving app restarts, low-memory kills, and reboots.
+  4. Zero-Cloud Local LAN Sync: Provide secure device pairing and peer-to-peer data sync over the local Wi-Fi network using an embedded Node.js HTTP/WebSocket server in the desktop app.
+  5. Multi-Platform Distribution: Produce a verified Android debug APK, configure Apple iOS native container with App Transport Security (ATS) local network permissions and WebKit ergonomics, and package production desktop binaries.
+  6. Automated CI/CD & Resilience: Implement automated GitHub Actions for iOS CI builds, deterministic local CI validators, and hardened error-handling across 10 critical network and concurrency defect classes.
+
+- **Decision**:
+  1. **Capacitor Mobile Container (`mobile/`)**:
+     - Built with Capacitor 7, Vite, and vanilla JavaScript in an npm workspace.
+     - Implemented `QueueStore.js` with IndexedDB stores for `pendingReceipts` and `pendingTransactions`.
+     - Integrated `@capacitor/camera` for hardware-accelerated photo capture with 90% JPEG compression.
+  2. **Zero-Cloud Desktop Sync Engine (`src/services/SyncServer.js`)**:
+     - Embedded Node.js HTTP/WebSocket server on port 8765.
+     - Ephemeral 6-digit PIN pairing exchange producing SHA-256 HMAC-signed session bearer tokens.
+     - Dynamic multi-network interface IP resolution and Settings Hub QR code pairing display.
+     - Endpoints: `GET /api/sync/status`, `POST /api/sync/pair`, `POST /api/sync/push`, `GET /api/sync/pull`.
+  3. **Resilience & Fallback Architecture (Audit Remediation)**:
+     - Hardened against 10 defect edge-case classes (`DEFECT-606-01` to `606-10`):
+       - Abortable 8-second HTTP fetch timeouts preventing infinite mobile UI hangs.
+       - Graceful WebSocket socket destruction guards on server shutdown.
+       - Per-item atomic queue retry tracking preventing poison-pill receipt drops.
+       - Delta-preservation during push sync, preventing photo loss if partial payloads fail.
+       - NaN-resistant ISO timestamp fallbacks and zero-amount expense validation.
+  4. **Native Distribution & CI/CD Packaging**:
+     - Compiled Android debug APK (`mobile/android/app/build/outputs/apk/debug/app-debug.apk`, 4.08 MB).
+     - Configured `Info.plist` with `NSAllowsLocalNetworking: true` and camera/photos/local-network permissions.
+     - Hardened `mobile.css` with WebKit Dynamic Island safe areas (`env(safe-area-inset-*)`), `overscroll-behavior: none`, and 16px font sizes to prevent viewport zoom bugs.
+     - Automated GitHub Actions macOS workflow (`.github/workflows/ios-build.yml`) and local validator (`scripts/check-ci-workflow.js`, 9/9 passed).
+     - Packaged desktop binaries via `electron-builder --win` (`dist/Ledgerly Setup 0.6.6.exe`).
+     - Adopted zero-clutter Git release branch workflow (`release/v0.6` deleted post-merge).
+
+- **Consequences**:
+  - Seamless, completely private mobile-to-desktop receipt workflow with zero cloud accounts or fees.
+  - Complete multi-platform artifact delivery across Windows desktop, Android APK, and Apple iOS container.
+  - 100% test pass rate across 9 unified test suites (129 assertions) in under 9 seconds.
+
+---
+
+*Last Updated: 2026-09-24 (Version 0.6 Milestone — v0.6.6 Complete)*
 
 
 

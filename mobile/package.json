@@ -1,0 +1,22 @@
+{
+  "name": "ledgerly-mobile",
+  "private": true,
+  "version": "0.6.6",
+  "type": "module",
+  "description": "Ledgerly Mobile — Offline Receipt Capture & Local Sync Client",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@capacitor/camera": "^7.0.1",
+    "@capacitor/core": "^7.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.0.1",
+    "@capacitor/cli": "^7.0.1",
+    "@capacitor/ios": "^7.0.1",
+    "vite": "^6.2.0"
+  }
+}

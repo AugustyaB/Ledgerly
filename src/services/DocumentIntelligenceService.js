@@ -206,6 +206,34 @@ class DocumentIntelligenceService {
     data.amount = data.amount !== undefined ? data.amount : (data.total !== undefined ? data.total : 0);
     data.title = data.title || data.merchant || 'Unknown Merchant';
 
+    // Document currency override (SPEC-102): Explicit document currency symbols override profile default
+    if (data.rawText && (!data.currency || data.currency === 'INR')) {
+      const text = data.rawText;
+      const hasINR = /(?:₹|\b(?:INR|Rs\.?)\b)/i.test(text);
+      if (!hasINR) {
+        if (/(?:\$|\bUSD\b)/i.test(text)) {
+          data.currency = 'USD';
+          data.currencySymbol = '$';
+        } else if (/(?:€|\bEUR\b)/i.test(text)) {
+          data.currency = 'EUR';
+          data.currencySymbol = '€';
+        } else if (/(?:£|\bGBP\b)/i.test(text)) {
+          data.currency = 'GBP';
+          data.currencySymbol = '£';
+        } else if (/(?:¥|\bJPY\b)/i.test(text)) {
+          data.currency = 'JPY';
+          data.currencySymbol = '¥';
+        }
+      }
+    }
+    if (!data.currency) {
+      data.currency = options.currency || 'INR';
+    }
+    if (!data.currencySymbol) {
+      const symbolMap = { USD: '$', EUR: '€', GBP: '£', JPY: '¥', AUD: 'A$', CAD: 'CA$', INR: '₹' };
+      data.currencySymbol = symbolMap[data.currency] || '₹';
+    }
+
     // Inferred math aliases from Tier 2 precision recovery
     if (data.metadata && data.metadata.inferredMath !== undefined) {
       data.inferredByMath = Boolean(data.metadata.inferredMath);

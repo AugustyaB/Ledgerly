@@ -1,0 +1,695 @@
+/* ==========================================================================
+   Ledgerly Mobile — Theme 3 (Graphite & Spiced Chai Amber) Design System
+   Inspired by OpenGym Tactile Ergonomics & Cross-Platform Viewport Shell
+   ========================================================================== */
+
+:root {
+  /* Safe-Area Inset Bindings (iOS Dynamic Island, Notch & Home Indicator) */
+  --sat: max(env(safe-area-inset-top, 0px), 0px);
+  --sab: max(env(safe-area-inset-bottom, 0px), 0px);
+  --sal: max(env(safe-area-inset-left, 0px), 0px);
+  --sar: max(env(safe-area-inset-right, 0px), 0px);
+
+  /* Theme 3 DLS Color Palette */
+  --bg-canvas: #12151a;
+  --bg-surface: #161a21;
+  --bg-surface-elevated: #1d222b;
+  --bg-surface-glass: rgba(22, 26, 33, 0.92);
+  --border-color: #262a34;
+  --border-light: #333947;
+  --border-active: #e59866;
+
+  /* Accent Branding (Spiced Chai Amber) */
+  --accent-primary: #e59866;
+  --accent-primary-hover: #f0a875;
+  --accent-primary-glow: rgba(229, 152, 102, 0.28);
+  --accent-primary-subtle: rgba(229, 152, 102, 0.12);
+
+  /* Semantic Accents */
+  --accent-emerald: #10b981;
+  --accent-emerald-subtle: rgba(16, 185, 129, 0.14);
+  --accent-rose: #e11d48;
+  --accent-rose-subtle: rgba(225, 29, 72, 0.14);
+  --accent-blue: #3b82f6;
+
+  /* Text Colors */
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Dock Geometry */
+  --dock-height: 64px;
+}
+
+/* Reset & Box Sizing */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  font-size: 16px;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Main Mobile Application Shell */
+#mobile-app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  background: radial-gradient(circle at 50% 0%, #1a1e27 0%, var(--bg-canvas) 70%);
+}
+
+/* --------------------------------------------------------------------------
+   Safe-Area Mobile Header
+   -------------------------------------------------------------------------- */
+.mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(52px + var(--sat));
+  padding-top: var(--sat);
+  padding-left: max(16px, var(--sal));
+  padding-right: max(16px, var(--sar));
+  background: var(--bg-surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+}
+
+.brand-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #ffffff;
+}
+
+.brand-title span {
+  color: var(--accent-primary);
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-surface-elevated);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-color);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-emerald);
+}
+
+.status-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-emerald);
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* --------------------------------------------------------------------------
+   Tab Viewport & Panes
+   -------------------------------------------------------------------------- */
+.tab-viewport {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding-top: calc(52px + var(--sat));
+  padding-bottom: calc(var(--dock-height) + var(--sab));
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.view-pane {
+  display: none;
+  width: 100%;
+  min-height: 100%;
+  padding: 16px max(16px, var(--sar)) 16px max(16px, var(--sal));
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.view-pane.active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --------------------------------------------------------------------------
+   OpenGym-Inspired 4-Tab Bottom Dock
+   -------------------------------------------------------------------------- */
+.mobile-dock {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--dock-height) + var(--sab));
+  padding-bottom: var(--sab);
+  padding-left: max(12px, var(--sal));
+  padding-right: max(12px, var(--sar));
+  background: var(--bg-surface-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 100;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.45);
+  touch-action: manipulation;
+}
+
+/* Touch Target (Minimum 48px x 48px Accessible Tap Zone) */
+.dock-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  min-height: 48px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  touch-action: manipulation;
+}
+
+.dock-item:active {
+  transform: scale(0.92);
+}
+
+.dock-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 2px;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.18s ease;
+}
+
+.dock-icon-wrap svg {
+  stroke-width: 2.2;
+}
+
+.dock-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  transition: color 0.18s ease, font-weight 0.18s ease;
+}
+
+/* Top Active Pill Indicator (OpenGym Blueprint) */
+.dock-active-pill {
+  position: absolute;
+  top: 0px;
+  width: 22px;
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--accent-primary);
+  box-shadow: 0 0 10px var(--accent-primary-glow);
+  opacity: 0;
+  transform: scaleX(0.4);
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Active State Styling */
+.dock-item.active {
+  color: var(--accent-primary);
+}
+
+.dock-item.active .dock-active-pill {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.dock-item.active .dock-icon-wrap {
+  transform: translateY(-2px);
+  color: var(--accent-primary);
+  filter: drop-shadow(0 0 8px var(--accent-primary-glow));
+}
+
+.dock-item.active .dock-label {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+/* Badge Counter for Queue Tab */
+.dock-badge {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: var(--accent-primary);
+  color: #12151a;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-surface);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* --------------------------------------------------------------------------
+   View Cards & UI Components (Theme 3 Slate & Spiced Chai Amber)
+   -------------------------------------------------------------------------- */
+.mobile-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.mobile-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.mobile-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-card-title svg {
+  color: var(--accent-primary);
+}
+
+.mobile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  touch-action: manipulation;
+}
+
+.mobile-btn-primary {
+  background: var(--accent-primary);
+  color: #12151a;
+  box-shadow: 0 4px 14px var(--accent-primary-glow);
+}
+
+.mobile-btn-primary:active {
+  background: var(--accent-primary-hover);
+  transform: scale(0.98);
+}
+
+.mobile-btn-secondary {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.mobile-btn-secondary:active {
+  background: var(--border-color);
+  transform: scale(0.98);
+}
+
+/* Viewfinder Shutter HUD for Capture Tab */
+.camera-hud-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  height: calc(100vh - 52px - var(--sat) - var(--dock-height) - var(--sab) - 32px);
+}
+
+.camera-viewfinder-frame {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  border-radius: 20px;
+  border: 2px dashed var(--border-light);
+  background: rgba(18, 21, 26, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.viewfinder-target {
+  position: relative;
+  width: 75%;
+  height: 65%;
+  border: 2px solid var(--accent-primary);
+  border-radius: 12px;
+  box-shadow: 0 0 24px var(--accent-primary-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.viewfinder-corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-color: #ffffff;
+  border-style: solid;
+}
+.corner-tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-top-left-radius: 12px; }
+.corner-tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-top-right-radius: 12px; }
+.corner-bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-bottom-left-radius: 12px; }
+.corner-br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-bottom-right-radius: 12px; }
+
+.shutter-btn-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.shutter-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--bg-surface-elevated);
+  border: 4px solid var(--accent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 20px var(--accent-primary-glow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  touch-action: manipulation;
+}
+
+.shutter-btn:active {
+  transform: scale(0.92);
+  box-shadow: 0 0 30px var(--accent-primary);
+}
+
+.shutter-inner-ring {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+/* Quick Add Tactile Numpad */
+.numpad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.numpad-key {
+  height: 54px;
+  border-radius: 14px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  touch-action: manipulation;
+}
+
+.numpad-key:active {
+  background: var(--border-light);
+  transform: scale(0.95);
+}
+
+.amount-display-box {
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 16px;
+  text-align: right;
+  margin-bottom: 12px;
+}
+
+.amount-display-val {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+
+.category-chips-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 12px 0;
+  scrollbar-width: none;
+}
+.category-chips-row::-webkit-scrollbar { display: none; }
+
+.cat-chip {
+  padding: 8px 16px;
+  border-radius: 9999px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.cat-chip.active {
+  background: var(--accent-primary-subtle);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+/* ==========================================================================
+   Post-Capture Review Bottom Sheet & Modal Overlays
+   ========================================================================== */
+
+.bottom-sheet-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 12, 16, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.bottom-sheet-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bottom-sheet-dialog {
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
+  border-radius: 20px 20px 0 0;
+  padding: 16px max(18px, var(--sar)) calc(18px + var(--sab)) max(18px, var(--sal));
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 85dvh;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.6);
+}
+
+.bottom-sheet-backdrop.open .bottom-sheet-dialog {
+  transform: translateY(0);
+}
+
+.bottom-sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-light);
+  margin: 0 auto 14px auto;
+}
+
+.review-preview-box {
+  width: 100%;
+  height: 180px;
+  border-radius: 12px;
+  background: #090b0e;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.review-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.review-badge-spec {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(18, 21, 26, 0.88);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.review-input-group {
+  margin-bottom: 10px;
+}
+
+.review-input-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.review-input-field {
+  width: 100%;
+  height: 40px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0 12px;
+  color: #ffffff;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.review-input-field:focus {
+  border-color: var(--accent-primary);
+}
+
+.review-actions-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* Queue Item Cards */
+.queue-card-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+}
+
+.queue-empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+

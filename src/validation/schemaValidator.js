@@ -18,7 +18,15 @@
 
 'use strict';
 
-const { ErrorCode, VALIDATION_LIMITS, NoteRelation, BillFrequency } = require('../constants');
+const {
+  ErrorCode,
+  VALIDATION_LIMITS,
+  NoteRelation,
+  BillFrequency,
+  SyncStatus,
+  SyncAction,
+  SyncEntityType
+} = require('../constants.js');
 
 // ============================================================================
 // 1. Primitive & Sanitization Helpers
@@ -742,6 +750,249 @@ function validateModelActionInput(input, options) {
 }
 
 // ============================================================================
+// 2.11 Mobile Synchronization Validators (Phase 0.6.1)
+// ============================================================================
+
+/**
+ * Validates a mobile-originated transaction payload.
+ * Enforces 100% parity with desktop validateExpenseInput while validating vector clock and sync metadata.
+ *
+ * @param {any} tx - Raw mobile transaction input.
+ * @param {boolean} [isUpdate=false] - Whether this is an update mutation.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateMobileTransaction(tx, isUpdate = false) {
+  const baseResult = validateExpenseInput(tx, isUpdate);
+  const errors = [...baseResult.errors];
+
+  if (!isPlainObject(tx)) {
+    return baseResult;
+  }
+
+  // Vector clock & sync metadata validations
+  if (tx.originNodeId !== undefined && tx.originNodeId !== null) {
+    const nodeCheck = validateId(tx.originNodeId, 'Origin Node ID');
+    if (!nodeCheck.valid) errors.push(...nodeCheck.errors);
+  }
+
+  if (tx.version !== undefined && tx.version !== null) {
+    if (!Number.isInteger(tx.version) || tx.version < 1) {
+      errors.push('Transaction version must be an integer greater than or equal to 1.');
+    }
+  }
+
+  if (tx.updatedAt !== undefined && tx.updatedAt !== null) {
+    if (typeof tx.updatedAt !== 'string' || isNaN(Date.parse(tx.updatedAt))) {
+      errors.push('Transaction updatedAt must be a valid ISO 8601 timestamp string.');
+    }
+  }
+
+  if (tx.deletedAt !== undefined && tx.deletedAt !== null) {
+    if (typeof tx.deletedAt !== 'string' || isNaN(Date.parse(tx.deletedAt))) {
+      errors.push('Transaction deletedAt must be a valid ISO 8601 timestamp string or null.');
+    }
+  }
+
+  if (tx.syncStatus !== undefined && tx.syncStatus !== null) {
+    const validStatuses = Object.values(SyncStatus);
+    if (!validStatuses.includes(tx.syncStatus)) {
+      errors.push(`Invalid syncStatus "${tx.syncStatus}". Must be one of: ${validStatuses.join(', ')}.`);
+    }
+  }
+
+  if (tx.localCreatedAt !== undefined && tx.localCreatedAt !== null) {
+    if (typeof tx.localCreatedAt !== 'string' || isNaN(Date.parse(tx.localCreatedAt))) {
+      errors.push('Transaction localCreatedAt must be a valid ISO 8601 timestamp string.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates a mobile receipt queue entry (camera captures staged for sync/OCR).
+ *
+ * @param {any} item - Raw receipt queue item.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateMobileReceiptQueueItem(item) {
+  const errors = [];
+
+  if (!isPlainObject(item)) {
+    return { valid: false, errors: ['Receipt queue item must be a non-null object.'] };
+  }
+
+  // ID validation
+  const idCheck = validateId(item.id, 'Receipt Queue ID');
+  if (!idCheck.valid) errors.push(...idCheck.errors);
+
+  // localUri validation
+  if (typeof item.localUri !== 'string' || !item.localUri.trim()) {
+    errors.push('Receipt localUri is required and must be a non-empty string.');
+  } else {
+    const uri = item.localUri.trim();
+    if (uri.length > VALIDATION_LIMITS.MAX_LOCAL_URI_LENGTH) {
+      errors.push(`Receipt localUri exceeds maximum length of ${VALIDATION_LIMITS.MAX_LOCAL_URI_LENGTH} characters.`);
+    } else if (hasControlChars(uri)) {
+      errors.push('Receipt localUri contains illegal control characters.');
+    } else if (uri.includes('..')) {
+      errors.push('Receipt localUri cannot contain relative path traversal ("..").');
+    }
+  }
+
+  // capturedAt validation
+  if (typeof item.capturedAt !== 'string' || isNaN(Date.parse(item.capturedAt))) {
+    errors.push('Receipt capturedAt must be a valid ISO 8601 timestamp string.');
+  }
+
+  // fileSize validation
+  if (item.fileSize !== undefined && item.fileSize !== null) {
+    if (!Number.isInteger(item.fileSize) || item.fileSize <= 0) {
+      errors.push('Receipt fileSize must be a positive integer in bytes.');
+    } else if (item.fileSize > VALIDATION_LIMITS.MAX_IMPORT_FILE_SIZE) {
+      errors.push(`Receipt fileSize exceeds maximum limit of ${VALIDATION_LIMITS.MAX_IMPORT_FILE_SIZE / (1024 * 1024)}MB.`);
+    }
+  }
+
+  // mimeType validation
+  const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'];
+  if (typeof item.mimeType !== 'string' || !item.mimeType.trim()) {
+    errors.push('Receipt mimeType is required.');
+  } else if (!ALLOWED_MIME_TYPES.includes(item.mimeType.trim().toLowerCase())) {
+    errors.push(`Invalid mimeType "${item.mimeType}". Must be one of: ${ALLOWED_MIME_TYPES.join(', ')}.`);
+  }
+
+  // draftAmount validation (optional)
+  if (item.draftAmount !== undefined && item.draftAmount !== null) {
+    const num = Number(item.draftAmount);
+    if (isNaN(num) || !isFinite(num) || num < 0) {
+      errors.push('Receipt draftAmount must be a non-negative finite number.');
+    } else if (num > VALIDATION_LIMITS.MAX_AMOUNT) {
+      errors.push(`Receipt draftAmount cannot exceed ₹${VALIDATION_LIMITS.MAX_AMOUNT.toLocaleString()}.`);
+    }
+  }
+
+  // draftMerchant validation (optional)
+  if (item.draftMerchant !== undefined && item.draftMerchant !== null) {
+    if (typeof item.draftMerchant !== 'string') {
+      errors.push('Receipt draftMerchant must be a string.');
+    } else if (item.draftMerchant.length > VALIDATION_LIMITS.MAX_TITLE_LENGTH) {
+      errors.push(`Receipt draftMerchant exceeds maximum length of ${VALIDATION_LIMITS.MAX_TITLE_LENGTH} characters.`);
+    }
+  }
+
+  // draftDate validation (optional)
+  if (item.draftDate !== undefined && item.draftDate !== null) {
+    if (!isValidCalendarDate(item.draftDate)) {
+      errors.push('Receipt draftDate must be a valid calendar date in YYYY-MM-DD format.');
+    }
+  }
+
+  // notes validation (optional)
+  if (item.notes !== undefined && item.notes !== null) {
+    if (typeof item.notes !== 'string') {
+      errors.push('Receipt notes must be a string.');
+    } else if (item.notes.length > VALIDATION_LIMITS.MAX_DESCRIPTION_LENGTH) {
+      errors.push(`Receipt notes exceed maximum length of ${VALIDATION_LIMITS.MAX_DESCRIPTION_LENGTH} characters.`);
+    }
+  }
+
+  // syncStatus validation
+  const ALLOWED_RECEIPT_SYNC_STATUSES = ['queued', 'processing', 'synced', 'failed'];
+  if (item.syncStatus !== undefined && item.syncStatus !== null) {
+    if (!ALLOWED_RECEIPT_SYNC_STATUSES.includes(item.syncStatus)) {
+      errors.push(`Invalid receipt syncStatus "${item.syncStatus}". Must be one of: ${ALLOWED_RECEIPT_SYNC_STATUSES.join(', ')}.`);
+    }
+  }
+
+  // retryCount validation (optional)
+  if (item.retryCount !== undefined && item.retryCount !== null) {
+    if (!Number.isInteger(item.retryCount) || item.retryCount < 0) {
+      errors.push('Receipt retryCount must be a non-negative integer.');
+    }
+  }
+
+  // lastError validation (optional)
+  if (item.lastError !== undefined && item.lastError !== null) {
+    if (typeof item.lastError !== 'string') {
+      errors.push('Receipt lastError must be a string.');
+    } else if (item.lastError.length > 1000) {
+      errors.push('Receipt lastError exceeds maximum length of 1000 characters.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates an atomic sync queue mutation entry.
+ *
+ * @param {any} item - Raw sync queue entry.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateSyncQueueItem(item) {
+  const errors = [];
+
+  if (!isPlainObject(item)) {
+    return { valid: false, errors: ['Sync queue item must be a non-null object.'] };
+  }
+
+  // ID validation
+  const idCheck = validateId(item.id, 'Sync Queue ID');
+  if (!idCheck.valid) errors.push(...idCheck.errors);
+
+  // entityType validation
+  const validEntityTypes = Object.values(SyncEntityType);
+  if (typeof item.entityType !== 'string' || !validEntityTypes.includes(item.entityType)) {
+    errors.push(`Invalid entityType "${item.entityType}". Must be one of: ${validEntityTypes.join(', ')}.`);
+  }
+
+  // entityId validation
+  const entityIdCheck = validateId(item.entityId, 'Target Entity ID');
+  if (!entityIdCheck.valid) errors.push(...entityIdCheck.errors);
+
+  // action validation
+  const validActions = Object.values(SyncAction);
+  if (typeof item.action !== 'string' || !validActions.includes(item.action)) {
+    errors.push(`Invalid sync action "${item.action}". Must be one of: ${validActions.join(', ')}.`);
+  }
+
+  // payload validation
+  if (!isPlainObject(item.payload)) {
+    errors.push('Sync queue payload must be a non-null plain object.');
+  }
+
+  // timestamp validation
+  if (typeof item.timestamp !== 'string' || isNaN(Date.parse(item.timestamp))) {
+    errors.push('Sync queue timestamp must be a valid ISO 8601 timestamp string.');
+  }
+
+  // clientMutationId validation
+  if (typeof item.clientMutationId !== 'string' || !item.clientMutationId.trim()) {
+    errors.push('Sync clientMutationId is required and must be a non-empty string.');
+  } else if (item.clientMutationId.trim().length > VALIDATION_LIMITS.MAX_CLIENT_MUTATION_ID_LENGTH) {
+    errors.push(`Sync clientMutationId exceeds maximum length of ${VALIDATION_LIMITS.MAX_CLIENT_MUTATION_ID_LENGTH} characters.`);
+  } else if (!/^[a-zA-Z0-9_\-.:]+$/.test(item.clientMutationId.trim())) {
+    errors.push('Sync clientMutationId contains invalid characters. Only alphanumeric, dashes, dots, colons, and underscores are permitted.');
+  }
+
+  // status validation
+  const ALLOWED_SYNC_STATUSES = ['pending', 'in-flight', 'failed', 'resolved'];
+  if (typeof item.status !== 'string' || !ALLOWED_SYNC_STATUSES.includes(item.status)) {
+    errors.push(`Invalid sync status "${item.status}". Must be one of: ${ALLOWED_SYNC_STATUSES.join(', ')}.`);
+  }
+
+  // retryCount validation (optional)
+  if (item.retryCount !== undefined && item.retryCount !== null) {
+    if (!Number.isInteger(item.retryCount) || item.retryCount < 0) {
+      errors.push('Sync queue retryCount must be a non-negative integer.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+// ============================================================================
 // 3. Envelope Formatters
 // ============================================================================
 
@@ -811,6 +1062,10 @@ module.exports = {
   validateDocumentNormalizeInput,
   validateReceiptScanInput,
   validateModelActionInput,
+  validateMobileTransaction,
+  validateMobileReceiptQueueItem,
+  validateSyncQueueItem,
   formatSuccess,
   formatError
 };
+

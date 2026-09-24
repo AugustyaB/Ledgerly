@@ -1,0 +1,80 @@
+name: iOS Mobile Companion Build
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/ios-build.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Build & Archive iOS Companion
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run code syntax and lint validation
+        run: |
+          npm run check
+          npm run lint
+
+      - name: Run iOS container & WebKit integrity test
+        run: npm run test:ios-integrity
+
+      - name: Build mobile web bundle (Vite)
+        run: npm run mobile:build
+
+      - name: Sync Capacitor iOS container
+        run: npx cap sync ios
+        working-directory: mobile
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd mobile/ios/App
+          pod install
+
+      - name: Build and Archive with Xcode (Headless / Unsigned)
+        run: |
+          cd mobile/ios/App
+          xcodebuild -workspace App.xcworkspace \
+                     -scheme App \
+                     -configuration Release \
+                     -destination 'generic/platform=iOS' \
+                     -archivePath build/App.xcarchive \
+                     archive \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_IDENTITY=""
+
+      - name: Compress xcarchive for distribution
+        run: |
+          cd mobile/ios/App/build
+          tar -czf Ledgerly-iOS-App.xcarchive.tar.gz App.xcarchive
+
+      - name: Upload iOS Archive Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ledgerly-iOS-xcarchive
+          path: mobile/ios/App/build/Ledgerly-iOS-App.xcarchive.tar.gz
+          retention-days: 14
+          if-no-files-found: error

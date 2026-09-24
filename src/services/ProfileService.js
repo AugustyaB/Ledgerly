@@ -112,6 +112,69 @@ class ProfileService {
     return this._db.write(root);
   }
 
+  /**
+   * Retrieves the data partition for a specific profile ID.
+   * If profileId is omitted or not found, falls back to active profile data.
+   *
+   * @param {string} [profileId] - Target profile ID.
+   * @returns {import('../types').ProfileData} The profile data partition.
+   */
+  getProfileData(profileId) {
+    if (!profileId) return this.getActiveData();
+
+    const root = this._db.read();
+    const profile = root.profiles.find(p => p.id === profileId);
+    if (!profile) return this.getActiveData();
+
+    if (!profile.data) {
+      profile.data = this.createEmptyProfileData();
+    }
+    if (!Array.isArray(profile.data.expenses)) {
+      profile.data.expenses = [];
+    }
+    if (!Array.isArray(profile.data.categories)) {
+      profile.data.categories = this.getDefaultCategories();
+    }
+    if (!Array.isArray(profile.data.presets)) {
+      profile.data.presets = this.getDefaultPresets();
+    }
+    if (!profile.data.salaryConfig) {
+      profile.data.salaryConfig = this.getDefaultSalaryConfig();
+    }
+    if (!Array.isArray(profile.data.householdMembers)) {
+      profile.data.householdMembers = ['Self', 'Partner', 'Roommate'];
+    }
+    if (!Array.isArray(profile.data.notes)) {
+      profile.data.notes = [];
+    }
+    if (!Array.isArray(profile.data.notifications)) {
+      profile.data.notifications = [];
+    }
+
+    return profile.data;
+  }
+
+  /**
+   * Persists data partition for a specific profile ID.
+   *
+   * @param {string} profileId - Target profile ID.
+   * @param {import('../types').ProfileData} data - Modified data partition.
+   * @returns {import('../types').OperationResult}
+   */
+  saveProfileData(profileId, data) {
+    if (!profileId) return this.saveActiveData(data);
+
+    const root = this._db.read();
+    const idx = root.profiles.findIndex(p => p.id === profileId);
+
+    if (idx !== -1) {
+      root.profiles[idx].data = data;
+      return this._db.write(root);
+    }
+
+    return this.saveActiveData(data);
+  }
+
   // ==========================================================================
   // 2. Profile Lifecycle Operations (CRUD)
   // ==========================================================================

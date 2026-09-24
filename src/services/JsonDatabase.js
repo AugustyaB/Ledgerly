@@ -361,6 +361,7 @@ class JsonDatabase {
           lastPaidDate: null
         }
       ],
+      pairedDevices: [],
       schemaVersion: 2
     };
   }
@@ -406,6 +407,10 @@ class JsonDatabase {
 
     if (!Array.isArray(parsed.recurringBills)) {
       parsed.recurringBills = [];
+    }
+
+    if (!Array.isArray(parsed.pairedDevices)) {
+      parsed.pairedDevices = [];
     }
 
     return parsed;

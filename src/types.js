@@ -398,4 +398,83 @@
  * @property {number} [schemaVersion] - Database migration version tag (e.g., 2).
  */
 
+// ============================================================================
+// 10. Mobile Synchronization & Queue Schema Contracts (Phase 0.6.1)
+// ============================================================================
+
+/**
+ * Mobile-originated transaction record maintaining 100% field parity with desktop Expense
+ * while embedding vector clock and synchronization metadata.
+ *
+ * @typedef {Object} MobileTransaction
+ * @property {string} id - Unique identifier (e.g., "exp-mob-1724000000-abcd").
+ * @property {string} title - Primary display title / payee / merchant name.
+ * @property {number} amount - Transaction monetary value (must be >= 0.01).
+ * @property {string} category - Assigned expense category.
+ * @property {string} paymentMethod - Method used (UPI, Credit Card, Cash, etc.).
+ * @property {string} date - Local ISO date string (YYYY-MM-DD).
+ * @property {string} [description] - Optional notes, narrative, or memo.
+ * @property {string[]} [tags] - Searchable labels or taxonomy tags.
+ * @property {string|null} [receiptFilename] - Linked receipt photo image filename.
+ * @property {string} [paidBy] - Payer name or member identifier (default: "Self").
+ * @property {string[]} [splitWith] - Household members sharing this expense.
+ * @property {boolean} [isHouseholdExpense] - Whether this entry participates in split balances.
+ * @property {string} [currency] - ISO 4217 currency code (e.g., "INR", "USD", "EUR").
+ * @property {number} [exchangeRate] - Conversion multiplier relative to base currency.
+ *
+ * // --- Vector Clock & Offline Sync Metadata ---
+ * @property {string} originNodeId - Identifier of originating client (e.g. "mobile-uuid").
+ * @property {number} version - Monotonic vector version clock (starts at 1).
+ * @property {string} updatedAt - ISO 8601 mutation timestamp.
+ * @property {string|null} deletedAt - ISO 8601 soft-deletion timestamp or null for active.
+ * @property {'queued'|'pending'|'in-flight'|'synced'|'failed'|'conflict'} syncStatus - Mobile synchronization lifecycle state.
+ * @property {string} localCreatedAt - ISO 8601 creation timestamp on the mobile device.
+ */
+
+/**
+ * Local staging container for camera-captured receipts awaiting OCR or desktop sync.
+ *
+ * @typedef {Object} MobileReceiptQueueItem
+ * @property {string} id - Unique receipt queue entry identifier (e.g. "rcq-uuid").
+ * @property {string} localUri - Local file URI or device path (Capacitor Filesystem / converted URI).
+ * @property {string} capturedAt - ISO 8601 capture timestamp.
+ * @property {number} fileSize - File size in bytes (must be > 0 and <= 50MB).
+ * @property {string} mimeType - Image MIME type ('image/jpeg', 'image/png', 'application/pdf').
+ * @property {number|null} [draftAmount] - Preliminary extracted or user-keyed amount.
+ * @property {string|null} [draftMerchant] - Preliminary extracted or user-keyed merchant name.
+ * @property {string|null} [draftDate] - Preliminary extracted date (YYYY-MM-DD).
+ * @property {string|null} [notes] - User notes or memos attached during capture.
+ * @property {'queued'|'processing'|'synced'|'failed'} syncStatus - Processing/sync state.
+ * @property {number} [retryCount] - Consecutive failed sync/OCR attempts (integer >= 0).
+ * @property {string|null} [lastError] - Error diagnostics if sync or OCR failed.
+ */
+
+/**
+ * Atomic offline mutation journal entry queued for local network synchronization.
+ *
+ * @typedef {Object} SyncQueueItem
+ * @property {string} id - Unique queue entry identifier (e.g. "sync-uuid").
+ * @property {'expense'|'receipt'|'profile'|'category'} entityType - Domain entity type.
+ * @property {string} entityId - Target entity identifier.
+ * @property {'create'|'update'|'delete'} action - Mutation operation.
+ * @property {Record<string, *>} payload - Serialized entity payload or delta changes.
+ * @property {string} timestamp - ISO 8601 mutation timestamp.
+ * @property {string} clientMutationId - Idempotency key preventing duplicate application.
+ * @property {'pending'|'in-flight'|'failed'|'resolved'} status - Queue processing status.
+ * @property {number} [retryCount] - Sync delivery attempt counter.
+ * @property {Record<string, *>} [conflictResolution] - Audit details if resolved via LWW merge.
+ */
+
+/**
+ * Encapsulated synchronization payload batch for peer-to-peer Wi-Fi exchange.
+ *
+ * @typedef {Object} MobileSyncBatch
+ * @property {string} batchId - Unique batch transmission ID.
+ * @property {string} clientNodeId - Mobile device identifier.
+ * @property {string} timestamp - Batch transmission ISO timestamp.
+ * @property {SyncQueueItem[]} mutations - Ordered array of pending mutations.
+ * @property {MobileReceiptQueueItem[]} [pendingReceipts] - Accompanying receipt metadata.
+ */
+
 module.exports = {};
+

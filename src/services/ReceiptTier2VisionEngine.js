@@ -1494,7 +1494,11 @@ class ReceiptTier2VisionEngine {
   extractMerchant(lines) {
     for (let i = 0; i < Math.min(5, lines.length); i++) {
       const l = lines[i].trim();
-      if (l.length >= 3 && !/^(tax|invoice|bill|receipt|date|order|tel|phone|gstin|ein|vat|abn)/i.test(l)) {
+      if (
+        l.length >= 3 &&
+        !/^(tax|invoice|bill|receipt|date|order|tel|phone|gstin|ein|vat|abn)/i.test(l) &&
+        !/^[- \s]*page\s+\d+(\s+of\s+\d+)?[- \s]*$/i.test(l)
+      ) {
         if (!SEPARATOR_LINE_REGEX.test(l)) {
           return l;
         }
@@ -1560,19 +1564,27 @@ class ReceiptTier2VisionEngine {
   _resolveCurrency(rawText) {
     let currency = 'INR';
     let currencySymbol = '₹';
-    if (/\b(?:USD|\$)\b/i.test(rawText) && !/\b(?:INR|₹|Rs\.?)\b/i.test(rawText)) {
+
+    const hasUSD = /(?:\$|\bUSD\b)/i.test(rawText);
+    const hasEUR = /(?:€|\bEUR\b)/i.test(rawText);
+    const hasGBP = /(?:£|\bGBP\b)/i.test(rawText);
+    const hasJPY = /(?:¥|\bJPY\b)/i.test(rawText);
+    const hasAUD = /(?:A\$|\bAUD\b)/i.test(rawText);
+    const hasINR = /(?:₹|\b(?:INR|Rs\.?)\b)/i.test(rawText);
+
+    if (hasUSD && !hasINR) {
       currency = 'USD';
       currencySymbol = '$';
-    } else if (/\b(?:EUR|€)\b/i.test(rawText)) {
+    } else if (hasEUR && !hasINR) {
       currency = 'EUR';
       currencySymbol = '€';
-    } else if (/\b(?:GBP|£)\b/i.test(rawText)) {
+    } else if (hasGBP && !hasINR) {
       currency = 'GBP';
       currencySymbol = '£';
-    } else if (/\b(?:JPY|¥)\b/i.test(rawText) || /¥/.test(rawText)) {
+    } else if (hasJPY && !hasINR) {
       currency = 'JPY';
       currencySymbol = '¥';
-    } else if (/\b(?:AUD|A\$)\b/i.test(rawText)) {
+    } else if (hasAUD && !hasINR) {
       currency = 'AUD';
       currencySymbol = 'A$';
     }

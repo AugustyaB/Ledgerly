@@ -1,10 +1,10 @@
 # 🔄 Ledgerly — System Architecture & Application Flow (`FLOW.md`)
 
-> **Version Cycle**: `0.5` — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine*  
-> **Current State**: `v0.5.9` (Phase 9: Subsystem Integration, Regression Auditing & Production Packaging Complete — Concludes Version 0.5 Milestone)  
-> **Preceding Version**: `0.4.7` (Major Restructuring & Enterprise Resilience Milestone)  
+> **Version Cycle**: `0.6` — *Capacitor Mobile Companion, Zero-Cloud Local LAN Sync & iOS CI/CD*  
+> **Current State**: `v0.6.6` (Phase 6: Production Packaging, CI/CD Automated Workflow & Release Conclusion Complete — Concludes Version 0.6 Milestone)  
+> **Preceding Version**: `0.5.9` (On-Device ML Document Intelligence Milestone)  
 > **Status**: **ACTIVE & CANONICAL**  
-> **Scope**: Complete end-to-end data lifecycle, component interaction, IPC contracts, state management, and ML document intelligence pipeline across Version 0.5 subsections (v0.5.1 to v0.5.9).
+> **Scope**: Complete end-to-end data lifecycle, component interaction, IPC contracts, state management, mobile companion runtime, local LAN sync protocol, and cross-platform distribution across Version 0.6 subsections (v0.6.1 to v0.6.6).
 
 ---
 
@@ -447,4 +447,11 @@ The application implements a multi-tier resilience strategy distributed across c
 | ↳ **v0.5.7** (Phase 7) | Tier 3 Regional Specialist Models Architecture | 4 regional specialists (India, North America, Europe/UK, APAC), statutory checksums (ABN Mod-89, EIN, VIES, T-Number), utility bills, currency routing (Complete) |
 | ↳ **v0.5.8** (Phase 8) | Tier 2 Vision-Pro Multi-Model Architecture & Visual Understanding | 4 specialized visual models (Precision microtext/inpainting, Degraded paper/creases, Handwritten chits HTR, Multilingual travel DCC) + balanced baseline, auto-escalation (Complete) |
 | ↳ **v0.5.9** (Phase 9) | Subsystem Integration, Documentation & Production Packaging | End-to-end stress testing, system resilience auditing, final documentation sync, and production electron-builder installer packaging (Complete — Concludes Version 0.5 Milestone) |
+| **v0.6** | **Capacitor Mobile Companion, Zero-Cloud Local LAN Sync & iOS CI/CD** | **Native mobile receipt intake, IndexedDB staging queue, desktop Wi-Fi sync, Android APK, iOS WebKit containerization (Complete)** |
+| ↳ **v0.6.1** (Phase 1) | Architecture Blueprint & Shared Contract Schemas | Unified mobile architecture, shared IPC/HTTP contracts, IndexedDB queue schemas, security handshake specification |
+| ↳ **v0.6.2** (Phase 2) | Mobile Camera Ingestion & Persistent Offline Queue | Capacitor 7 container, hardware camera/gallery capture, JPEG 90% compression, thumbnail generation, persistent IndexedDB staging |
+| ↳ **v0.6.3** (Phase 3) | Desktop Sync Server & Local LAN Discovery | Embedded Node.js HTTP/WebSocket server (port 8765), dynamic PIN pairing, SHA-256 HMAC auth tokens, desktop Settings QR display |
+| ↳ **v0.6.4** (Phase 4) | Cross-Device E2E Sync & Android Debug APK | Bidirectional push/pull sync, delta preservation, Android debug APK compilation (4.08 MB), Playwright E2E cross-device test suite |
+| ↳ **v0.6.5** (Phase 5) | Apple iOS Native Container, ATS Local LAN & WebKit Polish | iOS Xcode container, Info.plist camera & local network permissions, NSAllowsLocalNetworking, WebKit safe area & touch ergonomics |
+| ↳ **v0.6.6** (Phase 6) | Production Packaging, CI/CD Automated Workflow & Release Conclusion | GitHub Actions macOS iOS CI workflow, scripts/check-ci-workflow.js (9/9), 10-area resilience & fallback hardening (DEFECT-606-01..10), Windows NSIS & portable packaging, unified test runner (129 assertions, 100% pass) (Concludes Version 0.6 Milestone) |
 | **v1.0.0** | **Official Production Release** | Production-ready deployment for user download |
