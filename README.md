@@ -1,9 +1,31 @@
 # 💳 Ledgerly
 
 > **A friction-free, 100% offline desktop application for daily budget tracking and shared household spending.**  
-> **Current Version**: `v0.5.9` (Version 0.5 Milestone Completed) — *On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine* (succeeding `v0.4.7`)
+> **Current Version**: `v0.6.6` (Version 0.6 Milestone Completed) — *Capacitor Mobile Companion, Zero-Cloud Local LAN Sync & iOS CI/CD* (succeeding `v0.5.9`)
 
 Built to eliminate the "data entry chore" of traditional finance apps. No cloud accounts, no complex setup, no internet required. Open the app, log your expense, close it — done in under 5 seconds.
+
+---
+
+## 📱 Version 0.6: Capacitor Mobile Companion & Zero-Cloud Local LAN Sync
+
+In **Version 0.6**, Ledgerly expands beyond desktop with a native mobile companion application and private local network synchronization:
+
+- **📱 Capacitor Mobile Companion (`mobile/`) (v0.6.6)**:
+  - **Native Multi-Platform Companion**: Capacitor 7 container paired with Vite and lightweight vanilla JavaScript, mirroring DLS Theme 3 dark mode aesthetics.
+  - **Hardware-Accelerated Camera Intake**: Rapid photo capture and gallery intake with 90% quality compression and instant thumbnail previews.
+  - **Persistent Offline Staging Queue**: Robust IndexedDB queue (`pendingReceipts`, `pendingTransactions`) surviving app restarts and background throttling.
+- **🌐 Zero-Cloud Local LAN Pairing & Wi-Fi Sync (`src/services/SyncServer.js`)**:
+  - **Embedded Desktop Sync Server**: Node.js HTTP/WebSocket server running on port 8765 with dynamic pairing PINs and SHA-256 HMAC authorization.
+  - **Interactive QR Code Pairing**: Desktop Settings Hub renders live QR code and IP/PIN credentials for instant mobile scanning and connection.
+  - **Bidirectional Push/Pull**: Mobile pushes receipts directly into desktop ML staging and pulls profile categories, payment methods, and balance stats.
+- **🛡️ Enterprise Fault-Tolerance & Resilience**:
+  - Remediation of 10 defect edge-case hazards (`DEFECT-606-01` to `606-10`), including abortable 8s network timeouts, socket cleanup guards, atomic retry tracking, and delta preservation preventing data loss on partial transfers.
+- **📦 Multi-Platform Packaging & Distribution**:
+  - **Windows Desktop**: NSIS installer (`dist/Ledgerly Setup 0.6.6.exe`) and portable single executable (`dist/Ledgerly 0.6.6.exe`).
+  - **Android**: Compiled debug APK (`mobile/android/app/build/outputs/apk/debug/app-debug.apk`, 4.08 MB) ready for sideloading.
+  - **Apple iOS**: Complete Xcode container configuration with ATS local network entitlements (`NSAllowsLocalNetworking`) and WebKit ergonomics.
+  - **CI/CD Workflow**: GitHub Actions automated pipeline (`.github/workflows/ios-build.yml`) for macOS iOS builds.
 
 ---
 

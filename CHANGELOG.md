@@ -15,6 +15,9 @@ The project follows a structured semantic versioning taxonomy:
   - `v0.4.7` (Phase 7): Enterprise Resilience, Tier 2 UX Enhancements, Startup DB Integrity & Offline Conflict Engine (Current Completed State — Concludes Version 0.4 Milestone)
 
 Historical Alpha Milestones:
+- **v0.6.6**: Capacitor mobile companion, offline IndexedDB camera queue, zero-cloud Local LAN Wi-Fi sync, Android debug APK, Apple iOS WebKit/ATS containerization, and macOS GitHub Actions CI/CD.
+- **v0.5.9**: On-device machine learning document intelligence, multi-tier receipt processing (Tier 1 Fast-Lite, Tier 2 Vision Specialists, Tier 3 Regional Models), Smart Document Analyzer, and handy-style Model Manager.
+- **v0.4.7**: Major codebase restructuring, domain decomposition, event delegation, and enterprise resilience.
 - **v0.3.0**: Ambient financial intelligence, multi-profile switcher, universal file importer, contextual notes.
 - **v0.2.0**: Visual DLS overhaul (Theme 3), typography, Lucide vector icons, monogram avatars.
 - **v0.1.0**: Initial offline desktop foundation, local JSON storage, express bar, presets, salary pace.
@@ -24,11 +27,46 @@ Future Milestone:
 
 ---
 
+# Version 0.6: Capacitor Mobile Companion, Zero-Cloud Local LAN Sync & iOS CI/CD
+> *Succeeds Version 0.5.9 (ML Document Intelligence Milestone). Delivers native mobile receipt capture, offline-first IndexedDB staging, zero-cloud Local LAN Wi-Fi sync, Android debug APK compilation, and Apple iOS WebKit/ATS containerization.*
+
+## [0.6.6] - Phase 6: Production Packaging, CI/CD Automated Workflow & Release Conclusion (2026-09-24)
+> *Concludes Version 0.6 Milestone*
+
+### 📱 Capacitor Mobile Companion & Offline Queue
+- **Capacitor 7 Native Container (`mobile/`)**: Modern mobile workspace engineered with Vite and vanilla JavaScript, sharing CSS custom properties and DLS Theme 3 aesthetics with the desktop application.
+- **Hardware-Accelerated Camera Intake**: `@capacitor/camera` integration providing native photo capture and gallery intake with 90% quality compression and instant thumbnail generation.
+- **Persistent IndexedDB Staging Queue**: Zero data loss staging of scanned receipts and offline transactions (`pendingReceipts`, `pendingTransactions`), surviving app restarts, background throttling, and device reboots.
+
+### 🌐 Zero-Cloud Local LAN Pairing & Wi-Fi Synchronization
+- **Desktop Sync Engine (`src/services/SyncServer.js`)**: Embedded Node.js HTTP/WebSocket server running on port 8765, featuring automated pairing authorization codes, SHA-256 HMAC-signed token validation, and multi-network interface IP resolution.
+- **Cross-Device Handshake & Push Protocol**: Mobile auto-discovery via mDNS and manual IP fallback, dynamic QR code pairing display on desktop (`SettingsView.js`), and bidirectional data synchronization.
+- **Resilient Retry & Error Containment**: Remediation of 10 edge-case defect classes (`DEFECT-606-01` to `606-10`), including abortable 8s HTTP fetch timeouts, graceful WebSocket socket teardown, per-item atomic queue retry counters, and delta preservation preventing accidental photo deletion on partial sync failures.
+
+### 🤖 Cross-Platform Distribution & Packaging
+- **Windows Desktop Release Binaries**:
+  - `dist/Ledgerly Setup 0.6.6.exe`: NSIS Windows installer with custom installation directory support.
+  - `dist/Ledgerly 0.6.6.exe`: Standalone portable single-executable distribution.
+  - `dist/win-unpacked/Ledgerly.exe`: Full production unpacked executable.
+- **Android Native Debug APK**:
+  - `mobile/android/app/build/outputs/apk/debug/app-debug.apk`: 4.08 MB standalone debug APK with verified hardware camera permissions and cleartext local LAN networking.
+- **Apple iOS Container & WebKit Hardening**:
+  - Configured `Info.plist` with `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, `NSLocalNetworkUsageDescription`, and App Transport Security `NSAllowsLocalNetworking: true`.
+  - Hardened `mobile.css` against iOS WebKit layout quirks: Dynamic Island & home indicator safe area insets (`env(safe-area-inset-*)`), `overscroll-behavior: none`, 16px input font scaling to prevent auto-zoom, and `touch-action: manipulation`.
+
+### 🔄 CI/CD & Automated Regression Quality
+- **GitHub Actions macOS Workflow (`.github/workflows/ios-build.yml`)**: Automated CI pipeline on `macos-14` runner executing syntax checks, lint validation, Capacitor iOS project synchronization, and CocoaPods dependency validation.
+- **Local CI Pipeline Validator (`scripts/check-ci-workflow.js`)**: 9/9 deterministic checks verifying workflow structure, branch triggers, Node 20 / Xcode 15 matrix, and artifact preservation.
+- **Unified Test Runner (`npm run test:v0.6-unified`)**: 9 test suites and 129 assertions passing with 100% success rate across Desktop, Mobile, Camera Queue, SyncServer, Cross-Device, iOS WebKit, and Resilience Fallbacks in under 9 seconds.
+- **Zero-Clutter Release Branch Architecture**: Codified Git release branch methodology with automatic branch deletion post-merge to preserve a clean single-origin tracking model.
+
+---
+
 # Version 0.5: On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine
 > *Succeeds Version 0.4.7 (Major Restructuring Milestone). Introduces local, offline machine learning models for physical receipts, PDF statements, and camera photos.*
 
 ## [0.5.9] - Phase 9: Subsystem Integration, Full Regression Auditing & Production Packaging (2026-09-12)
-> *Current Active Subsection — Concludes Version 0.5 Milestone*
+> *Concludes Version 0.5 Milestone*
 
 ### 🚀 Full Subsystem Integration & Cross-Tier Interoperability
 - Seamless cross-tier pipeline integration across `DocumentNormalizer`, `ReceiptTier1Engine` (Fast-Lite), `ReceiptTier2VisionEngine` (Precision, Degraded, HTR, Multilingual, Balanced), `ReceiptTier3RegionalEngine` (India, US/Canada, Europe/UK, APAC), `ModelManager`, `SmartDocumentAnalyzer`, and `ExpenseService`.

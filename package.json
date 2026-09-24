@@ -1,8 +1,11 @@
 {
   "name": "ledgerly",
-  "version": "0.5.9",
+  "version": "0.6.6",
   "description": "Ledgerly — A friction-free, 100% offline desktop expense & budget tracker",
   "main": "src/main.js",
+  "workspaces": [
+    "mobile"
+  ],
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
@@ -22,9 +25,28 @@
     "test:tier3": "node scratch/test_phase7_tier3_models.js",
     "test:tier2": "node scratch/test_phase8_tier2_models.js",
     "test:phase9": "node scratch/test_phase9_e2e_integration.js",
+    "test:mobile": "node scratch/test_mobile_dock.js",
+    "test:mobile-schemas": "node scratch/test_phase6_1_mobile_schemas.js",
+    "test:mobile-phase2": "node scratch/test_phase6_2_mobile_camera_queue.js && node scratch/test_phase6_2_mobile_e2e.js",
+    "test:sync-server": "node scratch/test_phase6_3_sync_server.js",
+    "test:cross-device": "node scratch/test_phase6_4_cross_device_sync.js",
+    "test:ios-integrity": "node scratch/test_phase6_5_ios_webkit_integrity.js",
+    "test:ci-workflow": "node scripts/check-ci-workflow.js",
+    "test:resilience-audit": "node scratch/test_phase6_6_resilience_and_fallbacks.js",
+    "test:v0.6-unified": "node scripts/run-all-v0.6-tests.js",
     "test:e2e": "node scratch/test_e2e_ledgerly.js",
+    "mobile:dev": "npm --prefix mobile run dev",
+    "mobile:build": "npm --prefix mobile run build",
+    "mobile:preview": "npm --prefix mobile run preview",
+    "mobile:cap:add:android": "npm -w mobile exec -- cap add android",
+    "mobile:cap:add:ios": "npm -w mobile exec -- cap add ios",
+    "mobile:cap:sync": "npm -w mobile exec -- cap sync",
+    "mobile:cap:sync:ios": "npm -w mobile exec -- cap sync ios",
+    "mobile:cap:open": "npm -w mobile exec -- cap open android",
+    "mobile:cap:open:ios": "npm -w mobile exec -- cap open ios",
+    "mobile:build:apk": "npm -w mobile exec -- cap sync android && cd mobile/android && gradlew.bat assembleDebug",
     "check": "node scripts/check-syntax.js",
-    "lint": "eslint src/",
+    "lint": "eslint src/ mobile/src/",
     "format": "prettier --write \"src/**/*.{js,html,css}\""
   },
   "build": {

@@ -209,11 +209,56 @@ const VALIDATION_LIMITS = Object.freeze({
   MAX_SPLIT_MEMBERS: 20,
   MAX_IMPORT_FILE_SIZE: 50 * 1024 * 1024, // 50 Megabytes hard limit
   MAX_IMPORT_ROWS: 25000, // Maximum transactions parsed per statement file
-  MAX_BATCH_ROWS: 5000 // Maximum rows allowed in batch grid
+  MAX_BATCH_ROWS: 5000, // Maximum rows allowed in batch grid
+  MAX_QUEUE_ITEMS: 1000, // Maximum queued offline sync mutations
+  MAX_RECEIPT_QUEUE_ITEMS: 200, // Maximum queued camera receipt images
+  MAX_CLIENT_MUTATION_ID_LENGTH: 64,
+  MAX_LOCAL_URI_LENGTH: 500
 });
 
 // ============================================================================
-// 8. Export Module Interface
+// 8. Mobile Synchronization & Queue Enums (Phase 0.6.1)
+// ============================================================================
+
+/**
+ * Mobile and offline sync lifecycle states.
+ * @readonly
+ * @enum {string}
+ */
+const SyncStatus = Object.freeze({
+  QUEUED: 'queued',
+  PENDING: 'pending',
+  IN_FLIGHT: 'in-flight',
+  SYNCED: 'synced',
+  FAILED: 'failed',
+  CONFLICT: 'conflict'
+});
+
+/**
+ * Sync queue mutation action types.
+ * @readonly
+ * @enum {string}
+ */
+const SyncAction = Object.freeze({
+  CREATE: 'create',
+  UPDATE: 'update',
+  DELETE: 'delete'
+});
+
+/**
+ * Sync queue target entity types.
+ * @readonly
+ * @enum {string}
+ */
+const SyncEntityType = Object.freeze({
+  EXPENSE: 'expense',
+  RECEIPT: 'receipt',
+  PROFILE: 'profile',
+  CATEGORY: 'category'
+});
+
+// ============================================================================
+// 9. Export Module Interface
 // ============================================================================
 
 module.exports = {
@@ -227,5 +272,9 @@ module.exports = {
   ALLOWED_IMPORT_EXTENSIONS,
   DEFAULTS,
   ErrorCode,
-  VALIDATION_LIMITS
+  VALIDATION_LIMITS,
+  SyncStatus,
+  SyncAction,
+  SyncEntityType
 };
+

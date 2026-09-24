@@ -569,15 +569,33 @@ function setupGlobalListeners() {
     }
   });
 
-  // 6. Real-Time Data Sync from Desktop Floating Widget
+  // 6. Real-Time Data Sync from Desktop Floating Widget & Mobile Companion
   if (api?.onDataUpdated) {
-    api.onDataUpdated(async () => {
+    api.onDataUpdated(async (event) => {
       await loadAppData();
-      showActionToast({
-        icon: 'zap',
-        title: 'Quick Pill Expense Logged',
-        subtext: 'Logged via desktop floating widget'
-      });
+      if (event?.type === 'mobile-sync') {
+        const deviceName = event.device || 'Mobile Companion';
+        if (event.action === 'receipt-uploaded') {
+          showActionToast({
+            icon: 'camera',
+            title: 'Receipt Image Received',
+            subtext: `Uploaded from ${deviceName}${event.deduplicated ? ' (deduplicated)' : ''}`
+          });
+        } else {
+          const count = event.appliedCount || 1;
+          showActionToast({
+            icon: 'smartphone',
+            title: 'Mobile Companion Synced',
+            subtext: `Ingested ${count} item(s) from ${deviceName}`
+          });
+        }
+      } else {
+        showActionToast({
+          icon: 'zap',
+          title: 'Quick Pill Expense Logged',
+          subtext: 'Logged via desktop floating widget'
+        });
+      }
     });
   }
 }

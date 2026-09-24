@@ -42,6 +42,9 @@ export class SettingsView {
   /** @type {string} */
   #activeModelFilter = 'all';
 
+  /** @type {any} */
+  #pairingInterval = null;
+
   // ==========================================================================
   //  Constructor
   // ==========================================================================
@@ -147,6 +150,7 @@ export class SettingsView {
     this.renderDataStoragePane();
     this.renderModelsPane();
     this.renderNotificationSettingsPane();
+    this.renderMobileSyncPane();
 
     const navItems = document.querySelectorAll('.settings-nav-item');
     if (navItems.length > 0 && !document.querySelector('.settings-nav-item.active')) {
@@ -160,6 +164,10 @@ export class SettingsView {
    * @returns {void}
    */
   unmount() {
+    if (this.#pairingInterval) {
+      clearInterval(this.#pairingInterval);
+      this.#pairingInterval = null;
+    }
     for (const cleanup of this.#cleanupListeners) {
       cleanup();
     }
@@ -600,6 +608,387 @@ export class SettingsView {
     } catch (err) {
       console.error('[SettingsView] Failed to render notification settings:', err);
     }
+  }
+
+  // ==========================================================================
+  //  Mobile Companion & LAN Wi-Fi Sync (Phase 0.6.3 / BUG-007)
+  // ==========================================================================
+
+  /**
+   * Renders the Mobile Companion & Wi-Fi LAN Sync configuration card,
+   * server status badge, pairing PIN generator with countdown, and paired devices list.
+   *
+   * @returns {Promise<void>}
+   */
+  async renderMobileSyncPane() {
+    if (typeof document === 'undefined') return;
+    const container = document.getElementById('settings-sync-pane-container');
+    if (!container) return;
+
+    if (!this.#api?.getSyncServerStatus) {
+      setInnerHTML(
+        container,
+        `<div class="empty-state" style="padding: 24px; text-align: center; color: var(--text-muted);">
+          Sync server IPC interface unavailable in this environment.
+        </div>`
+      );
+      return;
+    }
+
+    try {
+      const statusRes = await this.#api.getSyncServerStatus();
+      const status = statusRes?.data || statusRes || {};
+      const isRunning = status.running ?? false;
+      const port = status.port || 52410;
+      const lanIps =
+        Array.isArray(status.lanIps) && status.lanIps.length > 0 ? status.lanIps : [status.host || '127.0.0.1'];
+      const machineName = status.machineName || 'Ledgerly Desktop';
+
+      const devicesRes = await this.#api.getPairedDevices();
+      const devices = Array.isArray(devicesRes)
+        ? devicesRes
+        : Array.isArray(devicesRes?.data)
+          ? devicesRes.data
+          : [];
+
+      // Build Paired Devices list HTML
+      let devicesHtml = '';
+      if (devices.length === 0) {
+        devicesHtml = `
+          <div style="padding: 24px; text-align: center; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); margin-top: 14px;">
+            <i data-icon="smartphone" data-icon-size="28" style="color: var(--text-muted); opacity: 0.5; margin-bottom: 8px; display: inline-block;"></i>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">No mobile devices paired yet. Click <strong>Generate Pairing PIN</strong> to pair your smartphone or tablet.</p>
+          </div>
+        `;
+      } else {
+        devicesHtml = `
+          <div class="table-responsive" style="margin-top: 14px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden;">
+            <table class="table" style="margin: 0; width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border-color); text-align: left;">
+                  <th style="padding: 10px 14px; font-weight: 600; color: var(--text-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;">Device</th>
+                  <th style="padding: 10px 14px; font-weight: 600; color: var(--text-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;">Device ID</th>
+                  <th style="padding: 10px 14px; font-weight: 600; color: var(--text-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;">Paired At</th>
+                  <th style="padding: 10px 14px; font-weight: 600; color: var(--text-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;">Last Synced</th>
+                  <th style="padding: 10px 14px; font-weight: 600; color: var(--text-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${devices
+                  .map(dev => {
+                    const pairedDate = dev.pairedAt
+                      ? new Date(dev.pairedAt).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })
+                      : 'Unknown';
+                    const lastSyncDate = dev.lastSyncAt
+                      ? new Date(dev.lastSyncAt).toLocaleTimeString(undefined, {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          month: 'short',
+                          day: 'numeric'
+                        })
+                      : 'Never';
+                    return `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                      <td style="padding: 12px 14px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <i data-icon="smartphone" data-icon-size="16" style="color: var(--accent-spiced-chai);"></i>
+                        ${escapeHTML(dev.deviceName || 'Mobile Companion')}
+                      </td>
+                      <td style="padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted);">
+                        ${escapeHTML((dev.deviceId || '').substring(0, 14))}...
+                      </td>
+                      <td style="padding: 12px 14px; color: var(--text-muted);">${escapeHTML(pairedDate)}</td>
+                      <td style="padding: 12px 14px; color: var(--text-muted);">${escapeHTML(lastSyncDate)}</td>
+                      <td style="padding: 12px 14px; text-align: right;">
+                        <button class="btn btn-sm btn-ghost btn-revoke-device" data-device-id="${escapeHTML(dev.deviceId)}" data-device-name="${escapeHTML(dev.deviceName || 'Mobile Device')}" style="color: #fb7185; padding: 4px 8px; font-size: 12px;" title="Revoke Device Access">
+                          <i data-icon="trash-2" data-icon-size="14"></i> Revoke
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                  })
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      const html = `
+        <div style="background: var(--bg-surface-elevated); padding: 20px 24px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
+          <!-- Header -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+              <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin: 0 0 4px 0;">
+                <i data-icon="smartphone" data-icon-size="16" style="color: var(--accent-spiced-chai)"></i>
+                Mobile Companion & Local Wi-Fi Sync
+              </h3>
+              <p style="font-size: 12.5px; color: var(--text-muted); margin: 0">
+                Synchronize receipts captured with the Ledgerly Mobile Companion and offline quick-add transactions over your local Wi-Fi network without cloud dependencies.
+              </p>
+            </div>
+            <div>
+              <span class="badge ${isRunning ? 'badge-success' : 'badge-neutral'}" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 20px; background: ${isRunning ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)'}; color: ${isRunning ? '#4ade80' : 'var(--text-muted)'}; border: 1px solid ${isRunning ? 'rgba(34,197,94,0.3)' : 'var(--border-color)'};">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${isRunning ? '#22c55e' : '#94a3b8'}; box-shadow: ${isRunning ? '0 0 8px #22c55e' : 'none'};"></span>
+                ${isRunning ? `Server Active (Port ${port})` : 'Server Offline'}
+              </span>
+            </div>
+          </div>
+
+          <!-- Server Network Details -->
+          <div class="diagnostics-grid" style="margin-bottom: 18px; padding: 14px 16px; background: rgba(0,0,0,0.15); border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.04);">
+            <div class="diagnostics-item">
+              <span class="diagnostics-label">Desktop Machine</span>
+              <span class="diagnostics-value">${escapeHTML(machineName)}</span>
+            </div>
+            <div class="diagnostics-item">
+              <span class="diagnostics-label">LAN IP Address(es)</span>
+              <span class="diagnostics-value" style="color: var(--accent-spiced-chai);">${escapeHTML(lanIps.join(', '))}</span>
+            </div>
+            <div class="diagnostics-item">
+              <span class="diagnostics-label">Active Port</span>
+              <span class="diagnostics-value">${escapeHTML(String(port))}</span>
+            </div>
+            <div class="diagnostics-item">
+              <span class="diagnostics-label">Paired Companions</span>
+              <span class="diagnostics-value">${devices.length}</span>
+            </div>
+          </div>
+
+          <!-- Pairing Action Section -->
+          <div style="padding: 16px; background: rgba(217, 130, 43, 0.04); border: 1px solid rgba(217, 130, 43, 0.2); border-radius: var(--radius-sm); margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <strong style="font-size: 13.5px; color: var(--text-main); display: block; margin-bottom: 3px;">Pair New Mobile Device</strong>
+                <span style="font-size: 12px; color: var(--text-muted);">Generate a secure 6-digit one-time PIN to connect the mobile companion app on this Wi-Fi network.</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-primary" id="btn-generate-pairing-pin" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600;">
+                  <i data-icon="wifi" data-icon-size="15"></i> Generate Pairing PIN
+                </button>
+              </div>
+            </div>
+
+            <!-- PIN Display Card (Hidden by default, shown when token generated) -->
+            <div id="pairing-pin-display-card" style="display: none; margin-top: 16px; padding: 18px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); text-align: center;">
+              <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
+                Enter this 6-Digit PIN on your phone:
+              </div>
+              <div id="pairing-pin-code" style="font-family: 'JetBrains Mono', monospace; font-size: 38px; font-weight: 800; letter-spacing: 10px; color: var(--accent-spiced-chai); margin: 8px 0; text-shadow: 0 0 12px rgba(217,130,43,0.3);">
+                ------
+              </div>
+              <div style="display: flex; justify-content: center; align-items: center; gap: 16px; font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                <span>Desktop Host: <strong id="pairing-host-info" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">-</strong></span>
+                <span>•</span>
+                <span id="pairing-timer-badge" style="color: #fbbf24; font-weight: 600;">Expires in: 05:00</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); max-width: 480px; margin: 0 auto 12px auto; line-height: 1.5;">
+                Open <strong>Ledgerly Companion</strong> &rarr; tap <strong>Sync</strong> tab &rarr; enter the Desktop Host and PIN above, then tap <strong>Pair with Desktop</strong>.
+              </p>
+              <button type="button" class="btn btn-sm btn-ghost" id="btn-copy-pairing-details" style="font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                <i data-icon="clipboard" data-icon-size="14"></i> Copy Connection Details
+              </button>
+            </div>
+          </div>
+
+          <!-- Paired Devices List -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h4 style="font-size: 13.5px; font-weight: 700; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                <i data-icon="shield-check" data-icon-size="15" style="color: var(--accent-primary);"></i>
+                Authorized Paired Devices (${devices.length})
+              </h4>
+              <button type="button" class="btn btn-sm btn-ghost" id="btn-refresh-paired-devices" style="font-size: 12px; padding: 4px 8px;" title="Refresh paired devices">
+                <i data-icon="refresh-cw" data-icon-size="13"></i> Refresh
+              </button>
+            </div>
+            ${devicesHtml}
+          </div>
+        </div>
+      `;
+
+      setInnerHTML(container, html);
+
+      // Wire Event Handlers
+      this.#bindMobileSyncEvents(container, lanIps[0] || '127.0.0.1', port);
+    } catch (err) {
+      console.error('[SettingsView] Error rendering mobile sync pane:', err);
+      setInnerHTML(
+        container,
+        `<div class="empty-state" style="padding: 24px; color: #fb7185;">
+          Failed to load Mobile Sync configuration: ${escapeHTML(err.message)}
+        </div>`
+      );
+    }
+  }
+
+  /**
+   * Binds interaction events for the Mobile Companion & LAN sync section.
+   *
+   * @param {HTMLElement} container - The sync pane container
+   * @param {string} defaultHost - Default LAN host
+   * @param {number} defaultPort - Default server port
+   * @returns {void}
+   */
+  #bindMobileSyncEvents(container, defaultHost, defaultPort) {
+    if (!container) return;
+
+    const generateBtn = container.querySelector('#btn-generate-pairing-pin');
+    const pinDisplayCard = container.querySelector('#pairing-pin-display-card');
+    const pinCodeEl = container.querySelector('#pairing-pin-code');
+    const hostInfoEl = container.querySelector('#pairing-host-info');
+    const timerBadgeEl = container.querySelector('#pairing-timer-badge');
+    const copyBtn = container.querySelector('#btn-copy-pairing-details');
+
+    let currentPin = '';
+    let currentHostPort = '';
+
+    if (generateBtn && !generateBtn.dataset.wired) {
+      generateBtn.dataset.wired = 'true';
+      generateBtn.addEventListener('click', async () => {
+        try {
+          generateBtn.disabled = true;
+          generateBtn.innerHTML = '<i data-icon="refresh-cw" data-icon-size="14" class="spin"></i> Generating...';
+          if (typeof window.hydrateIcons === 'function') window.hydrateIcons(generateBtn);
+
+          const res = await this.#api.generatePairingToken();
+          const tokenData = res?.data || res;
+
+          if (!tokenData || !tokenData.pin) {
+            showToast('Failed to generate pairing PIN from server.', 'error');
+            return;
+          }
+
+          currentPin = tokenData.pin;
+          const host = tokenData.host || defaultHost;
+          const port = tokenData.port || defaultPort;
+          currentHostPort = `${host}:${port}`;
+
+          if (pinDisplayCard) {
+            pinDisplayCard.style.display = 'block';
+          }
+          if (pinCodeEl) {
+            pinCodeEl.textContent = currentPin;
+          }
+          if (hostInfoEl) {
+            hostInfoEl.textContent = currentHostPort;
+          }
+
+          // Countdown timer
+          if (this.#pairingInterval) {
+            clearInterval(this.#pairingInterval);
+            this.#pairingInterval = null;
+          }
+
+          let remainingSec = tokenData.expiresInSeconds || 300;
+          const updateTimerText = () => {
+            const mins = Math.floor(remainingSec / 60);
+            const secs = remainingSec % 60;
+            const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            if (timerBadgeEl) {
+              if (remainingSec > 0) {
+                timerBadgeEl.textContent = `Expires in: ${formatted}`;
+                timerBadgeEl.style.color = '#fbbf24';
+              } else {
+                timerBadgeEl.textContent = 'PIN Expired (Generate New PIN)';
+                timerBadgeEl.style.color = '#fb7185';
+              }
+            }
+          };
+
+          updateTimerText();
+
+          this.#pairingInterval = setInterval(() => {
+            remainingSec--;
+            updateTimerText();
+            if (remainingSec <= 0) {
+              clearInterval(this.#pairingInterval);
+              this.#pairingInterval = null;
+              if (copyBtn) copyBtn.disabled = true;
+            }
+          }, 1000);
+
+          if (copyBtn) copyBtn.disabled = false;
+          showToast(`Pairing PIN generated: ${currentPin}`);
+        } catch (err) {
+          console.error('[SettingsView] Error generating pairing token:', err);
+          showToast(err.message || 'Error generating pairing PIN', 'error');
+        } finally {
+          if (generateBtn) {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i data-icon="wifi" data-icon-size="15"></i> Generate Pairing PIN';
+            if (typeof window.hydrateIcons === 'function') window.hydrateIcons(generateBtn);
+          }
+        }
+      });
+    }
+
+    if (copyBtn && !copyBtn.dataset.wired) {
+      copyBtn.dataset.wired = 'true';
+      copyBtn.addEventListener('click', async () => {
+        if (!currentPin) return;
+        const textToCopy = `Desktop Host: ${currentHostPort}\nPIN: ${currentPin}`;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(textToCopy);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = textToCopy;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+          showToast('Pairing connection details copied to clipboard!');
+        } catch {
+          showToast('Failed to copy to clipboard', 'error');
+        }
+      });
+    }
+
+    const refreshBtn = container.querySelector('#btn-refresh-paired-devices');
+    if (refreshBtn && !refreshBtn.dataset.wired) {
+      refreshBtn.dataset.wired = 'true';
+      refreshBtn.addEventListener('click', async () => {
+        refreshBtn.disabled = true;
+        await this.renderMobileSyncPane();
+        showToast('Paired devices refreshed');
+      });
+    }
+
+    const revokeBtns = container.querySelectorAll('.btn-revoke-device');
+    revokeBtns.forEach(btn => {
+      if (btn.dataset.wired) return;
+      btn.dataset.wired = 'true';
+      btn.addEventListener('click', async () => {
+        const deviceId = btn.getAttribute('data-device-id');
+        const deviceName = btn.getAttribute('data-device-name') || 'Mobile Device';
+
+        if (
+          typeof confirm === 'function' &&
+          !confirm(`Are you sure you want to revoke access for "${deviceName}"? It will be disconnected immediately.`)
+        ) {
+          return;
+        }
+
+        try {
+          btn.disabled = true;
+          const res = await this.#api.revokePairedDevice(deviceId);
+          if (res?.success !== false) {
+            showToast(`Access revoked for ${deviceName}`);
+          } else {
+            showToast(res?.error || 'Failed to revoke device access', 'error');
+          }
+        } catch (err) {
+          showToast(err.message || 'Error revoking device', 'error');
+        } finally {
+          await this.renderMobileSyncPane();
+        }
+      });
+    });
   }
 
   // ==========================================================================

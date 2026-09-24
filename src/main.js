@@ -13,6 +13,7 @@ const ReceiptTier2VisionEngine = require('./services/ReceiptTier2VisionEngine');
 const ReceiptTier3RegionalEngine = require('./services/ReceiptTier3RegionalEngine');
 const DocumentIntelligenceService = require('./services/DocumentIntelligenceService');
 const ModelManager = require('./services/ModelManager');
+const SyncServer = require('./services/SyncServer');
 const XLSX = require('xlsx');
 const { wrapIPC } = require('./validation/ipcGuard');
 const { crashLogger } = require('./logger/crashLogger');
@@ -73,6 +74,7 @@ let receiptTier2VisionEngine;
 let receiptTier3RegionalEngine;
 let documentIntelligenceService;
 let modelManager;
+let syncServer;
 
 function sanitizeSpreadsheetCell(val) {
   const str = String(val === null || val === undefined ? '' : val);
@@ -80,6 +82,12 @@ function sanitizeSpreadsheetCell(val) {
     return `'${str}`;
   }
   return str;
+}
+
+function sendSyncEventToRenderer(event) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('data-updated', event);
+  }
 }
 
 function createQuickPillWindow() {
@@ -179,6 +187,13 @@ function createWindow() {
     tier1Engine: receiptTier1Engine,
     tier2Engine: receiptTier2VisionEngine,
     tier3Engine: receiptTier3RegionalEngine
+  });
+
+  syncServer = new SyncServer({
+    storage,
+    receiptStorage,
+    documentIntelligenceService,
+    onSyncEvent: sendSyncEventToRenderer
   });
 
   fileImporter = new FileImporter({ tier1Engine: documentIntelligenceService });
@@ -297,6 +312,12 @@ if (!gotTheLock) {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+    }
+  });
+
+  app.on('before-quit', () => {
+    if (syncServer) {
+      syncServer.stop().catch(() => {});
     }
   });
 }
@@ -1683,6 +1704,81 @@ ipcMain.handle(
       });
 
       return { success: true, expense: expResult, billId };
+    }
+  )
+);
+
+// ============================================================================
+// Local Wi-Fi Pairing & LAN Sync Engine IPC Handlers (Phase 0.6.3)
+// ============================================================================
+
+ipcMain.handle(
+  'start-sync-server',
+  wrapIPC('start-sync-server', null, async () => {
+    if (!syncServer) {
+      syncServer = new SyncServer({
+        storage,
+        receiptStorage,
+        documentIntelligenceService,
+        onSyncEvent: sendSyncEventToRenderer
+      });
+    }
+    return syncServer.start();
+  })
+);
+
+ipcMain.handle(
+  'stop-sync-server',
+  wrapIPC('stop-sync-server', null, async () => {
+    if (syncServer) {
+      await syncServer.stop();
+    }
+    return { success: true };
+  })
+);
+
+ipcMain.handle(
+  'get-sync-server-status',
+  wrapIPC('get-sync-server-status', null, async () => {
+    if (!syncServer) {
+      return { running: false, port: null, host: '0.0.0.0', lanIps: [], pairedDevicesCount: 0 };
+    }
+    return syncServer.getStatus();
+  })
+);
+
+ipcMain.handle(
+  'generate-pairing-token',
+  wrapIPC('generate-pairing-token', null, async (_event, options) => {
+    if (!syncServer) {
+      syncServer = new SyncServer({
+        storage,
+        receiptStorage,
+        documentIntelligenceService,
+        onSyncEvent: sendSyncEventToRenderer
+      });
+    }
+    if (!syncServer.isRunning) {
+      await syncServer.start();
+    }
+    return syncServer.generatePairingToken(options);
+  })
+);
+
+ipcMain.handle(
+  'get-paired-devices',
+  wrapIPC('get-paired-devices', null, async () => {
+    return storage.getPairedDevices();
+  })
+);
+
+ipcMain.handle(
+  'revoke-paired-device',
+  wrapIPC(
+    'revoke-paired-device',
+    payload => validateId(payload, 'Device ID'),
+    async (_event, deviceId) => {
+      return storage.revokePairedDevice(deviceId);
     }
   )
 );

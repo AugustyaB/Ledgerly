@@ -1246,6 +1246,8 @@ class ReceiptTier3RegionalEngine {
       if (
         clean.length >= 3 &&
         !skipWords.some(w => lower.includes(w)) &&
+        !/^[- \s]*page\s+\d+(\s+of\s+\d+)?[- \s]*$/i.test(lines[i].trim()) &&
+        !/^[- \s]*page\s+\d+(\s+of\s+\d+)?[- \s]*$/i.test(clean) &&
         !/\d{5}/.test(clean) &&
         !/gstin|\bpan\b|fssai|phone|\btel\b|\baccount\b/i.test(clean)
       ) {

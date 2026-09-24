@@ -43,12 +43,13 @@ This document serves as the persistent registry of long-term ideas, feature pros
 ## 🎯 Subsequent Feature Milestones (Post-v0.4)
 
 ### Version 0.5+: Mobile Web Companion & Local LAN Peer Sync (Audit Tier 3)
-- [ ] **Local LAN Peer Sync (Zero Cloud)**: Embedded HTTP/WebSocket server in Electron allowing smartphones on home/office Wi-Fi to pair via QR code and log transactions directly to the desktop database.
-- [ ] **Mobile Experience & Touch PWA**: Ultra-lightweight mobile web client with offline IndexedDB queueing that flushes upon reconnecting to home Wi-Fi.
+- [x] **Local LAN Peer Sync (Zero Cloud)**: Embedded HTTP server in Electron (`SyncServer.js`) allowing smartphones on local Wi-Fi to pair via 6-digit PIN / session Bearer token and push/pull transactions directly to desktop database with LWW conflict resolution.
+- [x] **Mobile Companion & Ingestion Queue**: Capacitor mobile companion app with offline IndexedDB queueing, Canvas downscaling, and immediate photo purge upon desktop receipt persistence.
+- [ ] **Configurable Wi-Fi Pairing Rate Limiting & General Security Controls**: Introduce an attempt-limiting security guard on `POST /api/v1/pair` defaulting to 15 failed attempts before enforcing a 60-second cooldown and session invalidation to mitigate local network brute-force vectors. Expose this as a general security preference in the desktop Settings panel so users can tune pairing attempt tolerances and cooldown policies.
+- [ ] **Zero-Config LAN Discovery (UDP Beacon & Camera QR Code Pairing)**: Broadcast lightweight UDP discovery beacons (`_ledgerly._udp`) from the desktop during pairing so the mobile companion can automatically detect desktop instances on local Wi-Fi without typing IP addresses. Render a dynamic QR code in the desktop pairing modal containing network connection parameters and ephemeral pairing PIN for instantaneous optical camera pairing.
 - [ ] **Local Machine Learning Receipt OCR Engine**: Bundled WebAssembly Tesseract OCR worker extracting merchant, date, and total locally without cloud vision APIs.
 - [ ] **Transparent Database Vault Encryption**: AES-256-GCM master password encryption protecting `expenses_db.json` from physical device theft.
 - [ ] **Hardware Camera Access**: Direct camera capture for snapping receipts and physical bills on mobile.
-- [ ] **Local Network Sync**: Secure peer-to-peer or local network pairing between desktop Ledgerly and mobile devices.
 
 ### Version 1.0.0: Official Production Release & Ambient Intelligence
 - [ ] **Multi-Purpose Windows Installer & Maintenance Suite**: Interactive wizard providing clean installation, self-healing file repair without user data loss, safe uninstallation with data retention prompts, and embedded GitHub installation guidance.
@@ -56,6 +57,11 @@ This document serves as the persistent registry of long-term ideas, feature pros
 - [ ] **Local Machine Learning Bill Scanner**: On-device OCR model to extract merchant, date, total, and line items from receipt photos automatically without cloud dependencies.
 - [ ] **Automated Transaction Ingestion**: Automatically populate and stage scanned bill data into the express review queue.
 - [ ] **Predictive Burn Rate & Category Forecasting**: Advanced time-series spending projections.
+
+### Version 0.6.4+ / Version 1.0.0: Mobile Build Pipeline & Native Release Enhancements (from Phase 0.6.4 QA Audit)
+- [ ] **Idempotent Mobile Build Pipeline (`mobile:build:apk`)**: Chain `npm run mobile:build &&` to the root `mobile:build:apk` script so that Vite production bundle generation is always executed prior to `cap sync android`, preventing accidental packaging of stale web assets into native `.apk` binaries.
+- [ ] **Production Android Release Keystore & ProGuard/R8 Optimization (`assembleRelease`)**: Configure Gradle `signingConfigs.release` with a secure keystore, ProGuard/R8 dead-code stripping, and resource shrinking, accompanied by an `npm run mobile:build:apk:release` script for Google Play / signed release distribution.
+- [ ] **Physical Android OEM Device Testing Matrix**: Expand automated cross-device testing beyond synthetic Node.js / Playwright desktop viewport mocks to physical Android devices across distinct OEM skins (Samsung OneUI, Xiaomi MIUI/HyperOS, OnePlus OxygenOS) to validate OEM-specific aggressive background Wi-Fi power-saving killers and camera driver variations.
 
 ---
 
@@ -131,6 +137,20 @@ This document serves as the persistent registry of long-term ideas, feature pros
     - 🐞 **GitHub Issue Tracker**: Direct link for filing bug reports or requesting features.
   - Post-install options: `[ Launch Ledgerly ]` and `[ Open GitHub Installation & User Guide ]`.
 
+### 11. 🛡️ Specialized Squad Expansion Roles (Future Milestones)
+- [ ] **Tech Writer & User Advocate**:
+  - Dedicated specialist role for writing comprehensive end-user manuals, visual screenshot walkthroughs, onboarding tutorials, and public release documentation for v1.0.
+- [ ] **AppSec & Privacy Auditor**:
+  - Dedicated specialist role for deep security assessments, cryptographic handshake verification, local network permission audits, and vulnerability forensics if security hazards or complex sync architectures emerge.
+
+### 12. 📊 Post-Production Defect Triage & Release Gating (Jira Offline Blackboard)
+- [ ] **Post-Production Jira Blackboard Integration**:
+  - In post-production maintenance (v1.0+) and formal release qualification, re-introduce the centralized **Jira Offline Blackboard Suite** (`E:\AG_saves\Jira-Offline-Blackboard`) for:
+    - Formal defect logging, reproduction steps, ground-truth logs, and severity prioritization (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`).
+    - Release certification gates (ensuring zero unresolved P0/P1 blockers before pushing public binary updates).
+    - Asynchronous multi-agent defect triage and regression verification.
+  - *Current Status*: Kept intentionally detached from active development to maximize engineering velocity and eliminate cognitive context saturation for AI agents.
+
 ---
 
-*Last Updated: 2026-09-08*
+*Last Updated: 2026-09-18*

@@ -44,7 +44,8 @@ const CURRENCY_SYMBOLS = Object.freeze({
   INR: '₹',
   USD: '$',
   EUR: '€',
-  GBP: '£'
+  GBP: '£',
+  JPY: '¥'
 });
 
 /**
@@ -58,7 +59,8 @@ const BOILERPLATE_HEADER_PATTERNS = [
   /^(customer\s+copy|merchant\s+copy|pos\s+slip|terminal\s+slip)$/i,
   /^(order\s+id|invoice\s+no|bill\s+no|token\s+no|table\s+no)[:\s]/i,
   /^(tel|phone|ph|mobile|email|website|gstin|gst\s+no)[:\s]/i,
-  /^(google\s*pay|phonepe|paytm|bhim|upi\s+transaction|payment\s+successful|completed|paid\s+successfully)$/i
+  /^(google\s*pay|phonepe|paytm|bhim|upi\s+transaction|payment\s+successful|completed|paid\s+successfully)$/i,
+  /^[- \s]*page\s+\d+(\s+of\s+\d+)?[- \s]*$/i
 ];
 
 /**
@@ -284,14 +286,24 @@ class ReceiptTier1Engine {
       const lineItems = this.extractLineItems(lines);
       const category = this.inferCategory(merchant, rawText, lineItems);
 
-      // Resolve Currency
+      // Resolve Currency (Document Currency Override - SPEC-102)
       let currency = 'INR';
-      if (/\b(?:USD|\$)\b/i.test(rawText) && !/\b(?:INR|₹|Rs\.?)\b/i.test(rawText)) {
+      const hasUSD = /(?:\$|\bUSD\b)/i.test(rawText);
+      const hasEUR = /(?:€|\bEUR\b)/i.test(rawText);
+      const hasGBP = /(?:£|\bGBP\b)/i.test(rawText);
+      const hasJPY = /(?:¥|\bJPY\b)/i.test(rawText);
+      const hasINR = /(?:₹|\b(?:INR|Rs\.?)\b)/i.test(rawText);
+
+      if (hasUSD && !hasINR) {
         currency = 'USD';
-      } else if (/\b(?:EUR|€)\b/i.test(rawText)) {
+      } else if (hasEUR && !hasINR) {
         currency = 'EUR';
-      } else if (/\b(?:GBP|£)\b/i.test(rawText)) {
+      } else if (hasGBP && !hasINR) {
         currency = 'GBP';
+      } else if (hasJPY && !hasINR) {
+        currency = 'JPY';
+      } else if (hasINR) {
+        currency = 'INR';
       }
 
       const totalAmount = totalExtraction.total;

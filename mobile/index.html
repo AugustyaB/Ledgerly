@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#12151a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Ledgerly Mobile</title>
+  </head>
+  <body>
+    <div id="mobile-app">
+      <!-- Fixed Safe-Area Header -->
+      <header class="mobile-header">
+        <div class="header-brand">
+          <div class="brand-dot"></div>
+          <span class="brand-title">Ledgerly<span>.</span></span>
+        </div>
+        <div class="header-status">
+          <span class="status-indicator-dot"></span>
+          <span>OFFLINE READY</span>
+        </div>
+      </header>
+
+      <!-- Scrollable Tab Viewport -->
+      <main class="tab-viewport" id="tab-viewport"></main>
+
+      <!-- Fixed OpenGym-Inspired 4-Tab Bottom Dock -->
+      <nav class="mobile-dock" id="mobile-dock" role="navigation" aria-label="Main Mobile Navigation">
+        <!-- 1. Capture Tab -->
+        <button type="button" class="dock-item active" data-tab="capture" aria-label="Capture Receipt" role="tab">
+          <div class="dock-active-pill"></div>
+          <div class="dock-icon-wrap" data-icon="camera" data-icon-size="22"></div>
+          <span class="dock-label">Capture</span>
+        </button>
+
+        <!-- 2. Queue Tab -->
+        <button type="button" class="dock-item" data-tab="queue" aria-label="Receipt Queue" role="tab">
+          <div class="dock-active-pill"></div>
+          <div class="dock-icon-wrap" data-icon="receipt" data-icon-size="22">
+            <span class="dock-badge" id="dock-queue-badge" style="display: none;">0</span>
+          </div>
+          <span class="dock-label">Queue</span>
+        </button>
+
+        <!-- 3. Quick Add Tab -->
+        <button type="button" class="dock-item" data-tab="quick-add" aria-label="Quick Offline Add" role="tab">
+          <div class="dock-active-pill"></div>
+          <div class="dock-icon-wrap" data-icon="zap" data-icon-size="22"></div>
+          <span class="dock-label">Quick Add</span>
+        </button>
+
+        <!-- 4. Sync Status Tab -->
+        <button type="button" class="dock-item" data-tab="sync" aria-label="Local Sync" role="tab">
+          <div class="dock-active-pill"></div>
+          <div class="dock-icon-wrap" data-icon="wifi" data-icon-size="22"></div>
+          <span class="dock-label">Sync</span>
+        </button>
+      </nav>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -134,8 +134,29 @@ class ExpenseStorage {
     return this.profiles.getActiveData();
   }
 
+  getActiveData() {
+    return this.profiles.getActiveData();
+  }
+
   saveData(data) {
     return this.profiles.saveActiveData(data);
+  }
+
+  saveActiveData(data) {
+    return this.profiles.saveActiveData(data);
+  }
+
+  getProfileData(profileId) {
+    return this.profiles.getProfileData(profileId);
+  }
+
+  saveProfileData(profileId, data) {
+    return this.profiles.saveProfileData(profileId, data);
+  }
+
+  getActiveProfileId() {
+    const active = this.getActiveProfile();
+    return active ? active.id : null;
   }
 
   getProfiles() {
@@ -183,6 +204,10 @@ class ExpenseStorage {
   }
 
   getExpenses() {
+    return this.expenses.getAll();
+  }
+
+  getAllExpenses() {
     return this.expenses.getAll();
   }
 
@@ -406,6 +431,82 @@ class ExpenseStorage {
   generateDiagnosticReport(appVersion = '0.4.7') {
     const DiagnosticExporter = require('./services/DiagnosticExporter');
     return DiagnosticExporter.generateReport(this.db, appVersion);
+  }
+
+  // ==========================================================================
+  // Mobile LAN Pairing & Synced Devices Management (Phase 0.6.3)
+  // ==========================================================================
+
+  getPairedDevices() {
+    const root = this.db.read();
+    const devices = Array.isArray(root.pairedDevices) ? root.pairedDevices : [];
+    // Return sanitized copy excluding tokenHash for security
+    return devices.map(d => ({
+      deviceId: d.deviceId,
+      deviceName: d.deviceName,
+      pairedAt: d.pairedAt,
+      lastSeenAt: d.lastSeenAt,
+      permissions: d.permissions || ['sync:push', 'sync:pull', 'sync:receipt']
+    }));
+  }
+
+  addPairedDevice(device) {
+    if (!device || !device.deviceId || !device.tokenHash) {
+      return { success: false, error: 'Invalid device payload' };
+    }
+    const root = this.db.read();
+    if (!Array.isArray(root.pairedDevices)) {
+      root.pairedDevices = [];
+    }
+    const existingIdx = root.pairedDevices.findIndex(d => d.deviceId === device.deviceId);
+    const record = {
+      deviceId: device.deviceId,
+      deviceName: device.deviceName || 'Mobile Companion',
+      tokenHash: device.tokenHash,
+      targetProfileId: device.targetProfileId || null,
+      pairedAt: device.pairedAt || new Date().toISOString(),
+      lastSeenAt: device.lastSeenAt || new Date().toISOString(),
+      permissions: device.permissions || ['sync:push', 'sync:pull', 'sync:receipt']
+    };
+    if (existingIdx !== -1) {
+      root.pairedDevices[existingIdx] = record;
+    } else {
+      root.pairedDevices.push(record);
+    }
+    this.db.write(root);
+    return { success: true, device: record };
+  }
+
+  findPairedDeviceByTokenHash(tokenHash) {
+    if (!tokenHash) return null;
+    const root = this.db.read();
+    const devices = Array.isArray(root.pairedDevices) ? root.pairedDevices : [];
+    return devices.find(d => d.tokenHash === tokenHash) || null;
+  }
+
+  updatePairedDeviceLastSeen(deviceId) {
+    if (!deviceId) return false;
+    const root = this.db.read();
+    const devices = Array.isArray(root.pairedDevices) ? root.pairedDevices : [];
+    const target = devices.find(d => d.deviceId === deviceId);
+    if (target) {
+      target.lastSeenAt = new Date().toISOString();
+      this.db.write(root);
+      return true;
+    }
+    return false;
+  }
+
+  revokePairedDevice(deviceId) {
+    if (!deviceId) return { success: false, error: 'Device ID is required' };
+    const root = this.db.read();
+    if (!Array.isArray(root.pairedDevices)) {
+      return { success: true, removed: false };
+    }
+    const initialLen = root.pairedDevices.length;
+    root.pairedDevices = root.pairedDevices.filter(d => d.deviceId !== deviceId);
+    this.db.write(root);
+    return { success: true, removed: root.pairedDevices.length < initialLen };
   }
 }
 

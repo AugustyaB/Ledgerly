@@ -1247,6 +1247,10 @@
                   <i data-icon="bell" data-icon-size="16"></i>
                   <span>Notifications & Alerts</span>
                 </div>
+                <div class="settings-nav-item" data-settings-target="settings-sync-pane">
+                  <i data-icon="smartphone" data-icon-size="16"></i>
+                  <span>Mobile & Wi-Fi Sync</span>
+                </div>
               </nav>
 
               <!-- RIGHT: Content Panel -->
@@ -2113,6 +2117,15 @@
                         </button>
                       </div>
                     </form>
+                  </div>
+                </section>
+
+                <div class="settings-section-divider"></div>
+
+                <!-- Section 6: Mobile Companion & Wi-Fi Sync (Phase 0.6.3 / BUG-007) -->
+                <section id="settings-sync-pane" class="settings-pane settings-section">
+                  <div id="settings-sync-pane-container">
+                    <!-- Rendered dynamically by SettingsView.renderMobileSyncPane() -->
                   </div>
                 </section>
               </div>

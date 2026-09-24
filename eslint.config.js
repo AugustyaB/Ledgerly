@@ -13,7 +13,9 @@ module.exports = [
       'node_modules/**',
       'scratch/**',
       'dist-unpack/**',
-      'assets/**'
+      'assets/**',
+      'mobile/dist/**',
+      'mobile/android/**'
     ]
   },
 
@@ -126,6 +128,55 @@ module.exports = [
         renderMonogram: 'readonly',
         ICON_SVG_MAP: 'readonly',
         Chart: 'readonly'
+      }
+    },
+    rules: {
+      'no-undef': 'error',
+      'no-unused-vars': [
+        'warn',
+        {
+          vars: 'all',
+          args: 'none',
+          ignoreRestSiblings: true,
+          varsIgnorePattern: '^_'
+        }
+      ]
+    }
+  },
+
+  // Dedicated ES Module configuration for mobile companion
+  {
+    files: ['mobile/src/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        HTMLElement: 'readonly',
+        HTMLInputElement: 'readonly',
+        Event: 'readonly',
+        CustomEvent: 'readonly',
+        FileReader: 'readonly',
+        Image: 'readonly',
+        Blob: 'readonly',
+        File: 'readonly',
+        URL: 'readonly',
+        fetch: 'readonly',
+        AbortController: 'readonly',
+        indexedDB: 'readonly',
+        localStorage: 'readonly',
+        alert: 'readonly',
+        confirm: 'readonly',
+        prompt: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        Set: 'readonly',
+        Map: 'readonly'
       }
     },
     rules: {

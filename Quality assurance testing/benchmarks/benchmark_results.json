@@ -1,0 +1,942 @@
+{
+  "timestamp": "2026-09-11T22:00:36.540Z",
+  "milestone": "v0.5.9 Model Performance Audit",
+  "totalSamples": 17,
+  "tier1Metrics": {
+    "totalTests": 17,
+    "totalMatches": 10,
+    "merchantMatches": 9,
+    "dateMatches": 9,
+    "negativePassed": 3,
+    "avgLatencyMs": 232,
+    "totalAccuracyPct": 71.4,
+    "merchantAccuracyPct": 64.3,
+    "dateAccuracyPct": 64.3,
+    "negativeRejectionPct": 100
+  },
+  "tier2Metrics": {
+    "totalTests": 17,
+    "totalMatches": 11,
+    "merchantMatches": 11,
+    "dateMatches": 10,
+    "negativePassed": 3,
+    "avgLatencyMs": 211,
+    "totalAccuracyPct": 78.6,
+    "merchantAccuracyPct": 78.6,
+    "dateAccuracyPct": 71.4,
+    "negativeRejectionPct": 100
+  },
+  "tier3Metrics": {
+    "totalTests": 17,
+    "totalMatches": 13,
+    "merchantMatches": 11,
+    "dateMatches": 10,
+    "negativePassed": 3,
+    "avgLatencyMs": 207,
+    "totalAccuracyPct": 92.9,
+    "merchantAccuracyPct": 78.6,
+    "dateAccuracyPct": 71.4,
+    "negativeRejectionPct": 100
+  },
+  "sampleBreakdown": [
+    {
+      "id": "sample_01_uber_trip_pdf",
+      "category": "vector_pdf_digital",
+      "expected": {
+        "isTransaction": true,
+        "total": 24.5,
+        "subtotal": 21.3,
+        "merchant": "Uber",
+        "date": "2026-08-12",
+        "currency": "USD",
+        "category": "Transportation",
+        "paymentMethod": "Credit Card"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": false,
+          "dateMatch": true,
+          "actualTotal": 24.5,
+          "actualMerchant": "Page 1 of 1 ---",
+          "actualDate": "2026-08-12",
+          "currency": "INR"
+        },
+        "latencyMs": 130
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": false,
+          "merchantMatch": false,
+          "dateMatch": true,
+          "actualTotal": 21.3,
+          "actualMerchant": "--- Page 1 of 1 ---",
+          "actualDate": "2026-08-12",
+          "currency": "INR"
+        },
+        "latencyMs": 13,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": false,
+          "dateMatch": true,
+          "actualTotal": 24.5,
+          "actualMerchant": "--- Page 1 of 1 ---",
+          "actualDate": "2026-08-12",
+          "currency": "USD"
+        },
+        "latencyMs": 12,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_02_amazon_invoice_pdf",
+      "category": "vector_pdf_digital",
+      "expected": {
+        "isTransaction": true,
+        "total": 149.99,
+        "subtotal": 139.99,
+        "merchant": "Amazon",
+        "date": "2026-08-15",
+        "currency": "USD",
+        "category": "Shopping & Retail",
+        "paymentMethod": "Credit Card"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": false,
+          "dateMatch": true,
+          "actualTotal": 149.99,
+          "actualMerchant": "Page 1 of 1 ---",
+          "actualDate": "2026-08-15",
+          "currency": "INR"
+        },
+        "latencyMs": 10
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": false,
+          "dateMatch": true,
+          "actualTotal": 149.99,
+          "actualMerchant": "--- Page 1 of 1 ---",
+          "actualDate": "2026-08-15",
+          "currency": "INR"
+        },
+        "latencyMs": 6,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": false,
+          "dateMatch": true,
+          "actualTotal": 149.99,
+          "actualMerchant": "--- Page 1 of 1 ---",
+          "actualDate": "2026-08-15",
+          "currency": "USD"
+        },
+        "latencyMs": 7,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_03_swiggy_food_pdf",
+      "category": "vector_pdf_digital",
+      "expected": {
+        "isTransaction": true,
+        "total": 480,
+        "subtotal": 450,
+        "merchant": "Swiggy",
+        "date": "2026-08-18",
+        "currency": "INR",
+        "category": "Food & Dining",
+        "paymentMethod": "UPI / GPay"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": false,
+          "dateMatch": true,
+          "actualTotal": 480,
+          "actualMerchant": "Page 1 of 1 ---",
+          "actualDate": "2026-08-18",
+          "currency": "INR"
+        },
+        "latencyMs": 5
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": false,
+          "merchantMatch": false,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": "--- Page 1 of 1 ---",
+          "actualDate": "2026-08-18",
+          "currency": "INR"
+        },
+        "latencyMs": 7,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 480,
+          "actualMerchant": "Swiggy Instamart",
+          "actualDate": "2026-08-18",
+          "currency": "INR"
+        },
+        "latencyMs": 8,
+        "specialist": "tier3-regional-in"
+      }
+    },
+    {
+      "id": "sample_04_trader_joes_retail",
+      "category": "retail_paper_camera",
+      "expected": {
+        "isTransaction": true,
+        "total": 12.06,
+        "subtotal": 10.96,
+        "merchant": "Trader Joe's",
+        "date": "2026-07-23",
+        "currency": "USD",
+        "category": "Food & Dining"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 12.06,
+          "actualMerchant": "Trader Joe's",
+          "actualDate": "2026-07-23",
+          "currency": "INR"
+        },
+        "latencyMs": 747
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 12.06,
+          "actualMerchant": "Trader Joe's",
+          "actualDate": "2026-07-23",
+          "currency": "INR"
+        },
+        "latencyMs": 604,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 12.06,
+          "actualMerchant": "Trader Joe's",
+          "actualDate": "2026-07-23",
+          "currency": "USD"
+        },
+        "latencyMs": 591,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_05_target_store",
+      "category": "retail_paper_camera",
+      "expected": {
+        "isTransaction": true,
+        "total": 45.82,
+        "subtotal": 42,
+        "merchant": "Target",
+        "date": "2026-08-04",
+        "currency": "USD",
+        "category": "Shopping & Retail"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 45.82,
+          "actualMerchant": "Target",
+          "actualDate": "2026-08-04",
+          "currency": "INR"
+        },
+        "latencyMs": 301
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 45.82,
+          "actualMerchant": "Target",
+          "actualDate": "2026-08-04",
+          "currency": "INR"
+        },
+        "latencyMs": 305,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 45.82,
+          "actualMerchant": "Target",
+          "actualDate": "2026-08-04",
+          "currency": "USD"
+        },
+        "latencyMs": 311,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_06_faded_thermal_pos",
+      "category": "faded_thermal_degraded",
+      "expected": {
+        "isTransaction": true,
+        "total": 15.99,
+        "subtotal": 14.5,
+        "merchant": "Shell Oil",
+        "date": "2026-08-01",
+        "currency": "USD",
+        "category": "Transportation"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 15.99,
+          "actualMerchant": "Shell Oil # 9214",
+          "actualDate": "2026-08-01",
+          "currency": "INR"
+        },
+        "latencyMs": 171
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 15.99,
+          "actualMerchant": "SHELL OIL # 9214",
+          "actualDate": "2026-08-01",
+          "currency": "INR"
+        },
+        "latencyMs": 168,
+        "specialist": "tier2-vision-degraded"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 15.99,
+          "actualMerchant": "Shell",
+          "actualDate": "2026-08-01",
+          "currency": "USD"
+        },
+        "latencyMs": 169,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_07_crumpled_creased_paper",
+      "category": "faded_thermal_degraded",
+      "expected": {
+        "isTransaction": true,
+        "total": 34.5,
+        "subtotal": 30,
+        "merchant": "Best Buy",
+        "date": "2026-07-19",
+        "currency": "USD",
+        "category": "Office & Tech"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": false,
+          "actualTotal": 34.5,
+          "actualMerchant": "Best Buy Store # 819",
+          "actualDate": "2026-07-13",
+          "currency": "INR"
+        },
+        "latencyMs": 196
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": false,
+          "actualTotal": 34.5,
+          "actualMerchant": "BEST BUY STORE # 819",
+          "actualDate": "2026-07-13",
+          "currency": "INR"
+        },
+        "latencyMs": 193,
+        "specialist": "tier2-vision-degraded"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": false,
+          "actualTotal": 34.5,
+          "actualMerchant": "Best Buy Store  819",
+          "actualDate": "2026-07-13",
+          "currency": "USD"
+        },
+        "latencyMs": 203,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_08_stamped_paid_receipt",
+      "category": "faded_thermal_degraded",
+      "expected": {
+        "isTransaction": true,
+        "total": 85,
+        "merchant": "Office Depot",
+        "date": "2026-08-08",
+        "currency": "USD",
+        "category": "Office & Tech"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": false,
+          "actualTotal": 85,
+          "actualMerchant": "Office Depot",
+          "actualDate": "2026-09-11",
+          "currency": "INR"
+        },
+        "latencyMs": 213
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": false,
+          "actualTotal": 85,
+          "actualMerchant": "OFFICE DEPOT",
+          "actualDate": "2026-09-11",
+          "currency": "INR"
+        },
+        "latencyMs": 239,
+        "specialist": "tier2-vision-degraded"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": false,
+          "actualTotal": 85,
+          "actualMerchant": "Office Depot",
+          "actualDate": "2026-09-11",
+          "currency": "USD"
+        },
+        "latencyMs": 233,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_09_dining_with_tip",
+      "category": "complex_tables_traps",
+      "expected": {
+        "isTransaction": true,
+        "total": 83.2,
+        "subtotal": 65,
+        "tipAmount": 13,
+        "merchant": "Blue Tokai Coffee Roasters",
+        "date": "2026-08-14",
+        "currency": "USD",
+        "category": "Food & Dining"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 83.2,
+          "actualMerchant": "Blue Tokai Coffee Roasters",
+          "actualDate": "2026-08-14",
+          "currency": "INR"
+        },
+        "latencyMs": 427
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 83.2,
+          "actualMerchant": "BLUE TOKAI COFFEE ROASTERS",
+          "actualDate": "2026-08-14",
+          "currency": "INR"
+        },
+        "latencyMs": 344,
+        "specialist": "tier2-vision-precision"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 83.2,
+          "actualMerchant": "Blue Tokai Coffee Roasters",
+          "actualDate": "2026-08-14",
+          "currency": "USD"
+        },
+        "latencyMs": 328,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_10_tendered_vs_change_trap",
+      "category": "complex_tables_traps",
+      "expected": {
+        "isTransaction": true,
+        "total": 24,
+        "merchant": "Whole Foods Market",
+        "date": "2026-08-09",
+        "currency": "USD",
+        "category": "Food & Dining"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": false,
+          "merchantMatch": true,
+          "dateMatch": false,
+          "actualTotal": 100,
+          "actualMerchant": "Whole Foods Market",
+          "actualDate": "2026-08-03",
+          "currency": "INR"
+        },
+        "latencyMs": 198
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": false,
+          "actualTotal": 24,
+          "actualMerchant": "Whole Foods Market",
+          "actualDate": "2026-08-03",
+          "currency": "INR"
+        },
+        "latencyMs": 194,
+        "specialist": "tier2-vision-precision"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": false,
+          "dateMatch": false,
+          "actualTotal": 24,
+          "actualMerchant": "Kroger",
+          "actualDate": "2026-08-03",
+          "currency": "USD"
+        },
+        "latencyMs": 194,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_11_promotional_you_saved_trap",
+      "category": "complex_tables_traps",
+      "expected": {
+        "isTransaction": true,
+        "total": 52.3,
+        "merchant": "Kroger",
+        "date": "2026-08-11",
+        "currency": "USD",
+        "category": "Food & Dining"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 52.3,
+          "actualMerchant": "Kroger Supermarket",
+          "actualDate": "2026-08-11",
+          "currency": "INR"
+        },
+        "latencyMs": 194
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 52.3,
+          "actualMerchant": "KROGER SUPERMARKET",
+          "actualDate": "2026-08-11",
+          "currency": "INR"
+        },
+        "latencyMs": 190,
+        "specialist": "tier2-vision-precision"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 52.3,
+          "actualMerchant": "Kroger",
+          "actualDate": "2026-08-11",
+          "currency": "USD"
+        },
+        "latencyMs": 189,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_12_india_gstin_invoice",
+      "category": "regional_tax_invoices",
+      "expected": {
+        "isTransaction": true,
+        "total": 1532.82,
+        "merchant": "Croma Electronics",
+        "date": "2026-08-20",
+        "currency": "INR",
+        "gstin": "27AABCC1234D1Z8",
+        "category": "Office & Tech"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": false,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 71299,
+          "actualMerchant": "Croma Electronics",
+          "actualDate": "2026-08-20",
+          "currency": "INR"
+        },
+        "latencyMs": 235
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 1532.82,
+          "actualMerchant": "CROMA ELECTRONICS",
+          "actualDate": "2026-08-20",
+          "currency": "INR"
+        },
+        "latencyMs": 252,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": false,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 71299,
+          "actualMerchant": "Croma",
+          "actualDate": "2026-08-20",
+          "currency": "INR"
+        },
+        "latencyMs": 226,
+        "specialist": "tier3-regional-in"
+      }
+    },
+    {
+      "id": "sample_13_india_upi_payment",
+      "category": "regional_tax_invoices",
+      "expected": {
+        "isTransaction": true,
+        "total": 350,
+        "merchant": "Chai Point",
+        "date": "2026-08-25",
+        "currency": "INR",
+        "category": "Food & Dining",
+        "paymentMethod": "UPI / GPay"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": false,
+          "totalMatch": false,
+          "merchantMatch": false,
+          "dateMatch": false,
+          "actualTotal": null,
+          "actualMerchant": null,
+          "actualDate": null
+        },
+        "latencyMs": 208
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": false,
+          "actualTotal": 350,
+          "actualMerchant": "CHAI POINT",
+          "actualDate": "2026-09-11",
+          "currency": "JPY"
+        },
+        "latencyMs": 202,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": 350,
+          "actualMerchant": "Chai Point",
+          "actualDate": "2026-08-25",
+          "currency": "INR"
+        },
+        "latencyMs": 226,
+        "specialist": "tier3-regional-in"
+      }
+    },
+    {
+      "id": "sample_14_europe_vat_comma_decimal",
+      "category": "regional_tax_invoices",
+      "expected": {
+        "isTransaction": true,
+        "total": 29.75,
+        "subtotal": 25,
+        "merchant": "MediaMarkt",
+        "date": "2026-08-15",
+        "currency": "EUR",
+        "category": "Office & Tech"
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": false,
+          "totalMatch": false,
+          "merchantMatch": false,
+          "dateMatch": false,
+          "actualTotal": null,
+          "actualMerchant": null,
+          "actualDate": null
+        },
+        "latencyMs": 184
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": false,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": "MEDIAMARKT BERLIN",
+          "actualDate": "2026-08-15",
+          "currency": "INR"
+        },
+        "latencyMs": 187,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": false,
+          "actualTotal": 29.75,
+          "actualMerchant": "Mediamarkt Berlin",
+          "actualDate": "2026-09-11",
+          "currency": "EUR"
+        },
+        "latencyMs": 158,
+        "specialist": "tier3-regional-eu"
+      }
+    },
+    {
+      "id": "sample_15_javascript_source_code",
+      "category": "negative_controls",
+      "expected": {
+        "isTransaction": false
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": null,
+          "actualDate": null,
+          "rejectionReason": "NO_FINANCIAL_TRANSACTION_DETECTED"
+        },
+        "latencyMs": 371
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": null,
+          "actualDate": null,
+          "rejectionReason": "NON_FINANCIAL_DOCUMENT"
+        },
+        "latencyMs": 379,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": null,
+          "actualDate": null,
+          "rejectionReason": "CODE_SNIPPET"
+        },
+        "latencyMs": 369,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_16_book_novel_page",
+      "category": "negative_controls",
+      "expected": {
+        "isTransaction": false
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": null,
+          "actualDate": null,
+          "rejectionReason": "NO_FINANCIAL_TRANSACTION_DETECTED"
+        },
+        "latencyMs": 347
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": null,
+          "actualDate": null,
+          "rejectionReason": "NON_FINANCIAL_DOCUMENT"
+        },
+        "latencyMs": 302,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": "Chapteriv",
+          "actualDate": "2026-09-11",
+          "rejectionReason": "Rejected successfully"
+        },
+        "latencyMs": 292,
+        "specialist": "tier3-regional-us"
+      }
+    },
+    {
+      "id": "sample_17_blurry_unfocused_photo",
+      "category": "negative_controls",
+      "expected": {
+        "isTransaction": false
+      },
+      "tier1": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": null,
+          "actualDate": null,
+          "rejectionReason": "EMPTY_DOCUMENT_TEXT"
+        },
+        "latencyMs": 7
+      },
+      "tier2": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": null,
+          "actualDate": null,
+          "rejectionReason": "EMPTY_DOCUMENT_TEXT"
+        },
+        "latencyMs": 9,
+        "specialist": "tier2-visionpro"
+      },
+      "tier3": {
+        "eval": {
+          "isTransactionMatch": true,
+          "totalMatch": true,
+          "merchantMatch": true,
+          "dateMatch": true,
+          "actualTotal": null,
+          "actualMerchant": null,
+          "actualDate": null,
+          "rejectionReason": "EMPTY_DOCUMENT_TEXT"
+        },
+        "latencyMs": 9,
+        "specialist": "tier3-regional-us"
+      }
+    }
+  ]
+}

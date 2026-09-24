@@ -179,6 +179,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getModelsStorageUsage: () => invokeIPC('get-models-storage-usage'),
   getActiveModel: () => invokeIPC('get-active-model'),
 
+  // Local Wi-Fi Pairing & LAN Sync Engine (Phase 0.6.3)
+  startSyncServer: () => invokeIPC('start-sync-server'),
+  stopSyncServer: () => invokeIPC('stop-sync-server'),
+  getSyncServerStatus: () => invokeIPC('get-sync-server-status'),
+  generatePairingToken: () => invokeIPC('generate-pairing-token'),
+  getPairedDevices: () => invokeIPC('get-paired-devices'),
+  revokePairedDevice: deviceId => invokeIPC('revoke-paired-device', deviceId),
+
   // Event Subscriptions
   onNavigateToTab: callback => {
     ipcRenderer.removeAllListeners('navigate-to-tab');

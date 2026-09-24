@@ -1,0 +1,253 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "milestone": "v0.5.9 Model Performance Audit",
+  "generatedAt": "2026-09-12",
+  "categories": [
+    "vector_pdf_digital",
+    "retail_paper_camera",
+    "faded_thermal_degraded",
+    "complex_tables_traps",
+    "regional_tax_invoices",
+    "negative_controls"
+  ],
+  "samples": [
+    {
+      "id": "sample_01_uber_trip_pdf",
+      "filename": "samples/sample_01_uber_trip.pdf",
+      "category": "vector_pdf_digital",
+      "description": "Digital vector PDF e-receipt for an Uber trip",
+      "expected": {
+        "isTransaction": true,
+        "total": 24.50,
+        "subtotal": 21.30,
+        "merchant": "Uber",
+        "date": "2026-08-12",
+        "currency": "USD",
+        "category": "Transportation",
+        "paymentMethod": "Credit Card"
+      }
+    },
+    {
+      "id": "sample_02_amazon_invoice_pdf",
+      "filename": "samples/sample_02_amazon_invoice.pdf",
+      "category": "vector_pdf_digital",
+      "description": "Digital vector PDF invoice for Amazon retail purchase",
+      "expected": {
+        "isTransaction": true,
+        "total": 149.99,
+        "subtotal": 139.99,
+        "merchant": "Amazon",
+        "date": "2026-08-15",
+        "currency": "USD",
+        "category": "Shopping & Retail",
+        "paymentMethod": "Credit Card"
+      }
+    },
+    {
+      "id": "sample_03_swiggy_food_pdf",
+      "filename": "samples/sample_03_swiggy_food.pdf",
+      "category": "vector_pdf_digital",
+      "description": "Digital vector PDF food delivery slip from Swiggy",
+      "expected": {
+        "isTransaction": true,
+        "total": 480.00,
+        "subtotal": 450.00,
+        "merchant": "Swiggy",
+        "date": "2026-08-18",
+        "currency": "INR",
+        "category": "Food & Dining",
+        "paymentMethod": "UPI / GPay"
+      }
+    },
+    {
+      "id": "sample_04_trader_joes_retail",
+      "filename": "samples/sample_04_trader_joes.png",
+      "category": "retail_paper_camera",
+      "description": "Clean physical paper receipt from Trader Joe's grocery store",
+      "expected": {
+        "isTransaction": true,
+        "total": 12.06,
+        "subtotal": 10.96,
+        "merchant": "Trader Joe's",
+        "date": "2026-07-23",
+        "currency": "USD",
+        "category": "Food & Dining"
+      }
+    },
+    {
+      "id": "sample_05_target_store",
+      "filename": "samples/sample_05_target_store.png",
+      "category": "retail_paper_camera",
+      "description": "Target store cash register printed paper receipt",
+      "expected": {
+        "isTransaction": true,
+        "total": 45.82,
+        "subtotal": 42.00,
+        "merchant": "Target",
+        "date": "2026-08-04",
+        "currency": "USD",
+        "category": "Shopping & Retail"
+      }
+    },
+    {
+      "id": "sample_06_faded_thermal_pos",
+      "filename": "samples/sample_06_faded_thermal.png",
+      "category": "faded_thermal_degraded",
+      "description": "Bleached thermal POS cash slip with degraded contrast",
+      "expected": {
+        "isTransaction": true,
+        "total": 15.99,
+        "subtotal": 14.50,
+        "merchant": "Shell Oil",
+        "date": "2026-08-01",
+        "currency": "USD",
+        "category": "Transportation"
+      }
+    },
+    {
+      "id": "sample_07_crumpled_creased_paper",
+      "filename": "samples/sample_07_crumpled_paper.png",
+      "category": "faded_thermal_degraded",
+      "description": "Pocket crumpled receipt with vertical crease line across total",
+      "expected": {
+        "isTransaction": true,
+        "total": 34.50,
+        "subtotal": 30.00,
+        "merchant": "Best Buy",
+        "date": "2026-07-19",
+        "currency": "USD",
+        "category": "Office & Tech"
+      }
+    },
+    {
+      "id": "sample_08_stamped_paid_receipt",
+      "filename": "samples/sample_08_stamped_paid.png",
+      "category": "faded_thermal_degraded",
+      "description": "Office supply invoice with large red 'PAID' stamp across subtotal",
+      "expected": {
+        "isTransaction": true,
+        "total": 85.00,
+        "merchant": "Office Depot",
+        "date": "2026-08-08",
+        "currency": "USD",
+        "category": "Office & Tech"
+      }
+    },
+    {
+      "id": "sample_09_dining_with_tip",
+      "filename": "samples/sample_09_dining_tip.png",
+      "category": "complex_tables_traps",
+      "description": "Restaurant dining receipt with food subtotal, sales tax, tip, and grand total",
+      "expected": {
+        "isTransaction": true,
+        "total": 83.20,
+        "subtotal": 65.00,
+        "tipAmount": 13.00,
+        "merchant": "Blue Tokai Coffee Roasters",
+        "date": "2026-08-14",
+        "currency": "USD",
+        "category": "Food & Dining"
+      }
+    },
+    {
+      "id": "sample_10_tendered_vs_change_trap",
+      "filename": "samples/sample_10_tender_trap.png",
+      "category": "complex_tables_traps",
+      "description": "Cash receipt with Cash Tendered $100 and Change Due $76 (Actual Total $24.00)",
+      "expected": {
+        "isTransaction": true,
+        "total": 24.00,
+        "merchant": "Whole Foods Market",
+        "date": "2026-08-09",
+        "currency": "USD",
+        "category": "Food & Dining"
+      }
+    },
+    {
+      "id": "sample_11_promotional_you_saved_trap",
+      "filename": "samples/sample_11_saved_trap.png",
+      "category": "complex_tables_traps",
+      "description": "Supermarket receipt with Total $52.30 and 'YOU SAVED $14.20 TODAY! BALANCE DUE: $0.00'",
+      "expected": {
+        "isTransaction": true,
+        "total": 52.30,
+        "merchant": "Kroger",
+        "date": "2026-08-11",
+        "currency": "USD",
+        "category": "Food & Dining"
+      }
+    },
+    {
+      "id": "sample_12_india_gstin_invoice",
+      "filename": "samples/sample_12_india_gstin.png",
+      "category": "regional_tax_invoices",
+      "description": "Indian tax invoice with 15-character GSTIN, CGST, SGST, and Grand Total",
+      "expected": {
+        "isTransaction": true,
+        "total": 1532.82,
+        "merchant": "Croma Electronics",
+        "date": "2026-08-20",
+        "currency": "INR",
+        "gstin": "27AABCC1234D1Z8",
+        "category": "Office & Tech"
+      }
+    },
+    {
+      "id": "sample_13_india_upi_payment",
+      "filename": "samples/sample_13_upi_payment.png",
+      "category": "regional_tax_invoices",
+      "description": "Google Pay UPI digital payment screenshot with UTR reference ID",
+      "expected": {
+        "isTransaction": true,
+        "total": 350.00,
+        "merchant": "Chai Point",
+        "date": "2026-08-25",
+        "currency": "INR",
+        "category": "Food & Dining",
+        "paymentMethod": "UPI / GPay"
+      }
+    },
+    {
+      "id": "sample_14_europe_vat_comma_decimal",
+      "filename": "samples/sample_14_europe_vat.png",
+      "category": "regional_tax_invoices",
+      "description": "European German receipt with 19% MwSt and comma decimal amounts (29,75 €)",
+      "expected": {
+        "isTransaction": true,
+        "total": 29.75,
+        "subtotal": 25.00,
+        "merchant": "MediaMarkt",
+        "date": "2026-08-15",
+        "currency": "EUR",
+        "category": "Office & Tech"
+      }
+    },
+    {
+      "id": "sample_15_javascript_source_code",
+      "filename": "samples/sample_15_source_code.png",
+      "category": "negative_controls",
+      "description": "Negative Control: Screenshot of JavaScript source code",
+      "expected": {
+        "isTransaction": false
+      }
+    },
+    {
+      "id": "sample_16_book_novel_page",
+      "filename": "samples/sample_16_novel_page.png",
+      "category": "negative_controls",
+      "description": "Negative Control: Scanned page from a literary fiction book",
+      "expected": {
+        "isTransaction": false
+      }
+    },
+    {
+      "id": "sample_17_blurry_unfocused_photo",
+      "filename": "samples/sample_17_blurry_photo.png",
+      "category": "negative_controls",
+      "description": "Negative Control: Completely blurred, out-of-focus camera snap",
+      "expected": {
+        "isTransaction": false
+      }
+    }
+  ]
+}
