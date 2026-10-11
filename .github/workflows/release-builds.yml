@@ -1,0 +1,122 @@
+name: Multi-Platform Release Packaging (Desktop & Mobile)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Windows Desktop Installer (.exe NSIS)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check
+      - run: npm run dist:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ledgerly-Windows-NSIS-Installer
+          path: dist/*.exe
+          retention-days: 30
+      - name: Attach Windows Installer to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe
+
+  build-macos-and-ios:
+    name: macOS Desktop (.dmg/.zip) & iOS Companion (.xcarchive)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install dependencies
+        run: |
+          npm ci
+          ln -sfn "$GITHUB_WORKSPACE/node_modules" "$GITHUB_WORKSPACE/mobile/node_modules"
+      - name: Build macOS Desktop (.dmg & .zip)
+        run: npm run dist:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: Build & Archive iOS Companion (.xcarchive)
+        run: |
+          npm run mobile:build
+          cd mobile && npx cap sync ios
+          cd ios/App && pod install
+          xcodebuild -workspace App.xcworkspace \
+                     -scheme App \
+                     -configuration Release \
+                     -destination 'generic/platform=iOS' \
+                     -archivePath build/App.xcarchive \
+                     archive \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_IDENTITY=""
+          cd build && tar -czf Ledgerly-iOS-App.xcarchive.tar.gz App.xcarchive
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ledgerly-macOS-Desktop-and-iOS-Companion
+          path: |
+            dist/*.dmg
+            dist/*-mac.zip
+            mobile/ios/App/build/Ledgerly-iOS-App.xcarchive.tar.gz
+          retention-days: 30
+      - name: Attach macOS & iOS Artifacts to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.dmg
+            dist/*-mac.zip
+            mobile/ios/App/build/Ledgerly-iOS-App.xcarchive.tar.gz
+
+  build-linux-and-android:
+    name: Linux Desktop (.AppImage/.deb) & Android Companion (.apk)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - run: npm ci
+      - name: Build Linux Desktop (.AppImage & .deb)
+        run: npm run dist:linux
+      - name: Build Android Companion APK
+        run: |
+          npm run mobile:build
+          npm -w mobile exec -- cap sync android
+          cd mobile/android && chmod +x gradlew && ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/dist/Ledgerly-Android-Companion.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ledgerly-Linux-Desktop-and-Android-APK
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/Ledgerly-Android-Companion.apk
+          retention-days: 30
+      - name: Attach Linux & Android Artifacts to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/Ledgerly-Android-Companion.apk

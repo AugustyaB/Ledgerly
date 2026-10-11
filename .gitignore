@@ -28,7 +28,8 @@ models/
 
 # Build and distribution outputs
 dist/
-build/
+build/*
+!build/installer.nsh
 
 # Logs
 *.log
