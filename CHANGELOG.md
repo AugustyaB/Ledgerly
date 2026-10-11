@@ -15,6 +15,8 @@ The project follows a structured semantic versioning taxonomy:
   - `v0.4.7` (Phase 7): Enterprise Resilience, Tier 2 UX Enhancements, Startup DB Integrity & Offline Conflict Engine (Current Completed State — Concludes Version 0.4 Milestone)
 
 Historical Alpha Milestones:
+- **v0.8.5**: Adaptive Receipt Vision (deskew, field confidence, merchant alias learning), EDA 10k-row rollups, Fuzzy Statement Reconciliation Cockpit, Zombie Subscription Hunter, and Zero-Config LAN UDP Discovery & Optical QR Pairing.
+- **v0.7.0**: Smart Mirror Vault (multi-path SHA-256 backup rotation & self-healing), Configurable Alert Rules Engine, and Pairwise Debt Settlement Polish.
 - **v0.6.6**: Capacitor mobile companion, offline IndexedDB camera queue, zero-cloud Local LAN Wi-Fi sync, Android debug APK, Apple iOS WebKit/ATS containerization, and macOS GitHub Actions CI/CD.
 - **v0.5.9**: On-device machine learning document intelligence, multi-tier receipt processing (Tier 1 Fast-Lite, Tier 2 Vision Specialists, Tier 3 Regional Models), Smart Document Analyzer, and handy-style Model Manager.
 - **v0.4.7**: Major codebase restructuring, domain decomposition, event delegation, and enterprise resilience.
@@ -23,7 +25,37 @@ Historical Alpha Milestones:
 - **v0.1.0**: Initial offline desktop foundation, local JSON storage, express bar, presets, salary pace.
 
 Future Milestone:
+- **v0.9.0**: Section-by-Section UX Refinement & Multi-Purpose NSIS Installer Suite.
 - **v1.0.0**: First official production release ready for user deployment and download.
+
+---
+
+# Version 0.8: Intelligent Financial Automation, Fuzzy Reconciliation & Zero-Config LAN QR Sync
+> *Succeeds Version 0.7.0. Delivers Adaptive Receipt Vision, 10,000-row EDA Rollups, Tri-State Statement Reconciliation, Zombie Subscription Hunter, What-If Burn-Rate Forecasting, and Zero-Config UDP + Optical QR Mobile Pairing.*
+
+## [0.8.5] - Phase 5: Zero-Config LAN Discovery, Optical QR Pairing & 5-Layer Architecture Verification (2026-10-12)
+> *Concludes Version 0.8 Milestone*
+
+### 📡 Zero-Config LAN UDP Discovery & Optical QR Pairing (`Phase 0.8.5`)
+- **Ephemeral UDP Beacon (`src/services/LanBeaconService.js`)**: Native Node `dgram` broadcast beacon & `DISCOVER_LEDGERLY` probe responder on port `52411` with 5-minute TTL auto-shutdown.
+- **Zero-Dependency SVG QR Generator (`src/utils/qrCodeGenerator.js`)**: Pure-JS ISO/IEC 18004 QR Code matrix builder (`LEDGERLY_PAIR_V1` URI) rendered in `SettingsView.js`, paired with optical camera QR scanning in `mobile/src/views/SyncView.js`.
+- **Per-IP Rate Limiting (`src/services/SyncServer.js`)**: 15-attempt PIN lockout bucket with 60s cooldown, HTTP `429 Retry-After`, and `securityConfig_v1` schema persistence.
+
+### 🧠 Adaptive Vision, EDA Rollups, Statement Reconciliation & Subscription Hunter (`Phases 0.8.1 – 0.8.4`)
+- **Adaptive Receipt Vision (`ReceiptLearningService.js`, `DocumentNormalizer.js`)**: Canvas deskew/contrast pre-processing, field-level confidence scoring (`0.0–1.0`), merchant alias learning loop, and repeat vendor layout memory.
+- **EDA & High-Scale Rollups (`DataQualityAuditor.js`, `AggregationRollupService.js`, `FinancialIntelligenceFacade.js`)**: Sub-5ms 4-way rollups across 10,000 transactions and non-destructive ledger quality sanitization.
+- **Fuzzy Statement Reconciliation (`StatementReconciliationService.js`)**: Composite matching (±5% amount, ±48h window, Levenshtein distance) with "The Coffee Invariant" bijection guard and Tri-State Reconciliation Cockpit in `ImportView.js`.
+- **Subscription Hunter & Data-Gated Foresight (`SubscriptionHunterService.js`, `foresightEngine.js`)**: Cadence & price-hike detection across 5 billing intervals, safe-to-spend velocity alerts, and 20-day gated burn-rate simulation.
+- **5-Layer × 6-Section Boundary Contract (`scripts/check-architecture-layers.js`)**: Automated AST import verifier enforcing strict `L1–L5B` horizontal layer boundaries across all 75 JS files (`npm run check`).
+
+---
+
+# Version 0.7: Smart Mirror Vault, Configurable Alert Rules & Debt Settlement Polish
+> *Succeeds Version 0.6.6. Hardens local data durability with multi-folder SHA-256 mirrored backups, user-configurable alert thresholds, and household debt flow refinements.*
+
+## [0.7.0] - Milestone Release: Mirror Vault, Alert Rules Engine & Settlement Polish (2026-09-26)
+- **Smart Mirror Vault (`src/services/BackupMirrorService.js`)**: Up to 3 user-configured backup directories (`C:\`, `D:\`, USB/NAS), debounced sync, 10-snapshot rotation, SHA-256 manifest verification, and automatic startup self-healing in `JsonDatabase.js`.
+- **Configurable Alert Rules Engine (`NotificationEngine.js`, `SettingsView.js`)**: Per-category percentage thresholds, custom bill reminder lead days, quiet hours, and test-runner OS notification suppression.
 
 ---
 

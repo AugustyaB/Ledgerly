@@ -426,6 +426,24 @@ class HouseholdService {
           dueDay:
             billData.dueDay !== undefined ? parseInt(String(billData.dueDay), 10) || 1 : root.recurringBills[idx].dueDay
         };
+      } else {
+        root.recurringBills.push({
+          id: billData.id,
+          title: billData.title || 'Utility Bill',
+          icon: billData.icon || 'zap',
+          amount: parseFloat(String(billData.amount)) || 0,
+          category: billData.category || 'Utilities',
+          dueDay: parseInt(String(billData.dueDay), 10) || 1,
+          frequency: billData.frequency || 'monthly',
+          paidBy: billData.paidBy || 'Self',
+          splitWith: Array.isArray(billData.splitWith) ? billData.splitWith : ['Self', 'Partner'],
+          autoSplit: billData.autoSplit !== false,
+          lastPaidDate: billData.lastPaidDate || null,
+          accountNumber: billData.accountNumber || null,
+          autoPay: Boolean(billData.autoPay),
+          gracePeriodDays: billData.gracePeriodDays || 0,
+          metadata: billData.metadata || {}
+        });
       }
     } else {
       const newBill = {

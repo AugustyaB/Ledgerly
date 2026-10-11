@@ -8,14 +8,36 @@ class FileImporter {
   constructor(options = {}) {
     this._normalizer = options.normalizer || new DocumentNormalizer();
     this._tier1Engine = options.tier1Engine || null;
-    // Defined aliases based on specifications
+    // Defined aliases based on specifications (including European/DACH region bank formats)
     this.aliases = {
-      date: ['date', 'transaction date', 'posted date', 'trans date', 'posting date'],
-      amount: ['amount', 'debit', 'credit', 'sum', 'total', 'value'],
-      title: ['title', 'name', 'payee', 'merchant', 'vendor', 'description'],
-      category: ['category', 'type', 'group', 'class'],
-      description: ['description', 'memo', 'notes', 'details', 'narrative', 'reference'],
-      payment: ['payment method', 'payment type', 'method', 'payment']
+      date: ['date', 'transaction date', 'posted date', 'trans date', 'posting date', 'datum', 'buchungstag', 'valuta'],
+      amount: ['amount', 'debit', 'credit', 'sum', 'total', 'value', 'betrag', 'umsatz', 'wert'],
+      title: [
+        'title',
+        'name',
+        'payee',
+        'merchant',
+        'vendor',
+        'description',
+        'empfänger',
+        'empfaenger',
+        'begünstigter',
+        'auftraggeber',
+        'zahlungsbeteiligte'
+      ],
+      category: ['category', 'type', 'group', 'class', 'kategorie', 'rubrik'],
+      description: [
+        'description',
+        'memo',
+        'notes',
+        'details',
+        'narrative',
+        'reference',
+        'verwendungszweck',
+        'buchungstext',
+        'verwendung'
+      ],
+      payment: ['payment method', 'payment type', 'method', 'payment', 'zahlungsart']
     };
   }
 
@@ -112,18 +134,115 @@ class FileImporter {
     return mapping;
   }
 
+  /**
+   * Sniffs delimiter for CSV files across common candidates (; , \t |).
+   * Evaluates consistent unquoted occurrence frequency across header and sample rows.
+   * @param {string} content - Raw CSV text content.
+   * @returns {string} - Detected delimiter (default: ',').
+   */
+  _detectCSVDelimiter(content) {
+    const lines = content
+      .split(/\r?\n/)
+      .filter(line => line.trim().length > 0)
+      .slice(0, 10);
+    if (lines.length === 0) return ',';
+
+    const candidates = [';', '\t', '|', ','];
+    const scores = { ';': 0, '\t': 0, '|': 0, ',': 0 };
+
+    for (const cand of candidates) {
+      const counts = [];
+      for (const line of lines) {
+        let insideQuotes = false;
+        let count = 0;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            insideQuotes = !insideQuotes;
+          } else if (char === cand && !insideQuotes) {
+            count++;
+          }
+        }
+        counts.push(count);
+      }
+
+      if (counts.length > 0 && counts[0] > 0) {
+        const allSame = counts.every(c => c === counts[0]);
+        // Delimiters with uniform occurrences across all rows receive highest priority
+        if (allSame) {
+          scores[cand] = counts[0] * 10;
+        } else {
+          scores[cand] = counts.reduce((a, b) => a + b, 0);
+        }
+      }
+    }
+
+    let bestDelim = ',';
+    let maxScore = 0;
+    for (const cand of candidates) {
+      if (scores[cand] > maxScore) {
+        maxScore = scores[cand];
+        bestDelim = cand;
+      }
+    }
+
+    return bestDelim;
+  }
+
+  /**
+   * Normalizes raw monetary amounts across US/UK, Indian, and Continental European formats.
+   * Handles comma decimals (e.g. "29,75", "1.250,50"), thousands separators, and currency symbols.
+   * @param {string|number} rawVal - Raw value from statement cell or line.
+   * @returns {number|null} - Clean positive float or null if invalid.
+   */
+  _normalizeAmount(rawVal) {
+    if (typeof rawVal === 'number') {
+      return isNaN(rawVal) ? null : Math.abs(parseFloat(rawVal.toFixed(2)));
+    }
+    if (!rawVal) return null;
+
+    let clean = String(rawVal).trim();
+    // Strip currency symbols, country strings, accounting parentheses, and whitespace
+    clean = clean.replace(/(?:INR|USD|EUR|GBP|Rs\.?|[₹$€£()])/gi, '').trim();
+    if (!clean) return null;
+
+    const lastDot = clean.lastIndexOf('.');
+    const lastComma = clean.lastIndexOf(',');
+
+    if (lastDot !== -1 && lastComma !== -1) {
+      if (lastComma > lastDot) {
+        // European format: 1.250,50 -> 1250.50
+        clean = clean.replace(/\./g, '').replace(',', '.');
+      } else {
+        // Standard US/UK/Indian format: 1,250.50 -> 1250.50
+        clean = clean.replace(/,/g, '');
+      }
+    } else if (lastComma !== -1) {
+      const parts = clean.split(',');
+      if (parts.length === 2 && parts[1].length <= 2) {
+        // European decimal comma: 29,75 -> 29.75
+        clean = clean.replace(',', '.');
+      } else {
+        // Thousands separator: 1,000 -> 1000
+        clean = clean.replace(/,/g, '');
+      }
+    }
+
+    const val = parseFloat(clean);
+    if (isNaN(val)) return null;
+
+    // Treat negative amounts as expenses, rounded to 2 decimal places
+    return Math.abs(parseFloat(val.toFixed(2)));
+  }
+
   // --- CSV Parser ---
   _parseCSV(filePath) {
     try {
       const content = fs.readFileSync(filePath, 'utf8');
       if (!content.trim()) return this._errorResponse('File is empty', 'csv');
 
-      // Detect delimiter
-      const firstLine = content.split(/\r?\n/)[0];
-      let delimiter = ',';
-      if (firstLine.includes('\t')) delimiter = '\t';
-      else if (firstLine.includes(';')) delimiter = ';';
-      else if (firstLine.includes(',')) delimiter = ',';
+      // Sniff delimiter across candidates (;, \t, |, ,)
+      const delimiter = this._detectCSVDelimiter(content);
 
       // Parse rows
       const rows = [];
@@ -208,16 +327,10 @@ class FileImporter {
 
         const getVal = col => (col !== -1 && col < row.length ? row[col].trim() : '');
 
-        // Strip currency symbols, country strings, accounting parentheses, and formatting commas without stripping decimal points (BUG-001)
+        // Normalize monetary amount across international formats and decimals (BUG-001 / v0.7.2)
         const rawVal = getVal(bestMapping.amountCol);
-        const amountStr = String(rawVal)
-          .replace(/(?:INR|USD|EUR|Rs\.?|[₹$€£,()])/gi, '')
-          .trim();
-        let amount = parseFloat(amountStr);
-        if (isNaN(amount)) continue; // skip invalid amounts
-
-        // Treat negative amounts as expenses, rounded to 2 decimal places
-        amount = Math.abs(parseFloat(amount.toFixed(2)));
+        const amount = this._normalizeAmount(rawVal);
+        if (amount === null || isNaN(amount)) continue; // skip invalid amounts
 
         const dateStr = getVal(bestMapping.dateCol);
         const title = getVal(bestMapping.titleCol);
@@ -297,16 +410,10 @@ class FileImporter {
 
         const getVal = col => (col !== -1 && col < row.length && row[col] ? row[col].toString().trim() : '');
 
-        // Strip currency symbols, country strings, accounting parentheses, and formatting commas without stripping decimal points (BUG-001)
+        // Normalize monetary amount across international formats and decimals (BUG-001 / v0.7.2)
         const rawVal = getVal(bestMapping.amountCol);
-        const amountStr = String(rawVal)
-          .replace(/(?:INR|USD|EUR|Rs\.?|[₹$€£,()])/gi, '')
-          .trim();
-        let amount = parseFloat(amountStr);
-        if (isNaN(amount)) continue;
-
-        // Treat negative amounts as expenses, rounded to 2 decimal places
-        amount = Math.abs(parseFloat(amount.toFixed(2)));
+        const amount = this._normalizeAmount(rawVal);
+        if (amount === null || isNaN(amount)) continue;
 
         const dateVal = getVal(bestMapping.dateCol);
         let dateStr = dateVal;
@@ -469,9 +576,9 @@ class FileImporter {
       while ((match = transactionRegex.exec(text)) !== null) {
         const date = match[1] || match[2];
         const title = match[3].trim();
-        const amount = parseFloat(match[4].replace(',', ''));
+        const amount = this._normalizeAmount(match[4]);
 
-        if (!isNaN(amount) && amount > 0) {
+        if (amount !== null && !isNaN(amount) && amount > 0) {
           expenses.push({
             date: date,
             amount: amount,

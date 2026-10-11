@@ -1039,6 +1039,477 @@ function formatError(code, message, details = null) {
   };
 }
 
+/**
+ * Validates mirror configuration payload.
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateMirrorConfig(payload) {
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Mirror configuration must be an object.'] };
+  }
+
+  const errors = [];
+
+  if (payload.enabled !== undefined && typeof payload.enabled !== 'boolean') {
+    errors.push('Mirror enabled setting must be a boolean.');
+  }
+
+  if (payload.targetDir !== undefined && typeof payload.targetDir !== 'string') {
+    errors.push('Mirror target directory must be a string path.');
+  }
+
+  if (payload.debounceMs !== undefined) {
+    const ms = Number(payload.debounceMs);
+    if (isNaN(ms) || !isFinite(ms) || ms < 200 || ms > 60000) {
+      errors.push('Mirror debounceMs must be a number between 200 and 60000 milliseconds.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates a vault directory path for verification or restore.
+ *
+ * @param {any} vaultDir
+ * @returns {import('../types').ValidationResult}
+ */
+function validateVaultPath(vaultDir) {
+  if (typeof vaultDir !== 'string' || !vaultDir.trim()) {
+    return { valid: false, errors: ['Vault directory path must be a non-empty string.'] };
+  }
+  return { valid: true, errors: [] };
+}
+
+/**
+ * Validates a merchant alias registration payload.
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateMerchantAliasInput(payload) {
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Merchant alias payload must be an object.'] };
+  }
+
+  const errors = [];
+  const raw = payload.rawMerchant || payload.raw;
+  const canonical = payload.canonicalMerchant || payload.canonical;
+
+  if (typeof raw !== 'string' || !raw.trim()) {
+    errors.push('rawMerchant is required and must be a non-empty string.');
+  } else if (raw.length > 255) {
+    errors.push('rawMerchant exceeds maximum length of 255 characters.');
+  } else if (hasControlChars(raw)) {
+    errors.push('rawMerchant contains illegal control characters.');
+  }
+
+  if (typeof canonical !== 'string' || !canonical.trim()) {
+    errors.push('canonicalMerchant is required and must be a non-empty string.');
+  } else if (canonical.length > 255) {
+    errors.push('canonicalMerchant exceeds maximum length of 255 characters.');
+  } else if (hasControlChars(canonical)) {
+    errors.push('canonicalMerchant contains illegal control characters.');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates a repeat merchant layout memory registration payload.
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateMerchantLayoutInput(payload) {
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Merchant layout payload must be an object.'] };
+  }
+
+  const errors = [];
+  const identifier = payload.identifier || payload.merchant || payload.gstin;
+
+  if (typeof identifier !== 'string' || !identifier.trim()) {
+    errors.push('Vendor identifier (GSTIN, Tax ID, or merchant name) is required.');
+  } else if (identifier.length > 255) {
+    errors.push('Vendor identifier exceeds maximum length of 255 characters.');
+  } else if (hasControlChars(identifier)) {
+    errors.push('Vendor identifier contains illegal control characters.');
+  }
+
+  if (payload.totalAnchor !== undefined && payload.totalAnchor !== null) {
+    if (typeof payload.totalAnchor !== 'string') {
+      errors.push('totalAnchor must be a string if provided.');
+    } else if (payload.totalAnchor.length > 100) {
+      errors.push('totalAnchor exceeds maximum length of 100 characters.');
+    }
+  }
+
+  if (payload.datePattern !== undefined && payload.datePattern !== null) {
+    if (typeof payload.datePattern !== 'string') {
+      errors.push('datePattern must be a string if provided.');
+    } else if (payload.datePattern.length > 50) {
+      errors.push('datePattern exceeds maximum length of 50 characters.');
+    }
+  }
+
+  if (payload.taxType !== undefined && payload.taxType !== null) {
+    if (typeof payload.taxType !== 'string') {
+      errors.push('taxType must be a string if provided.');
+    } else if (payload.taxType.length > 50) {
+      errors.push('taxType exceeds maximum length of 50 characters.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+// ============================================================================
+// 3.8 EDA & Financial Intelligence Validators (Phase 0.8.2)
+// ============================================================================
+
+/**
+ * Validates ledger data quality audit and sanitization options.
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateAuditLedgerInput(payload) {
+  if (payload === null || payload === undefined) {
+    return { valid: true, errors: [] };
+  }
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Audit options must be an object if provided.'] };
+  }
+
+  const errors = [];
+  if (payload.expenses !== undefined && !Array.isArray(payload.expenses)) {
+    errors.push('expenses must be an array of transactions if provided.');
+  }
+  if (payload.includeArchive !== undefined && typeof payload.includeArchive !== 'boolean') {
+    errors.push('includeArchive must be a boolean if provided.');
+  }
+  if (payload.applyToDb !== undefined && typeof payload.applyToDb !== 'boolean') {
+    errors.push('applyToDb must be a boolean if provided.');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates aggregation rollup query options.
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateRollupQueryInput(payload) {
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Rollup query payload must be an object.'] };
+  }
+
+  const errors = [];
+  const validTimeframes = ['daily', 'weekly', 'monthly', 'category'];
+  if (!payload.timeframe || typeof payload.timeframe !== 'string' || !validTimeframes.includes(payload.timeframe.toLowerCase())) {
+    errors.push(`timeframe is required and must be one of: ${validTimeframes.join(', ')}.`);
+  }
+
+  if (payload.period !== undefined && payload.period !== null) {
+    if (typeof payload.period !== 'string') {
+      errors.push('period must be a string if provided.');
+    } else if (payload.period.length > 50) {
+      errors.push('period exceeds maximum length of 50 characters.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates category rollup query payload.
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateCategoryRollupInput(payload) {
+  if (payload === null || payload === undefined) {
+    return { valid: true, errors: [] };
+  }
+
+  if (typeof payload === 'string') {
+    if (payload.length > 50) {
+      return { valid: false, errors: ['period string exceeds 50 characters.'] };
+    }
+    return { valid: true, errors: [] };
+  }
+
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Category rollup options must be a period string or an object.'] };
+  }
+
+  const errors = [];
+  if (payload.period !== undefined && payload.period !== null) {
+    if (typeof payload.period !== 'string') {
+      errors.push('period must be a string if provided.');
+    } else if (payload.period.length > 50) {
+      errors.push('period exceeds maximum length of 50 characters.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates safe-to-spend forecasting options.
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateSafeToSpendInput(payload) {
+  if (payload === null || payload === undefined) {
+    return { valid: true, errors: [] };
+  }
+
+  if (typeof payload === 'string') {
+    if (!isValidCalendarDate(payload)) {
+      return { valid: false, errors: ['targetDate must be a valid calendar date string (YYYY-MM-DD).'] };
+    }
+    return { valid: true, errors: [] };
+  }
+
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Safe to spend input must be an object or date string.'] };
+  }
+
+  const errors = [];
+  if (payload.targetDate !== undefined && payload.targetDate !== null) {
+    if (typeof payload.targetDate !== 'string' || !isValidCalendarDate(payload.targetDate)) {
+      errors.push('targetDate must be a valid calendar date string (YYYY-MM-DD).');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates anomaly detection query parameters.
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateAnomalyDetectInput(payload) {
+  if (payload === null || payload === undefined) {
+    return { valid: true, errors: [] };
+  }
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Anomaly detection options must be an object if provided.'] };
+  }
+
+  const errors = [];
+  if (payload.zThreshold !== undefined) {
+    const z = Number(payload.zThreshold);
+    if (isNaN(z) || z < 0.5 || z > 10.0) {
+      errors.push('zThreshold must be a number between 0.5 and 10.0.');
+    }
+  }
+
+  if (payload.minAnomalyAmount !== undefined) {
+    const minAmt = Number(payload.minAnomalyAmount);
+    if (isNaN(minAmt) || minAmt < 0) {
+      errors.push('minAnomalyAmount must be a non-negative number.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates batch statement reconciliation inputs (Phase 0.8.3).
+ *
+ * @param {any} incomingTransactions - Array of imported statement transaction rows.
+ * @param {any} [options] - Optional reconciliation tuning options.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateReconciliationBatchInput(incomingTransactions, options) {
+  const errors = [];
+
+  if (!Array.isArray(incomingTransactions)) {
+    errors.push('incomingTransactions must be an array.');
+    return { valid: false, errors };
+  }
+
+  if (incomingTransactions.length > 10000) {
+    errors.push('Batch reconciliation exceeds maximum safe transaction limit of 10,000 items.');
+  }
+
+  for (let i = 0; i < Math.min(incomingTransactions.length, 50); i++) {
+    const item = incomingTransactions[i];
+    if (!isPlainObject(item)) {
+      errors.push(`Transaction at index ${i} must be a plain object.`);
+      break;
+    }
+  }
+
+  if (options !== undefined && options !== null) {
+    if (!isPlainObject(options)) {
+      errors.push('Options must be a plain object.');
+    } else {
+      if (options.amountTolerancePct !== undefined) {
+        const tol = Number(options.amountTolerancePct);
+        if (isNaN(tol) || tol < 0 || tol > 1.0) {
+          errors.push('amountTolerancePct must be a number between 0.0 and 1.0.');
+        }
+      }
+      if (options.dateWindowDays !== undefined) {
+        const days = Number(options.dateWindowDays);
+        if (isNaN(days) || days < 0 || days > 30) {
+          errors.push('dateWindowDays must be a number between 0 and 30.');
+        }
+      }
+      if (options.matchThreshold !== undefined) {
+        const thresh = Number(options.matchThreshold);
+        if (isNaN(thresh) || thresh < 0 || thresh > 1.0) {
+          errors.push('matchThreshold must be a number between 0.0 and 1.0.');
+        }
+      }
+      if (options.conflictThreshold !== undefined) {
+        const cThresh = Number(options.conflictThreshold);
+        if (isNaN(cThresh) || cThresh < 0 || cThresh > 1.0) {
+          errors.push('conflictThreshold must be a number between 0.0 and 1.0.');
+        }
+      }
+      if (options.timeoutMs !== undefined) {
+        const t = Number(options.timeoutMs);
+        if (isNaN(t) || t <= 0) {
+          errors.push('timeoutMs must be a positive number.');
+        }
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates single statement transaction reconciliation input (Phase 0.8.3).
+ *
+ * @param {any} incomingTransaction - Single imported transaction row.
+ * @param {any} [options] - Optional reconciliation tuning options.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateReconciliationSingleInput(incomingTransaction, options) {
+  const errors = [];
+
+  if (!isPlainObject(incomingTransaction)) {
+    errors.push('incomingTransaction must be a plain object.');
+    return { valid: false, errors };
+  }
+
+  if (options !== undefined && options !== null) {
+    if (!isPlainObject(options)) {
+      errors.push('Options must be a plain object.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates apply reconciliation resolution payload (Phase 0.8.3).
+ *
+ * @param {any} resolutions - Array of user-selected resolutions.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateApplyReconciliationInput(resolutions) {
+  const errors = [];
+
+  if (!Array.isArray(resolutions)) {
+    errors.push('resolutions must be an array.');
+    return { valid: false, errors };
+  }
+
+  if (resolutions.length > 10000) {
+    errors.push('Resolutions batch exceeds maximum safe limit of 10,000 items.');
+  }
+
+  const VALID_ACTIONS = ['merge', 'import', 'skip'];
+  for (let i = 0; i < resolutions.length; i++) {
+    const res = resolutions[i];
+    if (!isPlainObject(res)) {
+      errors.push(`Resolution at index ${i} must be a plain object.`);
+      continue;
+    }
+    if (!res.action || !VALID_ACTIONS.includes(res.action)) {
+      errors.push(`Resolution at index ${i} has invalid action "${res.action}". Must be merge, import, or skip.`);
+    }
+    if (res.action === 'merge' && (!res.matchedExpenseId || typeof res.matchedExpenseId !== 'string')) {
+      errors.push(`Resolution at index ${i} with action "merge" requires a valid matchedExpenseId.`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates query options for subscription detection.
+ *
+ * @param {any} options - Detection options.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateSubscriptionDetectInput(options) {
+  const errors = [];
+  if (options !== undefined && options !== null) {
+    if (!isPlainObject(options)) {
+      return { valid: false, errors: ['options must be a plain object.'] };
+    }
+    if (options.amountDriftTolerance !== undefined) {
+      const tol = Number(options.amountDriftTolerance);
+      if (isNaN(tol) || !isFinite(tol) || tol <= 0 || tol > 0.5) {
+        errors.push('amountDriftTolerance must be a positive number between 0.001 and 0.5.');
+      }
+    }
+    if (options.minOccurrences !== undefined) {
+      const occ = Number(options.minOccurrences);
+      if (isNaN(occ) || !Number.isInteger(occ) || occ < 1 || occ > 50) {
+        errors.push('minOccurrences must be an integer between 1 and 50.');
+      }
+    }
+    if (options.minConfidence !== undefined) {
+      const conf = Number(options.minConfidence);
+      if (isNaN(conf) || !isFinite(conf) || conf < 0 || conf > 1) {
+        errors.push('minConfidence must be a number between 0.0 and 1.0.');
+      }
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates input for What-If foresight forecasting with statistical burn rate.
+ *
+ * @param {any} extraAmount - Extra expenditure amount.
+ * @param {any} [options] - Optional options or target date.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateForesightForecastInput(extraAmount, options) {
+  const errors = [];
+  const num = Number(extraAmount);
+  if (extraAmount === undefined || isNaN(num) || !isFinite(num) || num < 0) {
+    errors.push('extraAmount must be a non-negative finite number.');
+  } else if (num > VALIDATION_LIMITS.MAX_AMOUNT) {
+    errors.push(`extraAmount cannot exceed ₹${VALIDATION_LIMITS.MAX_AMOUNT.toLocaleString()}.`);
+  }
+
+  if (options !== undefined && options !== null && typeof options === 'object') {
+    if (!isPlainObject(options)) {
+      errors.push('options must be a plain object.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 // ============================================================================
 // 4. Module Exports
 // ============================================================================
@@ -1065,7 +1536,22 @@ module.exports = {
   validateMobileTransaction,
   validateMobileReceiptQueueItem,
   validateSyncQueueItem,
+  validateMirrorConfig,
+  validateVaultPath,
+  validateMerchantAliasInput,
+  validateMerchantLayoutInput,
+  validateAuditLedgerInput,
+  validateRollupQueryInput,
+  validateCategoryRollupInput,
+  validateSafeToSpendInput,
+  validateAnomalyDetectInput,
+  validateReconciliationBatchInput,
+  validateReconciliationSingleInput,
+  validateApplyReconciliationInput,
+  validateSubscriptionDetectInput,
+  validateForesightForecastInput,
   formatSuccess,
   formatError
 };
+
 

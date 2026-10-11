@@ -40,8 +40,9 @@ class NotificationEngine {
    * @param {import('./ProfileService')} profileService - The profile management service.
    * @param {import('./BudgetService')} budgetService - The budget and salary calculation service.
    * @param {import('./HouseholdService')} householdService - The household and settlement service.
+   * @param {any} [intelligenceService=null] - Optional FinancialIntelligenceFacade instance.
    */
-  constructor(db, profileService, budgetService, householdService) {
+  constructor(db, profileService, budgetService, householdService, intelligenceService = null) {
     if (!db || !profileService || !budgetService || !householdService) {
       throw new Error(
         'NotificationEngine requires valid JsonDatabase, ProfileService, BudgetService, and HouseholdService instances.'
@@ -59,6 +60,18 @@ class NotificationEngine {
 
     /** @private */
     this._household = householdService;
+
+    /** @private */
+    this._intelligence = intelligenceService || null;
+  }
+
+  /**
+   * Sets or updates the injected FinancialIntelligenceFacade instance.
+   *
+   * @param {any} facade - FinancialIntelligenceFacade instance.
+   */
+  setIntelligence(facade) {
+    this._intelligence = facade;
   }
 
   // ==========================================================================
@@ -138,14 +151,44 @@ class NotificationEngine {
       data.notifications = [];
     }
 
-    // Avoid duplicate unread notifications with the same title within 24 hours
+    // 24-hour deduplication window (86,400,000 ms)
     const nowMs = Date.now();
+    const DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+    // 1. Avoid duplicate notifications with the same title within 24 hours (regardless of read state)
     const existing = data.notifications.find(
-      n => n.title === notif.title && !n.read && nowMs - new Date(n.createdAt).getTime() < 24 * 60 * 60 * 1000
+      n => n.title === notif.title && nowMs - new Date(n.createdAt).getTime() < DEDUP_WINDOW_MS
     );
 
     if (existing) {
+      if (!data.notificationLog || typeof data.notificationLog !== 'object') {
+        data.notificationLog = {};
+      }
+      if (!data.notificationLog[notif.title]) {
+        data.notificationLog[notif.title] = existing.createdAt || new Date().toISOString();
+        this._profiles.saveActiveData(data);
+      }
       return { success: true, notification: existing, duplicate: true };
+    }
+
+    // 2. Also check persistent notificationLog (profile-level and root-level)
+    if (!data.notificationLog || typeof data.notificationLog !== 'object') {
+      data.notificationLog = {};
+    }
+
+    const lastIssuedProfile = data.notificationLog[notif.title];
+    if (lastIssuedProfile && nowMs - new Date(lastIssuedProfile).getTime() < DEDUP_WINDOW_MS) {
+      return { success: true, duplicate: true };
+    }
+
+    const root = this._db.read();
+    if (!root.notificationLog || typeof root.notificationLog !== 'object') {
+      root.notificationLog = {};
+    }
+
+    const lastIssuedRoot = root.notificationLog[notif.title];
+    if (lastIssuedRoot && nowMs - new Date(lastIssuedRoot).getTime() < DEDUP_WINDOW_MS) {
+      return { success: true, duplicate: true };
     }
 
     const newNotif = {
@@ -167,12 +210,31 @@ class NotificationEngine {
 
     data.notifications.unshift(newNotif);
 
-    // Keep max 50 recent notifications
-    if (data.notifications.length > 50) {
-      data.notifications = data.notifications.slice(0, 50);
+    // Single atomic write via root to avoid race conditions or stale root overwrites
+    const freshRoot = this._db.read();
+    if (!freshRoot.notificationLog || typeof freshRoot.notificationLog !== 'object') {
+      freshRoot.notificationLog = {};
+    }
+    freshRoot.notificationLog[notif.title] = newNotif.createdAt;
+
+    for (const [title, timestamp] of Object.entries(freshRoot.notificationLog)) {
+      if (nowMs - new Date(timestamp).getTime() > 48 * 60 * 60 * 1000) {
+        delete freshRoot.notificationLog[title];
+      }
     }
 
-    this._profiles.saveActiveData(data);
+    if (!Array.isArray(freshRoot.profiles)) {
+      freshRoot.profiles = [];
+    }
+
+    const activeIdx = freshRoot.profiles.findIndex(p => p.id === freshRoot.activeProfileId);
+    if (activeIdx !== -1) {
+      freshRoot.profiles[activeIdx].data = data;
+    } else if (freshRoot.profiles.length > 0) {
+      freshRoot.profiles[0].data = data;
+    }
+
+    this._db.write(freshRoot);
     return { success: true, notification: newNotif, duplicate: false };
   }
 
@@ -222,15 +284,28 @@ class NotificationEngine {
    * @returns {import('../types').OperationResult & { notification?: import('../types').Notification }}
    */
   deleteNotification(id) {
-    const data = this._profiles.getActiveData();
-    if (!Array.isArray(data.notifications)) {
+    const freshRoot = this._db.read();
+    const activeIdx = freshRoot.profiles.findIndex(p => p.id === freshRoot.activeProfileId);
+    const activeProfile = activeIdx !== -1 ? freshRoot.profiles[activeIdx] : freshRoot.profiles[0];
+    if (!activeProfile || !activeProfile.data || !Array.isArray(activeProfile.data.notifications)) {
       return { success: false, error: 'No notifications' };
     }
 
-    const idx = data.notifications.findIndex(n => n.id === id);
+    const idx = activeProfile.data.notifications.findIndex(n => n.id === id);
     if (idx !== -1) {
-      const removed = data.notifications.splice(idx, 1)[0];
-      this._profiles.saveActiveData(data);
+      const removed = activeProfile.data.notifications.splice(idx, 1)[0];
+      if (removed && removed.title) {
+        if (!activeProfile.data.notificationLog || typeof activeProfile.data.notificationLog !== 'object') {
+          activeProfile.data.notificationLog = {};
+        }
+        if (!freshRoot.notificationLog || typeof freshRoot.notificationLog !== 'object') {
+          freshRoot.notificationLog = {};
+        }
+        const ts = removed.createdAt || new Date().toISOString();
+        activeProfile.data.notificationLog[removed.title] = ts;
+        freshRoot.notificationLog[removed.title] = ts;
+      }
+      this._db.write(freshRoot);
       return { success: true, notification: removed };
     }
 
@@ -243,9 +318,32 @@ class NotificationEngine {
    * @returns {import('../types').OperationResult}
    */
   clearAllNotifications() {
-    const data = this._profiles.getActiveData();
-    data.notifications = [];
-    this._profiles.saveActiveData(data);
+    const freshRoot = this._db.read();
+    const activeIdx = freshRoot.profiles.findIndex(p => p.id === freshRoot.activeProfileId);
+    const activeProfile = activeIdx !== -1 ? freshRoot.profiles[activeIdx] : freshRoot.profiles[0];
+    if (!activeProfile || !activeProfile.data) {
+      return { success: true };
+    }
+
+    if (!activeProfile.data.notificationLog || typeof activeProfile.data.notificationLog !== 'object') {
+      activeProfile.data.notificationLog = {};
+    }
+    if (!freshRoot.notificationLog || typeof freshRoot.notificationLog !== 'object') {
+      freshRoot.notificationLog = {};
+    }
+
+    if (Array.isArray(activeProfile.data.notifications)) {
+      activeProfile.data.notifications.forEach(n => {
+        if (n && n.title) {
+          const ts = n.createdAt || new Date().toISOString();
+          activeProfile.data.notificationLog[n.title] = ts;
+          freshRoot.notificationLog[n.title] = ts;
+        }
+      });
+    }
+
+    activeProfile.data.notifications = [];
+    this._db.write(freshRoot);
 
     return { success: true };
   }
@@ -296,9 +394,14 @@ class NotificationEngine {
     // ------------------------------------------------------------------------
     const bills = this._household.getRecurringBills();
     const currentDay = now.getDate();
+    const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     bills.forEach(bill => {
-      if (bill.dueDay && !bill.isPaidForCurrentCycle) {
+      const isPaidThisCycle = Boolean(
+        bill.isPaidForCurrentCycle || (bill.lastPaidDate && bill.lastPaidDate.startsWith(currentMonthYear))
+      );
+
+      if (bill.dueDay && !isPaidThisCycle) {
         const daysUntilDue = bill.dueDay - currentDay;
 
         // Critical: Bill Due Today
@@ -451,7 +554,84 @@ class NotificationEngine {
       });
     }
 
+    // ------------------------------------------------------------------------
+    // Trigger 9 (In-App Only): Gamified Daily Pacing Facts & Velocity Encouragement
+    // ------------------------------------------------------------------------
+    if (discBudget > 0 && spent < discBudget && metrics.remainingDays > 0) {
+      let safeAllowance = metrics.dailyDiscretionaryBudget || 0;
+      let pacingStatus = 'on_track';
+
+      if (this._intelligence && typeof this._intelligence.getSafeToSpend === 'function') {
+        try {
+          const sRes = this._intelligence.getSafeToSpend();
+          if (sRes && sRes.success && sRes.data) {
+            safeAllowance = sRes.data.safeDailyAllowance;
+            pacingStatus = sRes.data.pacingStatus;
+          }
+        } catch {
+          // Graceful fallback to metrics
+        }
+      }
+
+      if (pacingStatus === 'healthy' || pacingStatus === 'on_track') {
+        this.addNotification({
+          type: 'insight',
+          title: 'Daily Pacing: On Track',
+          message: `You have ${sym}${Math.round(safeAllowance)} safe to spend today (${metrics.remainingDays}d remaining in cycle). Great discipline staying within baseline!`,
+          icon: 'sparkles',
+          isCritical: false,
+          actionTab: 'dashboard'
+        });
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // Trigger 10 (In-App Only): Subscription Price Hike Alerts (Phase 0.8.4)
+    // ------------------------------------------------------------------------
+    let subList = null;
+    if (this._intelligence && typeof this._intelligence.detectSubscriptions === 'function') {
+      try {
+        const s = this._intelligence.detectSubscriptions();
+        if (s && s.success && s.data && Array.isArray(s.data.subscriptions)) {
+          subList = s.data.subscriptions;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!subList) {
+      try {
+        const SubscriptionHunterService = require('./SubscriptionHunterService');
+        const hunter = new SubscriptionHunterService({ db: this._db });
+        const expenses = Array.isArray(data.expenses) ? data.expenses : [];
+        const detected = hunter.detectSubscriptions(expenses);
+        if (detected && Array.isArray(detected.subscriptions)) {
+          subList = detected.subscriptions;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (Array.isArray(subList)) {
+      for (const sub of subList) {
+        if (sub.hasPriceHike && sub.priceHikeDetails) {
+          const dt = sub.priceHikeDetails;
+          this.addNotification({
+            type: 'bill',
+            title: `Price Hike: ${sub.merchant}`,
+            message: `${sub.merchant} increased from ${sym}${dt.previousAmount} to ${sym}${dt.currentAmount} (+${dt.hikePercent}%). Annual cost impact: +${sym}${dt.annualHikeImpact}/yr.`,
+            icon: 'trending-up',
+            isCritical: false,
+            actionTab: 'dashboard'
+          });
+        }
+      }
+    }
+
     const list = this.getNotifications();
+
     list.criticalAlerts = newlyCreatedCritical;
     return list;
   }

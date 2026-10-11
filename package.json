@@ -1,6 +1,6 @@
 {
   "name": "ledgerly",
-  "version": "0.6.6",
+  "version": "0.8.5",
   "description": "Ledgerly — A friction-free, 100% offline desktop expense & budget tracker",
   "main": "src/main.js",
   "workspaces": [
@@ -34,7 +34,19 @@
     "test:ci-workflow": "node scripts/check-ci-workflow.js",
     "test:resilience-audit": "node scratch/test_phase6_6_resilience_and_fallbacks.js",
     "test:v0.6-unified": "node scripts/run-all-v0.6-tests.js",
+    "test:partitioned-storage": "node scratch/test_phase7_1_partitioned_storage.js",
+    "test:phase7-2": "node scratch/test_phase7_2_european_parsing.js",
+    "test:mirroring": "node scratch/test_phase7_3_mirroring.js",
+    "test:receipt-vision": "node scratch/test_phase8_1_receipt_vision.js",
+    "test:eda-foundation": "node scratch/test_phase8_2_eda_foundation.js",
+    "test:fuzzy-reconciliation": "node scratch/test_phase8_3_fuzzy_reconciliation.js",
+    "test:smart-insights": "node scratch/test_phase8_4_smart_insights.js",
+    "test:lan-discovery": "node scratch/test_phase8_5_lan_discovery.js",
+    "test:phase8-chaos": "node scratch/test_phase8_unideal_chaos.js",
+    "test:unideal": "node scratch/test_phase7_unideal_chaos.js",
+    "test:notifications": "node scratch/test_notification_engine_rules.js",
     "test:e2e": "node scratch/test_e2e_ledgerly.js",
+    "test:journeys": "node \"Quality assurance testing/06_User_Journeys/run_user_journeys.js\"",
     "mobile:dev": "npm --prefix mobile run dev",
     "mobile:build": "npm --prefix mobile run build",
     "mobile:preview": "npm --prefix mobile run preview",
@@ -45,7 +57,8 @@
     "mobile:cap:open": "npm -w mobile exec -- cap open android",
     "mobile:cap:open:ios": "npm -w mobile exec -- cap open ios",
     "mobile:build:apk": "npm -w mobile exec -- cap sync android && cd mobile/android && gradlew.bat assembleDebug",
-    "check": "node scripts/check-syntax.js",
+    "check": "node scripts/check-syntax.js && node scripts/check-architecture-layers.js",
+    "check:layers": "node scripts/check-architecture-layers.js",
     "lint": "eslint src/ mobile/src/",
     "format": "prettier --write \"src/**/*.{js,html,css}\""
   },
@@ -57,8 +70,7 @@
     },
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ],
       "icon": "assets/icon.ico"
     },

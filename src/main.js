@@ -34,6 +34,20 @@ const {
   validateReceiptScanInput,
   validateModelActionInput,
   validateId,
+  validateMirrorConfig,
+  validateVaultPath,
+  validateMerchantAliasInput,
+  validateMerchantLayoutInput,
+  validateAuditLedgerInput,
+  validateRollupQueryInput,
+  validateCategoryRollupInput,
+  validateSafeToSpendInput,
+  validateAnomalyDetectInput,
+  validateReconciliationBatchInput,
+  validateReconciliationSingleInput,
+  validateApplyReconciliationInput,
+  validateSubscriptionDetectInput,
+  validateForesightForecastInput,
   isPlainObject
 } = require('./validation/schemaValidator');
 
@@ -166,7 +180,11 @@ function createWindow() {
     }
   });
 
-  receiptTier1Engine = new ReceiptTier1Engine({ normalizer: documentNormalizer, categoryMatcher });
+  receiptTier1Engine = new ReceiptTier1Engine({
+    normalizer: documentNormalizer,
+    categoryMatcher,
+    receiptLearning: storage.receiptLearning
+  });
   receiptTier2VisionEngine = new ReceiptTier2VisionEngine({
     normalizer: documentNormalizer,
     categoryMatcher,
@@ -184,6 +202,7 @@ function createWindow() {
     normalizer: documentNormalizer,
     categoryMatcher,
     modelManager,
+    receiptLearning: storage.receiptLearning,
     tier1Engine: receiptTier1Engine,
     tier2Engine: receiptTier2VisionEngine,
     tier3Engine: receiptTier3RegionalEngine
@@ -1397,13 +1416,16 @@ ipcMain.handle(
     async (event, extraAmount, targetDateStr) => {
       const salaryConfig = storage.getSalaryConfig();
       const dailyMetrics = storage.calculateDailyBudgetMetrics(targetDateStr);
+      const expenses = storage.expenses ? storage.expenses.getAll() : [];
       return ForesightEngine.simulatePurchase(
         extraAmount,
         salaryConfig,
         dailyMetrics.spentMonthToDate,
-        targetDateStr || new Date()
+        targetDateStr || new Date(),
+        expenses
       );
     }
+
   )
 );
 
@@ -1427,11 +1449,31 @@ ipcMain.handle(
 );
 
 // Notifications Engine Handlers
+const shownDesktopNotifications = new Map();
+
 function showNativeDesktopNotification(title, body, actionTab = null) {
+  // Never fire physical OS desktop toasts in test environments, headless runs, or custom test DB paths
+  if (
+    process.env.LEDGERLY_DB_PATH ||
+    process.env.NODE_ENV === 'test' ||
+    process.env.PLAYWRIGHT_TEST === 'true' ||
+    process.env.CI
+  ) {
+    return;
+  }
   if (!Notification || !Notification.isSupported()) return;
+
+  const cleanTitle = (title || 'Ledgerly Alert').trim();
+  const now = Date.now();
+  const lastShown = shownDesktopNotifications.get(cleanTitle);
+  if (lastShown && now - lastShown < 24 * 60 * 60 * 1000) {
+    return;
+  }
+  shownDesktopNotifications.set(cleanTitle, now);
+
   const iconPath = path.join(__dirname, '../assets/icon.png');
   const notif = new Notification({
-    title: title || 'Ledgerly Alert',
+    title: cleanTitle,
     body: body || '',
     icon: fs.existsSync(iconPath) ? iconPath : undefined
   });
@@ -1782,3 +1824,388 @@ ipcMain.handle(
     }
   )
 );
+
+ipcMain.handle(
+  'start-pairing-beacon',
+  wrapIPC('start-pairing-beacon', null, async () => {
+    if (syncServer) syncServer.startPairingBeacon();
+    return { success: true };
+  })
+);
+
+ipcMain.handle(
+  'stop-pairing-beacon',
+  wrapIPC('stop-pairing-beacon', null, async () => {
+    if (syncServer) syncServer.stopPairingBeacon();
+    return { success: true };
+  })
+);
+
+ipcMain.handle(
+  'reset-pairing-lockout',
+  wrapIPC('reset-pairing-lockout', null, async () => {
+    if (syncServer) syncServer.resetPairingLockout();
+    return { success: true };
+  })
+);
+
+ipcMain.handle(
+  'get-pairing-security-config',
+  wrapIPC('get-pairing-security-config', null, async () => {
+    if (storage && storage.intelligence) {
+      return storage.intelligence.getPairingSecurityConfig();
+    }
+    return { maxFailedAttempts: 15, lockoutDurationSeconds: 60 };
+  })
+);
+
+ipcMain.handle(
+  'update-pairing-security-config',
+  wrapIPC(
+    'update-pairing-security-config',
+    config => {
+      if (!isPlainObject(config)) return { valid: false, errors: ['Config must be an object.'] };
+      return { valid: true, errors: [] };
+    },
+    async (_event, config) => {
+      if (storage && storage.intelligence) {
+        return storage.intelligence.updatePairingSecurityConfig(config);
+      }
+      return { success: false, error: 'Intelligence module not initialized' };
+    }
+  )
+);
+
+// ============================================================================
+// Continuous Mirroring & Local Backup Vault Engine IPC Handlers (Phase 0.7.3)
+// ============================================================================
+
+ipcMain.handle(
+  'mirror-select-folder',
+  wrapIPC('mirror-select-folder', null, async event => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Select Backup Vault Folder',
+      properties: ['openDirectory', 'createDirectory']
+    };
+    const { filePaths, canceled } = win
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options);
+
+    if (canceled || !filePaths || filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+    return { success: true, folderPath: filePaths[0] };
+  })
+);
+
+ipcMain.handle(
+  'mirror-get-status',
+  wrapIPC('mirror-get-status', null, async () => {
+    return storage ? storage.getMirrorStatus() : { enabled: false, targetDir: null, lastStatus: 'idle' };
+  })
+);
+
+ipcMain.handle(
+  'mirror-configure',
+  wrapIPC(
+    'mirror-configure',
+    payload => validateMirrorConfig(payload),
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      return storage.configureMirror(payload);
+    }
+  )
+);
+
+ipcMain.handle(
+  'mirror-sync-now',
+  wrapIPC('mirror-sync-now', null, async () => {
+    if (!storage) return { success: false, error: 'Storage not initialized' };
+    return storage.syncMirrorNow();
+  })
+);
+
+ipcMain.handle(
+  'mirror-verify-vault',
+  wrapIPC(
+    'mirror-verify-vault',
+    payload => validateVaultPath(payload),
+    async (_event, vaultDir) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      return storage.verifyMirrorVault(vaultDir);
+    }
+  )
+);
+
+ipcMain.handle(
+  'mirror-restore',
+  wrapIPC(
+    'mirror-restore',
+    payload => validateVaultPath(payload),
+    async (_event, vaultDir) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const res = await storage.restoreFromMirrorVault(vaultDir);
+      if (res && res.success && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('data-updated', { source: 'mirror-restore' });
+      }
+      return res;
+    }
+  )
+);
+
+// ============================================================================
+// Adaptive Receipt Vision & Learning Loop IPC Handlers (Phase 0.8.1)
+// ============================================================================
+
+ipcMain.handle(
+  'receipt-learn-alias',
+  wrapIPC(
+    'receipt-learn-alias',
+    payload => validateMerchantAliasInput(payload),
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const raw = payload.rawMerchant || payload.raw;
+      const canonical = payload.canonicalMerchant || payload.canonical;
+      return storage.learnMerchantAlias(raw, canonical);
+    }
+  )
+);
+
+ipcMain.handle(
+  'receipt-get-aliases',
+  wrapIPC('receipt-get-aliases', null, async () => {
+    return storage ? storage.getMerchantAliases() : {};
+  })
+);
+
+ipcMain.handle(
+  'receipt-delete-alias',
+  wrapIPC(
+    'receipt-delete-alias',
+    rawMerchant => {
+      if (typeof rawMerchant !== 'string' || !rawMerchant.trim()) {
+        return { valid: false, errors: ['rawMerchant must be a non-empty string.'] };
+      }
+      return { valid: true, errors: [] };
+    },
+    async (_event, rawMerchant) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      return storage.deleteMerchantAlias(rawMerchant);
+    }
+  )
+);
+
+ipcMain.handle(
+  'receipt-learn-layout',
+  wrapIPC(
+    'receipt-learn-layout',
+    payload => validateMerchantLayoutInput(payload),
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const identifier = payload.identifier || payload.merchant || payload.gstin;
+      return storage.learnMerchantLayout(identifier, payload);
+    }
+  )
+);
+
+ipcMain.handle(
+  'receipt-get-layouts',
+  wrapIPC('receipt-get-layouts', null, async () => {
+    return storage ? storage.getMerchantLayouts() : {};
+  })
+);
+
+// ============================================================================
+// EDA & Financial Intelligence Foundation IPC Handlers (Phase 0.8.2)
+// ============================================================================
+
+ipcMain.handle(
+  'intelligence-audit-ledger',
+  wrapIPC(
+    'intelligence-audit-ledger',
+    payload => validateAuditLedgerInput(payload),
+    async (_event, options) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      return storage.auditLedgerQuality(options);
+    }
+  )
+);
+
+ipcMain.handle(
+  'intelligence-sanitize-ledger',
+  wrapIPC(
+    'intelligence-sanitize-ledger',
+    payload => validateAuditLedgerInput(payload),
+    async (_event, options) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      return storage.sanitizeLedgerQuality(options);
+    }
+  )
+);
+
+ipcMain.handle(
+  'intelligence-get-rollups',
+  wrapIPC(
+    'intelligence-get-rollups',
+    payload => validateRollupQueryInput(payload),
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const timeframe = payload.timeframe || 'daily';
+      return storage.getAggregationRollup(timeframe, payload.options || payload);
+    }
+  )
+);
+
+ipcMain.handle(
+  'intelligence-get-category-rollup',
+  wrapIPC(
+    'intelligence-get-category-rollup',
+    payload => validateCategoryRollupInput(payload),
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const period = typeof payload === 'string' ? payload : (payload && payload.period);
+      const opts = typeof payload === 'object' && payload !== null ? payload : {};
+      return storage.getCategoryRollup(period, opts);
+    }
+  )
+);
+
+ipcMain.handle(
+  'intelligence-get-velocity-metrics',
+  wrapIPC('intelligence-get-velocity-metrics', null, async (_event, options) => {
+    if (!storage) return { success: false, error: 'Storage not initialized' };
+    return storage.getVelocityMetrics(options || {});
+  })
+);
+
+ipcMain.handle(
+  'intelligence-get-safe-to-spend',
+  wrapIPC(
+    'intelligence-get-safe-to-spend',
+    payload => validateSafeToSpendInput(payload),
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const targetDate = typeof payload === 'string' ? payload : (payload && payload.targetDate);
+      const opts = typeof payload === 'object' && payload !== null ? payload : {};
+      return storage.getSafeToSpend(targetDate, opts);
+    }
+  )
+);
+
+ipcMain.handle(
+  'intelligence-detect-anomalies',
+  wrapIPC(
+    'intelligence-detect-anomalies',
+    payload => validateAnomalyDetectInput(payload),
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      return storage.detectAnomalies(payload || {});
+    }
+  )
+);
+
+// Statement Reconciliation & Deduplication (Phase 0.8.3)
+ipcMain.handle(
+  'reconciliation-match-batch',
+  wrapIPC(
+    'reconciliation-match-batch',
+    payload => {
+      const incoming = Array.isArray(payload) ? payload : (payload && payload.incomingTransactions);
+      const options = payload && payload.options;
+      return validateReconciliationBatchInput(incoming, options);
+    },
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const incoming = Array.isArray(payload) ? payload : (payload && payload.incomingTransactions) || [];
+      const options = (payload && payload.options) || {};
+      return storage.reconcileStatementBatch(incoming, options);
+    }
+  )
+);
+
+ipcMain.handle(
+  'reconciliation-match-single',
+  wrapIPC(
+    'reconciliation-match-single',
+    payload => {
+      const incoming = payload && payload.incomingTransaction ? payload.incomingTransaction : payload;
+      const options = payload && payload.options;
+      return validateReconciliationSingleInput(incoming, options);
+    },
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const incoming = payload && payload.incomingTransaction ? payload.incomingTransaction : payload;
+      const options = (payload && payload.options) || {};
+      return storage.reconcileStatementSingle(incoming, options);
+    }
+  )
+);
+
+ipcMain.handle(
+  'reconciliation-apply',
+  wrapIPC(
+    'reconciliation-apply',
+    payload => {
+      const resolutions = Array.isArray(payload) ? payload : (payload && payload.resolutions);
+      return validateApplyReconciliationInput(resolutions);
+    },
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const resolutions = Array.isArray(payload) ? payload : (payload && payload.resolutions) || [];
+      return storage.applyReconciliation(resolutions);
+    }
+  )
+);
+
+// ============================================================================
+// Smart Insights, Foresight Forecasting & Subscriptions (Phase 0.8.4)
+// ============================================================================
+
+ipcMain.handle(
+  'subscriptions-detect',
+  wrapIPC(
+    'subscriptions-detect',
+    payload => validateSubscriptionDetectInput(payload),
+    async (_event, options) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      return storage.detectSubscriptions(options || {});
+    }
+  )
+);
+
+ipcMain.handle(
+  'foresight-burn-rate',
+  wrapIPC(
+    'foresight-burn-rate',
+    payload => {
+      const extraAmount = payload && payload.extraAmount !== undefined ? payload.extraAmount : payload;
+      const options = payload && typeof payload === 'object' && payload.options ? payload.options : {};
+      return validateForesightForecastInput(extraAmount, options);
+    },
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const extraAmount = payload && payload.extraAmount !== undefined ? payload.extraAmount : payload;
+      const options = payload && typeof payload === 'object' && payload.options ? payload.options : {};
+      return storage.getForesightForecast(extraAmount, options);
+    }
+  )
+);
+
+ipcMain.handle(
+  'pacing-insights-get',
+  wrapIPC(
+    'pacing-insights-get',
+    null,
+    async (_event, options) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      return storage.getPacingInsights(options || {});
+    }
+  )
+);
+
+
+
+
+
+

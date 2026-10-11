@@ -30,6 +30,9 @@ const BudgetService = require('./services/BudgetService');
 const HouseholdService = require('./services/HouseholdService');
 const NotesService = require('./services/NotesService');
 const NotificationEngine = require('./services/NotificationEngine');
+const BackupMirrorService = require('./services/BackupMirrorService');
+const ReceiptLearningService = require('./services/ReceiptLearningService');
+const FinancialIntelligenceFacade = require('./services/FinancialIntelligenceFacade');
 
 class ExpenseStorage {
   constructor(customPath) {
@@ -40,7 +43,26 @@ class ExpenseStorage {
     this.budget = new BudgetService(this.db, this.profiles);
     this.household = new HouseholdService(this.db, this.profiles, this.expenses);
     this.notes = new NotesService(this.db, this.profiles);
-    this.notifications = new NotificationEngine(this.db, this.profiles, this.budget, this.household);
+    this.notifications = new NotificationEngine(
+      this.db,
+      this.profiles,
+      this.budget,
+      this.household
+    );
+    this.mirror = new BackupMirrorService({ db: this.db });
+    this.receiptLearning = new ReceiptLearningService({ db: this.db });
+    this.intelligence = new FinancialIntelligenceFacade({
+      db: this.db,
+      expenses: this.expenses,
+      profiles: this.profiles,
+      budget: this.budget,
+      receiptLearning: this.receiptLearning
+    });
+    this.notifications.setIntelligence(this.intelligence);
+    this.db.setOnDidWrite(() => {
+      this.mirror.notifyChange();
+      this.intelligence.invalidateRollupCache();
+    });
     this.filePath = this.db.getFilePath();
   }
 
@@ -199,16 +221,16 @@ class ExpenseStorage {
     return this.expenses.delete(id);
   }
 
-  clearAllExpenses() {
-    return this.expenses.clearAll();
+  clearAllExpenses(options) {
+    return this.expenses.clearAll(options);
   }
 
-  getExpenses() {
-    return this.expenses.getAll();
+  getExpenses(options) {
+    return this.expenses.getAll(options);
   }
 
-  getAllExpenses() {
-    return this.expenses.getAll();
+  getAllExpenses(options) {
+    return this.expenses.getAll(options);
   }
 
   getFilteredExpenses(filters = {}) {
@@ -428,6 +450,17 @@ class ExpenseStorage {
     return this.db.runIntegrityAudit();
   }
 
+  getPartitionStats() {
+    return typeof this.db.getPartitionStats === 'function'
+      ? this.db.getPartitionStats()
+      : { isPartitioned: false };
+  }
+
+  rollAgedExpenses(cutoffDays = 90) {
+    const DatabaseAuditor = require('./services/DatabaseAuditor');
+    return DatabaseAuditor.rollAgedExpenses(this.db, cutoffDays);
+  }
+
   generateDiagnosticReport(appVersion = '0.4.7') {
     const DiagnosticExporter = require('./services/DiagnosticExporter');
     return DiagnosticExporter.generateReport(this.db, appVersion);
@@ -508,6 +541,152 @@ class ExpenseStorage {
     this.db.write(root);
     return { success: true, removed: root.pairedDevices.length < initialLen };
   }
+
+  // ==========================================================================
+  // Continuous Mirroring & Local Backup Vault Engine (Phase 0.7.3)
+  // ==========================================================================
+
+  getMirrorStatus() {
+    return this.mirror.getStatus();
+  }
+
+  configureMirror(payload = {}) {
+    return this.mirror.configure(payload);
+  }
+
+  syncMirrorNow() {
+    return this.mirror.syncNow();
+  }
+
+  verifyMirrorVault(vaultDir) {
+    return this.mirror.verifyVault(vaultDir);
+  }
+
+  restoreFromMirrorVault(vaultDir) {
+    return this.mirror.restoreFromVault(vaultDir);
+  }
+
+  // ==========================================================================
+  // Adaptive Receipt Vision & Learning Loop (Phase 0.8.1)
+  // ==========================================================================
+
+  getMerchantAliases() {
+    return this.receiptLearning.getAliases();
+  }
+
+  learnMerchantAlias(rawMerchant, canonicalMerchant) {
+    return this.receiptLearning.learnAlias(rawMerchant, canonicalMerchant);
+  }
+
+  resolveMerchantAlias(rawMerchant) {
+    return this.receiptLearning.resolveAlias(rawMerchant);
+  }
+
+  deleteMerchantAlias(rawMerchant) {
+    return this.receiptLearning.deleteAlias(rawMerchant);
+  }
+
+  clearMerchantAliases() {
+    return this.receiptLearning.clearAliases();
+  }
+
+  getMerchantLayouts() {
+    return this.receiptLearning.getLayouts();
+  }
+
+  getMerchantLayout(identifier) {
+    return this.receiptLearning.getLayout(identifier);
+  }
+
+  learnMerchantLayout(identifier, layoutData = {}) {
+    return this.receiptLearning.learnLayout(identifier, layoutData);
+  }
+
+  clearMerchantLayouts() {
+    return this.receiptLearning.clearLayouts();
+  }
+
+  // ==========================================================================
+  // EDA & Financial Intelligence Foundation (Phase 0.8.2)
+  // ==========================================================================
+
+  auditLedgerQuality(options) {
+    return this.intelligence.auditLedgerQuality(options);
+  }
+
+  sanitizeLedgerQuality(options) {
+    return this.intelligence.sanitizeLedgerQuality(options);
+  }
+
+  getAggregationRollup(timeframe, options) {
+    return this.intelligence.getAggregationRollup(timeframe, options);
+  }
+
+  getCategoryRollup(period, options) {
+    return this.intelligence.getCategoryRollup(period, options);
+  }
+
+  getVelocityMetrics(options) {
+    return this.intelligence.getVelocityMetrics(options);
+  }
+
+  getSafeToSpend(targetDate, options) {
+    return this.intelligence.getSafeToSpend(targetDate, options);
+  }
+
+  detectAnomalies(options) {
+    return this.intelligence.detectAnomalies(options);
+  }
+
+  getBehavioralProfile(profileId) {
+    return this.intelligence.getBehavioralProfile(profileId);
+  }
+
+  updateBehavioralProfile(profileId, profileData) {
+    return this.intelligence.updateBehavioralProfile(profileId, profileData);
+  }
+
+  getDeduplicationSignatures() {
+    return this.intelligence.getDeduplicationSignatures();
+  }
+
+  recordDeduplicationSignatures(signatures) {
+    return this.intelligence.recordDeduplicationSignatures(signatures);
+  }
+
+  // ==========================================================================
+  // Statement Reconciliation & Fuzzy Deduplication (Phase 0.8.3)
+  // ==========================================================================
+
+  reconcileStatementBatch(incomingTransactions, options) {
+    return this.intelligence.reconcileStatementBatch(incomingTransactions, options);
+  }
+
+  reconcileStatementSingle(incomingTransaction, options) {
+    return this.intelligence.reconcileStatementSingle(incomingTransaction, options);
+  }
+
+  applyReconciliation(resolutions) {
+    return this.intelligence.applyReconciliation(resolutions);
+  }
+
+  // ==========================================================================
+  // Smart Insights, Foresight Forecasting & Subscriptions (Phase 0.8.4)
+  // ==========================================================================
+
+  detectSubscriptions(options) {
+    return this.intelligence.detectSubscriptions(options);
+  }
+
+  getForesightForecast(extraAmount, options) {
+    return this.intelligence.getForesightForecast(extraAmount, options);
+  }
+
+  getPacingInsights(options) {
+    return this.intelligence.getPacingInsights(options);
+  }
 }
 
 module.exports = ExpenseStorage;
+
+

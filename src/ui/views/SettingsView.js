@@ -15,6 +15,7 @@
 
 import { escapeHTML, delegateEvent, setInnerHTML } from '../helpers/dom.js';
 import { showToast } from '../helpers/toast.js';
+import { generateQRCodeSVG } from '../../utils/qrCodeGenerator.js';
 
 // ============================================================================
 //  SettingsView Class
@@ -148,6 +149,7 @@ export class SettingsView {
     this.updateCycleBanner();
     this.renderCategoriesPane();
     this.renderDataStoragePane();
+    this.renderMirrorVaultPane();
     this.renderModelsPane();
     this.renderNotificationSettingsPane();
     this.renderMobileSyncPane();
@@ -563,6 +565,243 @@ export class SettingsView {
   }
 
   // ==========================================================================
+  //  Continuous Mirroring & Backup Vault (Phase 0.7.3)
+  // ==========================================================================
+
+  /**
+   * Renders the continuous mirror vault settings card, binds folder selection,
+   * toggle state, manual sync, integrity verification, and safe 1-click restore.
+   *
+   * @returns {Promise<void>}
+   */
+  async renderMirrorVaultPane() {
+    if (typeof document === 'undefined') return;
+
+    const card = document.getElementById('settings-mirror-vault-card');
+    if (!card) return;
+
+    const badge = document.getElementById('mirror-status-badge');
+    const dirInput = document.getElementById('mirror-target-dir-input');
+    const toggle = document.getElementById('mirror-enabled-toggle');
+    const details = document.getElementById('mirror-status-details');
+    const selectBtn = document.getElementById('btn-mirror-select-folder');
+    const syncBtn = document.getElementById('btn-mirror-sync-now');
+    const verifyBtn = document.getElementById('btn-mirror-verify');
+    const restoreBtn = document.getElementById('btn-mirror-restore');
+
+    let status = null;
+    try {
+      if (this.#api?.getMirrorStatus) {
+        status = await this.#api.getMirrorStatus();
+      }
+    } catch (err) {
+      console.warn('[SettingsView] Failed to fetch mirror status:', err);
+    }
+
+    if (!status) {
+      status = { enabled: false, targetDir: null, lastStatus: 'idle' };
+    }
+
+    // Update UI state
+    if (dirInput) {
+      dirInput.value = status.targetDir || '';
+    }
+    if (toggle) {
+      toggle.checked = !!status.enabled;
+    }
+
+    // Badge styling & status text
+    if (badge) {
+      if (!status.targetDir) {
+        badge.textContent = 'Not Configured';
+        badge.style.background = 'rgba(148, 163, 184, 0.15)';
+        badge.style.color = 'var(--text-muted)';
+      } else if (status.lastStatus === 'success') {
+        badge.textContent = 'Healthy & Synced';
+        badge.style.background = 'rgba(16, 185, 129, 0.15)';
+        badge.style.color = '#10b981';
+      } else if (status.lastStatus === 'disconnected') {
+        badge.textContent = 'Drive Disconnected';
+        badge.style.background = 'rgba(251, 113, 133, 0.15)';
+        badge.style.color = '#fb7185';
+      } else if (status.lastStatus === 'error') {
+        badge.textContent = 'Mirror Error';
+        badge.style.background = 'rgba(251, 113, 133, 0.15)';
+        badge.style.color = '#fb7185';
+      } else if (status.lastStatus === 'syncing') {
+        badge.textContent = 'Mirroring...';
+        badge.style.background = 'rgba(245, 158, 11, 0.15)';
+        badge.style.color = '#f59e0b';
+      } else {
+        badge.textContent = status.enabled ? 'Active / Idle' : 'Paused';
+        badge.style.background = 'rgba(148, 163, 184, 0.15)';
+        badge.style.color = 'var(--text-muted)';
+      }
+    }
+
+    // Details text
+    if (details) {
+      if (status.targetDir) {
+        details.style.display = 'block';
+        const syncTimeText = status.lastSyncTime
+          ? new Date(status.lastSyncTime).toLocaleString()
+          : 'Never';
+        const errText = status.lastError
+          ? `<div style="color: #fb7185; margin-top: 4px;">Error: ${escapeHTML(status.lastError)}</div>`
+          : '';
+        setInnerHTML(
+          details,
+          `<div><strong>Target Vault:</strong> ${escapeHTML(status.targetDir)}</div>` +
+            `<div><strong>Last Mirrored:</strong> ${syncTimeText} &bull; <strong>Auto-Mirror:</strong> ${status.enabled ? 'Enabled (2000ms debounce)' : 'Disabled'}</div>` +
+            errText
+        );
+      } else {
+        details.style.display = 'none';
+      }
+    }
+
+    // Bind Select Folder Button
+    if (selectBtn && !selectBtn.dataset.modularWired) {
+      selectBtn.dataset.modularWired = 'true';
+      selectBtn.addEventListener('click', async () => {
+        try {
+          const res = await this.#api?.selectMirrorFolder?.();
+          if (res?.success && res.folderPath) {
+            await this.#api.configureMirror({ targetDir: res.folderPath, enabled: true });
+            showToast(`Backup vault set to: ${res.folderPath}`);
+            const syncRes = await this.#api.syncMirrorNow();
+            if (syncRes?.success) {
+              showToast('Initial mirror backup completed successfully!');
+            }
+            await this.renderMirrorVaultPane();
+          }
+        } catch (err) {
+          showToast(`Failed to select vault folder: ${err.message}`);
+        }
+      });
+    }
+
+    // Bind Toggle Checkbox
+    if (toggle && !toggle.dataset.modularWired) {
+      toggle.dataset.modularWired = 'true';
+      toggle.addEventListener('change', async () => {
+        try {
+          const isEnabled = toggle.checked;
+          if (isEnabled && !dirInput?.value) {
+            showToast('Please choose a vault folder first.');
+            toggle.checked = false;
+            return;
+          }
+          await this.#api.configureMirror({ enabled: isEnabled });
+          showToast(isEnabled ? 'Continuous mirroring enabled.' : 'Continuous mirroring disabled.');
+          await this.renderMirrorVaultPane();
+        } catch (err) {
+          showToast(`Failed to update mirror config: ${err.message}`);
+        }
+      });
+    }
+
+    // Bind Backup Now Button
+    if (syncBtn && !syncBtn.dataset.modularWired) {
+      syncBtn.dataset.modularWired = 'true';
+      syncBtn.addEventListener('click', async () => {
+        if (!dirInput?.value) {
+          showToast('Please choose a backup vault folder first.');
+          return;
+        }
+        syncBtn.setAttribute('disabled', 'true');
+        showToast('Mirroring database to vault...');
+        try {
+          const res = await this.#api?.syncMirrorNow?.();
+          if (res?.success) {
+            showToast(
+              `Vault backup synced (${res.manifest?.sourceDatabase?.totalExpenses || 0} transactions)`
+            );
+          } else {
+            showToast(`Mirror sync failed: ${res?.error || 'Unknown error'}`);
+          }
+        } catch (err) {
+          showToast(`Mirror sync failed: ${err.message}`);
+        } finally {
+          syncBtn.removeAttribute('disabled');
+          await this.renderMirrorVaultPane();
+        }
+      });
+    }
+
+    // Bind Verify Vault Button
+    if (verifyBtn && !verifyBtn.dataset.modularWired) {
+      verifyBtn.dataset.modularWired = 'true';
+      verifyBtn.addEventListener('click', async () => {
+        const vaultDir = dirInput?.value;
+        if (!vaultDir) {
+          showToast('Please choose a backup vault folder first.');
+          return;
+        }
+        verifyBtn.setAttribute('disabled', 'true');
+        showToast('Verifying vault cryptographic checksums...');
+        try {
+          const res = await this.#api?.verifyMirrorVault?.(vaultDir);
+          if (res?.valid) {
+            showToast(
+              `Vault verified: 0 errors detected. ${res.manifest?.sourceDatabase?.totalExpenses || 0} transactions intact.`
+            );
+          } else {
+            const errStr = (res?.errors || []).join('; ') || res?.error || 'Verification failed';
+            alert(`⚠️ Vault Integrity Check Failed:\n\n${errStr}`);
+            showToast('Vault integrity check failed.');
+          }
+        } catch (err) {
+          showToast(`Verification error: ${err.message}`);
+        } finally {
+          verifyBtn.removeAttribute('disabled');
+          await this.renderMirrorVaultPane();
+        }
+      });
+    }
+
+    // Bind Restore Button
+    if (restoreBtn && !restoreBtn.dataset.modularWired) {
+      restoreBtn.dataset.modularWired = 'true';
+      restoreBtn.addEventListener('click', async () => {
+        const vaultDir = dirInput?.value;
+        if (!vaultDir) {
+          showToast('Please choose a backup vault folder first.');
+          return;
+        }
+
+        if (
+          !confirm(
+            '⚠️ Restore database from this backup vault?\n\n' +
+              'Your current database will be automatically backed up to .pre-restore.bak safety snapshot before restoration.\n\n' +
+              'Do you want to proceed?'
+          )
+        ) {
+          return;
+        }
+
+        restoreBtn.setAttribute('disabled', 'true');
+        showToast('Restoring database from vault...');
+        try {
+          const res = await this.#api?.restoreMirrorVault?.(vaultDir);
+          if (res?.success) {
+            showToast(`Restore complete! Restored ${res.restoredExpenses} transactions safely.`);
+            await this.#refreshAppData();
+            await this.render();
+          } else {
+            alert(`⚠️ Restore Failed:\n\n${res?.error || 'Unknown error'}`);
+            showToast(`Restore failed: ${res?.error || 'Unknown error'}`);
+          }
+        } catch (err) {
+          showToast(`Restore error: ${err.message}`);
+        } finally {
+          restoreBtn.removeAttribute('disabled');
+        }
+      });
+    }
+  }
+
+  // ==========================================================================
   //  Notification Settings
   // ==========================================================================
 
@@ -651,13 +890,29 @@ export class SettingsView {
           ? devicesRes.data
           : [];
 
+      // Load Pairing Security Configuration
+      let secConfig = { maxFailedAttempts: 15, lockoutDurationSeconds: 60, enableUdpBeacon: true };
+      if (this.#api?.getPairingSecurityConfig) {
+        try {
+          const secRes = await this.#api.getPairingSecurityConfig();
+          const loaded = secRes?.data || secRes || {};
+          secConfig = {
+            maxFailedAttempts: loaded.maxPairingAttempts || loaded.maxFailedAttempts || 15,
+            lockoutDurationSeconds: loaded.pairingLockoutSeconds || loaded.lockoutDurationSeconds || 60,
+            enableUdpBeacon: loaded.enableUdpBeacon !== false
+          };
+        } catch (err) {
+          console.warn('[SettingsView] Error loading pairing security config:', err);
+        }
+      }
+
       // Build Paired Devices list HTML
       let devicesHtml = '';
       if (devices.length === 0) {
         devicesHtml = `
           <div style="padding: 24px; text-align: center; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); margin-top: 14px;">
             <i data-icon="smartphone" data-icon-size="28" style="color: var(--text-muted); opacity: 0.5; margin-bottom: 8px; display: inline-block;"></i>
-            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">No mobile devices paired yet. Click <strong>Generate Pairing PIN</strong> to pair your smartphone or tablet.</p>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">No mobile devices paired yet. Click <strong>Generate QR & PIN</strong> to pair your smartphone or tablet.</p>
           </div>
         `;
       } else {
@@ -763,34 +1018,147 @@ export class SettingsView {
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <strong style="font-size: 13.5px; color: var(--text-main); display: block; margin-bottom: 3px;">Pair New Mobile Device</strong>
-                <span style="font-size: 12px; color: var(--text-muted);">Generate a secure 6-digit one-time PIN to connect the mobile companion app on this Wi-Fi network.</span>
+                <span style="font-size: 12px; color: var(--text-muted);">Generate a secure optical QR code & 6-digit one-time PIN to connect Ledgerly Mobile Companion.</span>
               </div>
               <div style="display: flex; gap: 8px;">
                 <button type="button" class="btn btn-primary" id="btn-generate-pairing-pin" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600;">
-                  <i data-icon="wifi" data-icon-size="15"></i> Generate Pairing PIN
+                  <i data-icon="qr-code" data-icon-size="15"></i> Generate QR & PIN
                 </button>
               </div>
             </div>
 
-            <!-- PIN Display Card (Hidden by default, shown when token generated) -->
-            <div id="pairing-pin-display-card" style="display: none; margin-top: 16px; padding: 18px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); text-align: center;">
-              <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
-                Enter this 6-Digit PIN on your phone:
+            <!-- PIN & QR Display Card (Hidden by default, shown when token generated) -->
+            <div id="pairing-pin-display-card" style="display: none; position: relative; overflow: hidden; margin-top: 16px; padding: 20px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+              
+              <!-- Expiration Overlay (Hidden by default, shown when countdown hits 0) -->
+              <div id="pairing-expired-overlay" style="display: none; position: absolute; inset: 0; background: rgba(19, 18, 17, 0.94); backdrop-filter: blur(4px); z-index: 10; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;">
+                <i data-icon="clock" data-icon-size="32" style="color: #fb7185; margin-bottom: 10px;"></i>
+                <h4 style="font-size: 15px; font-weight: 700; color: #ffffff; margin: 0 0 6px 0;">Pairing Session Expired</h4>
+                <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 16px 0; max-width: 320px; line-height: 1.4;">
+                  The security window for this QR code and PIN has lapsed. Click below to regenerate fresh pairing credentials.
+                </p>
+                <button type="button" class="btn btn-primary" id="btn-regenerate-pairing" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 8px 16px;">
+                  <i data-icon="refresh-cw" data-icon-size="14"></i> Regenerate QR & PIN
+                </button>
               </div>
-              <div id="pairing-pin-code" style="font-family: 'JetBrains Mono', monospace; font-size: 38px; font-weight: 800; letter-spacing: 10px; color: var(--accent-spiced-chai); margin: 8px 0; text-shadow: 0 0 12px rgba(217,130,43,0.3);">
-                ------
+
+              <!-- Main Card Content: QR Code + PIN Side-by-Side -->
+              <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: center;">
+                <!-- QR Code Column -->
+                <div style="text-align: center; flex: 0 0 auto;">
+                  <div id="pairing-qr-container" style="background: #131211; border: 1px solid rgba(217, 130, 43, 0.35); border-radius: 10px; padding: 10px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.5); min-width: 180px; min-height: 180px;">
+                    <!-- Dynamic SVG injected here -->
+                  </div>
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; font-weight: 500;">
+                    Scan with Mobile Camera / Sync View
+                  </div>
+                </div>
+
+                <!-- PIN & Connection Details Column -->
+                <div style="flex: 1 1 260px; min-width: 240px;">
+                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <span id="pairing-timer-badge" class="badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); font-weight: 600; font-size: 11.5px; padding: 3px 8px;">
+                      Expires in: 05:00
+                    </span>
+                    <span style="font-size: 11px; color: var(--text-muted);">One-time Wi-Fi Handshake</span>
+                  </div>
+
+                  <div style="font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">
+                    Or enter 6-Digit PIN manually:
+                  </div>
+
+                  <div id="pairing-pin-code" style="font-family: 'JetBrains Mono', monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: var(--accent-spiced-chai); margin: 6px 0; text-shadow: 0 0 12px rgba(217,130,43,0.3);">
+                    ------
+                  </div>
+
+                  <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                    Desktop Host: <strong id="pairing-host-info" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">-</strong>
+                  </div>
+
+                  <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 14px 0; line-height: 1.45;">
+                    Open <strong>Ledgerly Mobile</strong> &rarr; tap <strong>Sync</strong> tab &rarr; tap <strong>Scan QR Code</strong> for instant optical handshake.
+                  </p>
+
+                  <button type="button" class="btn btn-sm btn-ghost" id="btn-copy-pairing-details" style="font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                    <i data-icon="clipboard" data-icon-size="14"></i> Copy Connection Details
+                  </button>
+                </div>
               </div>
-              <div style="display: flex; justify-content: center; align-items: center; gap: 16px; font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-                <span>Desktop Host: <strong id="pairing-host-info" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">-</strong></span>
-                <span>•</span>
-                <span id="pairing-timer-badge" style="color: #fbbf24; font-weight: 600;">Expires in: 05:00</span>
+            </div>
+          </div>
+
+          <!-- Pairing & LAN Security Section -->
+          <div style="padding: 18px 20px; background: rgba(0, 0, 0, 0.16); border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 22px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+              <h4 style="font-size: 13.5px; font-weight: 700; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                <i data-icon="shield" data-icon-size="15" style="color: var(--accent-spiced-chai)"></i>
+                Pairing & LAN Security Configuration
+              </h4>
+              <span id="pairing-lockout-badge" class="badge" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); font-size: 11px; padding: 3px 8px;">
+                Status: Normal (No Lockouts)
+              </span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 14px 0;">
+              Protect pairing endpoints against Wi-Fi brute-force attacks with IP attempt thresholds, cooldown lockouts, and UDP discovery beacons.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 14px;">
+              <div>
+                <label for="input-pairing-max-attempts" style="display: block; font-size: 12px; font-weight: 600; color: var(--text-main); margin-bottom: 5px;">
+                  Max Failed Attempts (3–50)
+                </label>
+                <input
+                  type="number"
+                  id="input-pairing-max-attempts"
+                  min="3"
+                  max="50"
+                  value="${secConfig.maxFailedAttempts}"
+                  class="form-control"
+                  style="width: 100%; font-size: 13px; font-family: 'JetBrains Mono', monospace;"
+                />
+                <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">Attempts before client IP is temporarily locked out</span>
               </div>
-              <p style="font-size: 12px; color: var(--text-muted); max-width: 480px; margin: 0 auto 12px auto; line-height: 1.5;">
-                Open <strong>Ledgerly Companion</strong> &rarr; tap <strong>Sync</strong> tab &rarr; enter the Desktop Host and PIN above, then tap <strong>Pair with Desktop</strong>.
-              </p>
-              <button type="button" class="btn btn-sm btn-ghost" id="btn-copy-pairing-details" style="font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
-                <i data-icon="clipboard" data-icon-size="14"></i> Copy Connection Details
-              </button>
+
+              <div>
+                <label for="input-pairing-lockout-duration" style="display: block; font-size: 12px; font-weight: 600; color: var(--text-main); margin-bottom: 5px;">
+                  Lockout Duration (15–300 seconds)
+                </label>
+                <input
+                  type="number"
+                  id="input-pairing-lockout-duration"
+                  min="15"
+                  max="300"
+                  step="5"
+                  value="${secConfig.lockoutDurationSeconds}"
+                  class="form-control"
+                  style="width: 100%; font-size: 13px; font-family: 'JetBrains Mono', monospace;"
+                />
+                <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">Cooldown period enforcing HTTP 429 Retry-After</span>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--radius-sm); margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <label for="toggle-pairing-udp-beacon" style="font-size: 12.5px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 2px;">
+                  <input type="checkbox" id="toggle-pairing-udp-beacon" ${secConfig.enableUdpBeacon ? 'checked' : ''} style="accent-color: var(--accent-spiced-chai); width: 15px; height: 15px;" />
+                  Enable UDP LAN Discovery Beacon
+                </label>
+                <span style="font-size: 11px; color: var(--text-muted);">Broadcasts discovery announcements on UDP:52411 strictly during active pairing</span>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(0,0,0,0.22); border: 1px solid var(--border-color); border-radius: var(--radius-sm); flex-wrap: wrap; gap: 8px;">
+              <div style="font-size: 12px; color: var(--text-muted);" id="pairing-lockout-details">
+                No client IP addresses currently rate-limited or locked out.
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-sm btn-secondary" id="btn-clear-pairing-lockout" style="font-size: 12px; display: inline-flex; align-items: center; gap: 5px;">
+                  <i data-icon="unlock" data-icon-size="13"></i> Clear Lockout
+                </button>
+                <button type="button" class="btn btn-sm btn-primary" id="btn-save-pairing-security" style="font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+                  <i data-icon="save" data-icon-size="13"></i> Save Security Settings
+                </button>
+              </div>
             </div>
           </div>
 
@@ -842,6 +1210,17 @@ export class SettingsView {
     const hostInfoEl = container.querySelector('#pairing-host-info');
     const timerBadgeEl = container.querySelector('#pairing-timer-badge');
     const copyBtn = container.querySelector('#btn-copy-pairing-details');
+    const qrContainer = container.querySelector('#pairing-qr-container');
+    const expiredOverlay = container.querySelector('#pairing-expired-overlay');
+    const regenerateBtn = container.querySelector('#btn-regenerate-pairing');
+
+    const maxAttemptsInput = container.querySelector('#input-pairing-max-attempts');
+    const lockoutDurationInput = container.querySelector('#input-pairing-lockout-duration');
+    const udpBeaconToggle = container.querySelector('#toggle-pairing-udp-beacon');
+    const lockoutBadge = container.querySelector('#pairing-lockout-badge');
+    const lockoutDetails = container.querySelector('#pairing-lockout-details');
+    const clearLockoutBtn = container.querySelector('#btn-clear-pairing-lockout');
+    const saveSecurityBtn = container.querySelector('#btn-save-pairing-security');
 
     let currentPin = '';
     let currentHostPort = '';
@@ -862,11 +1241,18 @@ export class SettingsView {
             return;
           }
 
+          if ((!udpBeaconToggle || udpBeaconToggle.checked) && this.#api.startPairingBeacon) {
+            await this.#api.startPairingBeacon().catch(() => {});
+          }
+
           currentPin = tokenData.pin;
           const host = tokenData.host || defaultHost;
           const port = tokenData.port || defaultPort;
           currentHostPort = `${host}:${port}`;
 
+          if (expiredOverlay) {
+            expiredOverlay.style.display = 'none';
+          }
           if (pinDisplayCard) {
             pinDisplayCard.style.display = 'block';
           }
@@ -875,6 +1261,28 @@ export class SettingsView {
           }
           if (hostInfoEl) {
             hostInfoEl.textContent = currentHostPort;
+          }
+
+          // Generate and inject crisp Theme 3 QR Code SVG
+          if (qrContainer) {
+            const qrPayload =
+              tokenData.qrPayload ||
+              JSON.stringify({
+                host,
+                port,
+                pin: currentPin,
+                token: tokenData.token,
+                machineName: tokenData.machineName || 'Ledgerly Desktop'
+              });
+
+            const qrSvg = generateQRCodeSVG(qrPayload, {
+              width: 176,
+              height: 176,
+              fgColor: '#d9822b',
+              bgColor: '#131211',
+              title: 'Ledgerly Mobile Pairing QR Code'
+            });
+            setInnerHTML(qrContainer, qrSvg);
           }
 
           // Countdown timer
@@ -893,7 +1301,7 @@ export class SettingsView {
                 timerBadgeEl.textContent = `Expires in: ${formatted}`;
                 timerBadgeEl.style.color = '#fbbf24';
               } else {
-                timerBadgeEl.textContent = 'PIN Expired (Generate New PIN)';
+                timerBadgeEl.textContent = 'Session Expired';
                 timerBadgeEl.style.color = '#fb7185';
               }
             }
@@ -907,21 +1315,87 @@ export class SettingsView {
             if (remainingSec <= 0) {
               clearInterval(this.#pairingInterval);
               this.#pairingInterval = null;
+              if (this.#api.stopPairingBeacon) {
+                this.#api.stopPairingBeacon().catch(() => {});
+              }
               if (copyBtn) copyBtn.disabled = true;
+              if (expiredOverlay) {
+                expiredOverlay.style.display = 'flex';
+                if (typeof window.hydrateIcons === 'function') window.hydrateIcons(expiredOverlay);
+              }
             }
           }, 1000);
 
           if (copyBtn) copyBtn.disabled = false;
-          showToast(`Pairing PIN generated: ${currentPin}`);
+          showToast(`Pairing QR & PIN generated: ${currentPin}`);
         } catch (err) {
           console.error('[SettingsView] Error generating pairing token:', err);
           showToast(err.message || 'Error generating pairing PIN', 'error');
         } finally {
           if (generateBtn) {
             generateBtn.disabled = false;
-            generateBtn.innerHTML = '<i data-icon="wifi" data-icon-size="15"></i> Generate Pairing PIN';
+            generateBtn.innerHTML = '<i data-icon="qr-code" data-icon-size="15"></i> Generate QR & PIN';
             if (typeof window.hydrateIcons === 'function') window.hydrateIcons(generateBtn);
           }
+        }
+      });
+    }
+
+    if (regenerateBtn && !regenerateBtn.dataset.wired) {
+      regenerateBtn.dataset.wired = 'true';
+      regenerateBtn.addEventListener('click', () => {
+        if (expiredOverlay) expiredOverlay.style.display = 'none';
+        if (generateBtn) generateBtn.click();
+      });
+    }
+
+    if (saveSecurityBtn && !saveSecurityBtn.dataset.wired) {
+      saveSecurityBtn.dataset.wired = 'true';
+      saveSecurityBtn.addEventListener('click', async () => {
+        const maxAttempts = Math.max(3, Math.min(50, parseInt(maxAttemptsInput?.value, 10) || 15));
+        const lockoutSec = Math.max(15, Math.min(300, parseInt(lockoutDurationInput?.value, 10) || 60));
+        const enableBeacon = Boolean(udpBeaconToggle?.checked);
+
+        try {
+          saveSecurityBtn.disabled = true;
+          if (this.#api?.updatePairingSecurityConfig) {
+            await this.#api.updatePairingSecurityConfig({
+              maxPairingAttempts: maxAttempts,
+              maxFailedAttempts: maxAttempts,
+              pairingLockoutSeconds: lockoutSec,
+              lockoutDurationSeconds: lockoutSec,
+              enableUdpBeacon: enableBeacon
+            });
+          }
+          showToast('Pairing & LAN security settings saved!');
+        } catch (err) {
+          showToast(err.message || 'Failed to save security settings', 'error');
+        } finally {
+          saveSecurityBtn.disabled = false;
+        }
+      });
+    }
+
+    if (clearLockoutBtn && !clearLockoutBtn.dataset.wired) {
+      clearLockoutBtn.dataset.wired = 'true';
+      clearLockoutBtn.addEventListener('click', async () => {
+        try {
+          clearLockoutBtn.disabled = true;
+          if (this.#api?.resetPairingLockout) {
+            await this.#api.resetPairingLockout();
+          }
+          if (lockoutBadge) {
+            lockoutBadge.textContent = 'Status: Normal (Cleared)';
+            lockoutBadge.style.color = '#4ade80';
+          }
+          if (lockoutDetails) {
+            lockoutDetails.textContent = 'Active IP lockouts cleared successfully.';
+          }
+          showToast('Pairing brute-force lockouts cleared!');
+        } catch (err) {
+          showToast(err.message || 'Failed to clear lockouts', 'error');
+        } finally {
+          clearLockoutBtn.disabled = false;
         }
       });
     }

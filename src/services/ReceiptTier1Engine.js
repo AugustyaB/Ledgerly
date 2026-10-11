@@ -27,6 +27,7 @@ const path = require('path');
 const fs = require('fs');
 const DocumentNormalizer = require('./DocumentNormalizer');
 const { CategoryMatcher } = require('../categoryMatcher');
+const ReceiptLearningService = require('./ReceiptLearningService');
 const { ErrorCode } = require('../constants');
 
 // Dynamic requirement of tesseract.js for offline WASM OCR
@@ -105,6 +106,10 @@ class ReceiptTier1Engine {
   constructor(options = {}) {
     this.normalizer = options.normalizer || new DocumentNormalizer();
     this.categoryMatcher = options.categoryMatcher || new CategoryMatcher();
+    this.receiptLearning =
+      options.receiptLearning ||
+      options.learningService ||
+      (options.configPath ? new ReceiptLearningService({ configPath: options.configPath }) : new ReceiptLearningService());
     this._worker = null;
     this._workerInitPromise = null;
     this._localModelDir = options.localModelDir || path.join(__dirname, '..', '..', 'assets', 'models', 'tesseract');
@@ -277,14 +282,59 @@ class ReceiptTier1Engine {
         };
       }
 
-      // 4. Token Attention Extractions
-      const totalExtraction = this.extractTotal(lines, rawText);
-      const dateExtraction = this.extractDate(lines, rawText);
-      const merchant = this.extractMerchant(lines);
-      const taxInfo = this.extractTaxAndGstin(lines, rawText);
+      // 4. Token Attention Extractions with Learning Loop & Layout Memory
+      const merchantDetails = this.extractMerchantDetails(lines);
+      const merchant = merchantDetails.merchant;
+
+      // Extract GSTIN / tax headers first to check layout cache
+      const taxInfoPre = this.extractTaxAndGstin(lines, rawText);
+      const layoutId = taxInfoPre.gstin || merchant;
+      const layoutMemory = this.receiptLearning ? this.receiptLearning.getLayout(layoutId) : null;
+
+      const totalExtraction = this.extractTotal(lines, rawText, layoutMemory);
+      const dateExtraction = this.extractDate(lines, rawText, layoutMemory);
+      const taxInfo = taxInfoPre;
       const paymentMethod = this.extractPaymentMethod(rawText);
       const lineItems = this.extractLineItems(lines);
       const category = this.inferCategory(merchant, rawText, lineItems);
+
+      // Mathematical consistency verification (subtotal + tax === total)
+      if (
+        taxInfo.subtotal !== null &&
+        taxInfo.taxAmount !== null &&
+        totalExtraction.total !== null &&
+        Math.abs(taxInfo.subtotal + taxInfo.taxAmount - totalExtraction.total) < 0.05
+      ) {
+        totalExtraction.confidence = Math.min(1.0, totalExtraction.confidence + 0.04);
+        taxInfo.confidence = Math.min(1.0, taxInfo.confidence + 0.04);
+      }
+
+      // Check if repeat layout memory was utilized
+      let layoutMemoryApplied = false;
+      if (layoutMemory) {
+        if (
+          (layoutMemory.totalAnchor && totalExtraction.anchorUsed === layoutMemory.totalAnchor) ||
+          (layoutMemory.datePattern && dateExtraction.patternUsed === layoutMemory.datePattern)
+        ) {
+          layoutMemoryApplied = true;
+        }
+      }
+
+      // Auto-learn vendor layout memory if confidence is high and anchor is explicit
+      if (
+        this.receiptLearning &&
+        totalExtraction.anchorUsed &&
+        totalExtraction.anchorUsed !== 'LARGEST_TAIL_FLOAT' &&
+        totalExtraction.confidence >= 0.90 &&
+        layoutId &&
+        layoutId !== 'Unknown Merchant'
+      ) {
+        this.receiptLearning.learnLayout(layoutId, {
+          totalAnchor: totalExtraction.anchorUsed,
+          datePattern: dateExtraction.patternUsed || null,
+          taxType: taxInfo.gstin ? 'GST' : taxInfo.taxAmount ? 'SALES_TAX' : null
+        });
+      }
 
       // Resolve Currency (Document Currency Override - SPEC-102)
       let currency = 'INR';
@@ -310,13 +360,42 @@ class ReceiptTier1Engine {
       const subtotal = totalExtraction.subtotal !== null ? totalExtraction.subtotal : taxInfo.subtotal || null;
       const taxAmount = taxInfo.taxAmount;
 
+      // Compute field-level confidence ratings (0.0 to 1.0)
+      const fieldConfidence = {
+        merchant: Math.round(merchantDetails.confidence * 100) / 100,
+        date: Math.round((dateExtraction.confidence || (dateExtraction.date ? 0.90 : 0.20)) * 100) / 100,
+        total: Math.round(totalExtraction.confidence * 100) / 100,
+        tax: Math.round(taxInfo.confidence * 100) / 100
+      };
+
+      // Flag low confidence fields (< 0.75 threshold) for review cockpit amber badges
+      const lowConfidenceFields = Object.keys(fieldConfidence).filter(
+        field => fieldConfidence[field] < 0.75
+      );
+
+      // Weighted overall document confidence rating
+      const overallConfidence =
+        Math.round(
+          (fieldConfidence.total * 0.40 +
+            fieldConfidence.merchant * 0.30 +
+            fieldConfidence.date * 0.20 +
+            fieldConfidence.tax * 0.10) *
+            100
+        ) / 100;
+
       const elapsed = Date.now() - startTime;
 
       return {
         success: true,
         data: {
           isTransaction: true,
-          confidence: totalAmount !== null ? 0.94 : 0.72,
+          confidence: overallConfidence,
+          overallConfidence: overallConfidence,
+          fieldConfidence: fieldConfidence,
+          lowConfidenceFields: lowConfidenceFields,
+          aliasResolved: merchantDetails.aliasResolved,
+          rawMerchant: merchantDetails.rawMerchant,
+          layoutMemoryApplied: layoutMemoryApplied,
           merchant: merchant || 'Unknown Merchant',
           date: dateExtraction.date || new Date().toISOString().split('T')[0],
           rawDate: dateExtraction.rawDate,
@@ -480,28 +559,57 @@ class ReceiptTier1Engine {
 
   /**
    * Scans lines from bottom-to-top to extract grand total and subtotal.
+   * Leverages repeat merchant layout memory (totalAnchor) when available.
    *
    * @param {Array<string>} lines
    * @param {string} fullText
-   * @returns {{ total: number|null, subtotal: number|null, confidence: number }}
+   * @param {object|null} [layoutMemory=null] - Learned vendor layout configuration.
+   * @returns {{ total: number|null, subtotal: number|null, confidence: number, anchorUsed: string|null }}
    */
-  extractTotal(lines, fullText) {
+  extractTotal(lines, fullText, layoutMemory = null) {
     let grandTotal = null;
     let subtotal = null;
+    let anchorUsed = null;
+    let confidence = 0.0;
 
-    // Pattern A: Explicit Grand Total / Total Paid / Amount Due anchors
+    // Priority 0: Check learned vendor layout anchor first
+    if (layoutMemory && layoutMemory.totalAnchor) {
+      try {
+        const escapedAnchor = layoutMemory.totalAnchor
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          .replace(/\s+/g, '\\s*');
+        const customAnchorRegex = new RegExp(
+          `(?:^|\\s)(?:${escapedAnchor})\\s*[:=]?\\s*(?:₹|rs\\.?|inr|usd|\\$|eur|€|gbp|£)?\\s*([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,6}[.,][0-9]{2})(?:\\s*(?:₹|rs\\.?|inr|usd|\\$|eur|€|gbp|£))?`,
+          'i'
+        );
+
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const match = lines[i].match(customAnchorRegex);
+          if (match) {
+            grandTotal = this._parseCleanFloat(match[1]);
+            anchorUsed = layoutMemory.totalAnchor;
+            confidence = 0.96;
+            break;
+          }
+        }
+      } catch {
+        // Fallback to default regex search
+      }
+    }
+
+    // Pattern A: Explicit Grand Total / Total Paid / Amount Due anchors (including DACH region)
     const explicitTotalRegex =
-      /(?:grand\s*total|total\s*paid|net\s*payable|amount\s*due|invoice\s*total|final\s*bill|total\s*amount|total\s*inr|total\s*usd|total\s*eur|total\s*gbp|amount\s*paid|amount)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,6}(?:[.,][0-9]{2}))/i;
+      /(?:grand\s*total|total\s*paid|net\s*payable|amount\s*due|invoice\s*total|final\s*bill|total\s*amount|total\s*inr|total\s*usd|total\s*eur|total\s*gbp|amount\s*paid|amount|gesamtsumme|gesamtbetrag|endbetrag|rechnungsbetrag|zu\s*zahlen)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,6}[.,][0-9]{2})(?:\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£))?/i;
 
-    // Pattern B: General Total anchors
+    // Pattern B: General Total anchors (including German Summe)
     const standardTotalRegex =
-      /(?:^|\s)(?:total|balance|net|paid)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,6}(?:[.,][0-9]{2}))/i;
+      /(?:^|\s)(?:total|balance|net|paid|summe)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,6}[.,][0-9]{2})(?:\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£))?/i;
 
-    // Pattern C: Subtotal anchors
+    // Pattern C: Subtotal anchors (including German Zwischensumme, Netto, Warenwert)
     const subtotalRegex =
-      /(?:subtotal|sub-total|item\s+total|items\s+total)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,6}(?:[.,][0-9]{2}))/i;
+      /(?:subtotal|sub-total|item\s+total|items\s+total|zwischensumme|netto|warenwert)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,6}[.,][0-9]{2})(?:\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£))?/i;
 
-    // 1. Reverse scan for explicit grand total
+    // 1. Reverse scan for explicit grand total and subtotal
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i];
 
@@ -509,7 +617,9 @@ class ReceiptTier1Engine {
         const expMatch = line.match(explicitTotalRegex);
         if (expMatch) {
           grandTotal = this._parseCleanFloat(expMatch[1]);
-          continue;
+          const rawAnchor = expMatch[0].split(/[:=\d]/)[0].trim();
+          anchorUsed = anchorUsed || rawAnchor;
+          confidence = confidence || 0.94;
         }
       }
 
@@ -517,7 +627,6 @@ class ReceiptTier1Engine {
         const subMatch = line.match(subtotalRegex);
         if (subMatch) {
           subtotal = this._parseCleanFloat(subMatch[1]);
-          continue;
         }
       }
     }
@@ -527,11 +636,14 @@ class ReceiptTier1Engine {
       for (let i = lines.length - 1; i >= 0; i--) {
         const line = lines[i];
         // Ensure line doesn't mention tax percentage alone
-        if (/\b(?:cgst|sgst|igst|tax)\s*@?\s*\d+%/i.test(line)) continue;
+        if (/\b(?:cgst|sgst|igst|tax|vat|mwst|ust)\s*@?\s*[\d.,]+%/i.test(line)) continue;
 
         const stdMatch = line.match(standardTotalRegex);
         if (stdMatch) {
           grandTotal = this._parseCleanFloat(stdMatch[1]);
+          const rawAnchor = stdMatch[0].split(/[:=\d]/)[0].trim();
+          anchorUsed = rawAnchor;
+          confidence = 0.85;
           break;
         }
       }
@@ -548,9 +660,9 @@ class ReceiptTier1Engine {
         if (/\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b/.test(line)) continue;
         if (/\b(?:gstin|order|tel|phone)\b/i.test(line)) continue;
 
-        const nums = line.match(/\b\d{1,6}\.\d{2}\b/g) || [];
+        const nums = line.match(/\b\d{1,6}[.,]\d{2}\b/g) || [];
         for (const num of nums) {
-          const val = parseFloat(num);
+          const val = this._parseCleanFloat(num);
           // Plausible single purchase total filter
           if (val > 0 && val < 500000) {
             candidates.push(val);
@@ -560,6 +672,8 @@ class ReceiptTier1Engine {
 
       if (candidates.length > 0) {
         grandTotal = Math.max(...candidates);
+        anchorUsed = 'LARGEST_TAIL_FLOAT';
+        confidence = 0.58;
       }
     }
 
@@ -573,7 +687,8 @@ class ReceiptTier1Engine {
     return {
       total: grandTotal !== null ? Math.round(grandTotal * 100) / 100 : null,
       subtotal: subtotal !== null ? Math.round(subtotal * 100) / 100 : null,
-      confidence: grandTotal !== null ? 0.92 : 0.0
+      confidence: grandTotal !== null ? confidence : 0.0,
+      anchorUsed
     };
   }
 
@@ -583,13 +698,37 @@ class ReceiptTier1Engine {
 
   /**
    * Detects date strings and normalizes to ISO YYYY-MM-DD.
+   * Respects repeat merchant layout memory (datePattern) when available.
    *
    * @param {Array<string>} lines
    * @param {string} fullText
-   * @returns {{ date: string|null, rawDate: string|null }}
+   * @param {object|null} [layoutMemory=null]
+   * @returns {{ date: string|null, rawDate: string|null, confidence: number, patternUsed: string|null }}
    */
-  extractDate(lines, fullText) {
+  extractDate(lines, fullText, layoutMemory = null) {
     const currentYear = new Date().getFullYear();
+    const preferredPattern = layoutMemory && layoutMemory.datePattern ? layoutMemory.datePattern.toUpperCase() : null;
+
+    // Check preferred format if recorded in layout memory
+    if (preferredPattern === 'DD/MM/YYYY' || preferredPattern === 'DD-MM-YYYY') {
+      const ddmmyyyyRegex = /\b(0?[1-9]|[12]\d|3[01])[-/.](0?[1-9]|1[0-2])[-/.](20\d{2}|\d{2})\b/;
+      const match = fullText.match(ddmmyyyyRegex);
+      if (match) {
+        const day = match[1].padStart(2, '0');
+        const month = match[2].padStart(2, '0');
+        let year = match[3];
+        if (year.length === 2) year = `20${year}`;
+        const yrNum = parseInt(year, 10);
+        if (yrNum >= 2015 && yrNum <= currentYear + 1) {
+          return {
+            date: `${year}-${month}-${day}`,
+            rawDate: match[0],
+            confidence: 0.95,
+            patternUsed: 'DD/MM/YYYY'
+          };
+        }
+      }
+    }
 
     // Priority 1: ISO YYYY-MM-DD
     const isoMatch = fullText.match(/\b(20\d{2})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])\b/);
@@ -597,7 +736,12 @@ class ReceiptTier1Engine {
       const year = isoMatch[1];
       const month = isoMatch[2].padStart(2, '0');
       const day = isoMatch[3].padStart(2, '0');
-      return { date: `${year}-${month}-${day}`, rawDate: isoMatch[0] };
+      return {
+        date: `${year}-${month}-${day}`,
+        rawDate: isoMatch[0],
+        confidence: 0.96,
+        patternUsed: 'YYYY-MM-DD'
+      };
     }
 
     // Priority 2: Textual Month (e.g. 14 Aug 2026 or 14-August-2026 or Aug 14, 2026)
@@ -623,7 +767,12 @@ class ReceiptTier1Engine {
         dec: '12'
       };
       const month = monthMap[monthStr] || '01';
-      return { date: `${year}-${month}-${day}`, rawDate: textMatch[0] };
+      return {
+        date: `${year}-${month}-${day}`,
+        rawDate: textMatch[0],
+        confidence: 0.95,
+        patternUsed: 'DD_MMM_YYYY'
+      };
     }
 
     // Priority 3: Regional DD/MM/YYYY or DD-MM-YYYY (Common in India / UK / Europe)
@@ -637,7 +786,13 @@ class ReceiptTier1Engine {
 
       const yrNum = parseInt(year, 10);
       if (yrNum >= 2015 && yrNum <= currentYear + 1) {
-        return { date: `${year}-${month}-${day}`, rawDate: ddmmyyyyMatch[0] };
+        const isUnambiguous = parseInt(day, 10) > 12;
+        return {
+          date: `${year}-${month}-${day}`,
+          rawDate: ddmmyyyyMatch[0],
+          confidence: isUnambiguous ? 0.92 : 0.82,
+          patternUsed: 'DD/MM/YYYY'
+        };
       }
     }
 
@@ -648,10 +803,15 @@ class ReceiptTier1Engine {
       const month = mmddyyyyMatch[1].padStart(2, '0');
       const day = mmddyyyyMatch[2].padStart(2, '0');
       const year = mmddyyyyMatch[3];
-      return { date: `${year}-${month}-${day}`, rawDate: mmddyyyyMatch[0] };
+      return {
+        date: `${year}-${month}-${day}`,
+        rawDate: mmddyyyyMatch[0],
+        confidence: 0.92,
+        patternUsed: 'MM/DD/YYYY'
+      };
     }
 
-    return { date: null, rawDate: null };
+    return { date: null, rawDate: null, confidence: 0.0, patternUsed: null };
   }
 
   // ==========================================================================
@@ -660,13 +820,20 @@ class ReceiptTier1Engine {
 
   /**
    * Scans document header lines to identify the merchant/vendor name,
-   * filtering out receipt boilerplate keywords.
+   * checks learned aliases in ReceiptLearningService, and assigns confidence.
    *
    * @param {Array<string>} lines
-   * @returns {string}
+   * @returns {{ merchant: string, rawMerchant: string, aliasResolved: boolean, confidence: number }}
    */
-  extractMerchant(lines) {
-    if (!lines || lines.length === 0) return 'Unknown Merchant';
+  extractMerchantDetails(lines) {
+    if (!lines || lines.length === 0) {
+      return {
+        merchant: 'Unknown Merchant',
+        rawMerchant: '',
+        aliasResolved: false,
+        confidence: 0.0
+      };
+    }
 
     // Check top 5 non-empty lines
     const candidates = lines.slice(0, 5);
@@ -693,6 +860,19 @@ class ReceiptTier1Engine {
 
       // Ensure merchant has alphabetical characters
       if (/[a-zA-Z]/.test(cleanMerchant) && cleanMerchant.length >= 3) {
+        // Check learned merchant aliases first
+        if (this.receiptLearning) {
+          const aliasRes = this.receiptLearning.resolveAlias(cleanMerchant);
+          if (aliasRes.resolved) {
+            return {
+              merchant: aliasRes.name,
+              rawMerchant: cleanMerchant,
+              aliasResolved: true,
+              confidence: 1.0
+            };
+          }
+        }
+
         // Proper Case conversion if all caps
         if (cleanMerchant === cleanMerchant.toUpperCase() && cleanMerchant.length > 3) {
           cleanMerchant = cleanMerchant
@@ -701,11 +881,48 @@ class ReceiptTier1Engine {
             .map(w => w.charAt(0).toUpperCase() + w.slice(1))
             .join(' ');
         }
-        return cleanMerchant;
+
+        const isGoodLength = cleanMerchant.length >= 5;
+        return {
+          merchant: cleanMerchant,
+          rawMerchant: line,
+          aliasResolved: false,
+          confidence: isGoodLength ? 0.88 : 0.70
+        };
       }
     }
 
-    return lines[0] || 'Unknown Merchant';
+    // Fallback: check first line with alias resolution
+    const fallbackRaw = lines[0] || '';
+    if (this.receiptLearning && fallbackRaw) {
+      const aliasRes = this.receiptLearning.resolveAlias(fallbackRaw);
+      if (aliasRes.resolved) {
+        return {
+          merchant: aliasRes.name,
+          rawMerchant: fallbackRaw,
+          aliasResolved: true,
+          confidence: 1.0
+        };
+      }
+    }
+
+    return {
+      merchant: fallbackRaw || 'Unknown Merchant',
+      rawMerchant: fallbackRaw,
+      aliasResolved: false,
+      confidence: fallbackRaw ? 0.60 : 0.0
+    };
+  }
+
+  /**
+   * Scans document header lines to identify the merchant/vendor name,
+   * filtering out receipt boilerplate keywords. (Backward-compatible string output).
+   *
+   * @param {Array<string>} lines
+   * @returns {string}
+   */
+  extractMerchant(lines) {
+    return this.extractMerchantDetails(lines).merchant;
   }
 
   // ==========================================================================
@@ -717,7 +934,7 @@ class ReceiptTier1Engine {
    *
    * @param {Array<string>} lines
    * @param {string} fullText
-   * @returns {{ gstin: string|null, cgst: number|null, sgst: number|null, igst: number|null, taxAmount: number|null, subtotal: number|null }}
+   * @returns {{ gstin: string|null, cgst: number|null, sgst: number|null, igst: number|null, taxAmount: number|null, subtotal: number|null, confidence: number }}
    */
   extractTaxAndGstin(lines, fullText) {
     let gstin = null;
@@ -747,14 +964,16 @@ class ReceiptTier1Engine {
       const igstMatch = line.match(/IGST(?:\s*@?\s*[\d.]+%)?\s*[:=]?\s*(?:₹|rs\.?|inr|\$)?\s*(\d{1,6}(?:[.,]\d{2}))/i);
       if (igstMatch) igst = this._parseCleanFloat(igstMatch[1]);
 
-      // General Tax / VAT / Sales Tax
+      // General Tax / VAT / Sales Tax / DACH MwSt & USt (including combinations like MwSt / VAT)
       const taxMatch = line.match(
-        /(?:tax\s*\/?\s*vat|sales\s+tax|total\s+tax|tax\s+amount)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*(\d{1,6}(?:[.,]\d{2}))/i
+        /(?:(?:inkl\.?\s*)?(?:[\d.,]+%\s*)?(?:tax\s*\/?\s*vat|vat\s*\/?\s*tax|mwst\s*\/?\s*vat|vat\s*\/?\s*mwst|mwst\s*\/?\s*ust|ust\s*\/?\s*mwst|sales\s+tax|total\s+tax|tax\s+amount|mehrwertsteuer|umsatzsteuer|mwst\.?(?:-satz|-betrag)?|ust\.?)(?:\s*@?\s*\(?[\d.,]+%\)?)?)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,6}[.,][0-9]{2})(?:\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£))?/i
       );
       if (taxMatch && taxAmount === null) taxAmount = this._parseCleanFloat(taxMatch[1]);
 
-      // Subtotal
-      const subMatch = line.match(/subtotal\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*(\d{1,6}(?:[.,]\d{2}))/i);
+      // Subtotal / DACH Zwischensumme & Netto
+      const subMatch = line.match(
+        /(?:subtotal|sub-total|zwischensumme|netto|warenwert)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,6}[.,][0-9]{2})(?:\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£))?/i
+      );
       if (subMatch && subtotal === null) subtotal = this._parseCleanFloat(subMatch[1]);
     }
 
@@ -765,7 +984,14 @@ class ReceiptTier1Engine {
       taxAmount = igst;
     }
 
-    return { gstin, cgst, sgst, igst, taxAmount, subtotal };
+    let confidence = 0.80;
+    if (gstin && (cgst !== null || sgst !== null)) {
+      confidence = 0.98;
+    } else if (gstin || (cgst !== null && sgst !== null) || taxAmount !== null) {
+      confidence = 0.92;
+    }
+
+    return { gstin, cgst, sgst, igst, taxAmount, subtotal, confidence };
   }
 
   // ==========================================================================
@@ -852,7 +1078,8 @@ class ReceiptTier1Engine {
    */
   extractLineItems(lines) {
     const items = [];
-    const itemRegex = /^(?:(\d+)[xX*]\s+)?([A-Za-z0-9\s&'-]{3,40}?)\s+(?:INR|USD|EUR|GBP|₹|\$)?\s*(\d{1,6}[.,]\d{2})$/;
+    const itemRegex =
+      /^(?:(\d+)[xX*]\s+)?([A-Za-z0-9\u00C0-\u017F\s&'%.-]{2,40}?)\s+(?:INR|USD|EUR|GBP|₹|\$|€)?\s*(\d{1,6}[.,]\d{2})(?:\s*(?:INR|USD|EUR|GBP|₹|\$|€))?$/i;
 
     let inItemsSection = false;
 
@@ -863,8 +1090,12 @@ class ReceiptTier1Engine {
         continue;
       }
 
-      // Stop parsing items if subtotal/total block is reached
-      if (/(?:subtotal|grand\s*total|tax\s*invoice|cgst|sgst|gstin)/i.test(line)) {
+      // Stop parsing items if subtotal/total/tax block is reached
+      if (
+        /(?:subtotal|grand\s*total|tax\s*invoice|cgst|sgst|gstin|zwischensumme|gesamtsumme|summe|endbetrag|mwst|ust|netto|gesamtbetrag|zu\s*zahlen)/i.test(
+          line
+        )
+      ) {
         continue;
       }
 
@@ -921,7 +1152,7 @@ class ReceiptTier1Engine {
   }
 
   /**
-   * Converts a numeric string to a clean float, handling commas and dots.
+   * Converts a numeric string to a clean float, handling European comma decimals and thousands separators.
    *
    * @private
    * @param {string} str
@@ -929,7 +1160,32 @@ class ReceiptTier1Engine {
    */
   _parseCleanFloat(str) {
     if (!str) return 0.0;
-    const clean = str.replace(/,/g, '.');
+    let clean = String(str).trim();
+    // Strip any lingering currency codes or symbols
+    clean = clean.replace(/(?:INR|USD|EUR|GBP|Rs\.?|[₹$€£()])/gi, '').trim();
+
+    const lastDot = clean.lastIndexOf('.');
+    const lastComma = clean.lastIndexOf(',');
+
+    if (lastDot !== -1 && lastComma !== -1) {
+      if (lastComma > lastDot) {
+        // European format: 1.250,50 -> 1250.50
+        clean = clean.replace(/\./g, '').replace(',', '.');
+      } else {
+        // Standard format: 1,250.50 -> 1250.50
+        clean = clean.replace(/,/g, '');
+      }
+    } else if (lastComma !== -1) {
+      const parts = clean.split(',');
+      if (parts.length === 2 && parts[1].length <= 2) {
+        // European decimal comma: 17,39 -> 17.39
+        clean = clean.replace(',', '.');
+      } else {
+        // Thousands separator: 1,000 -> 1000
+        clean = clean.replace(/,/g, '');
+      }
+    }
+
     const val = parseFloat(clean);
     return isNaN(val) ? 0.0 : val;
   }

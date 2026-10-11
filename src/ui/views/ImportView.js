@@ -33,6 +33,12 @@ export class ImportView {
   /** @type {Array<any>} */
   #pendingExpenses = [];
 
+  /** @type {any|null} */
+  #reconciliationBatchResult = null;
+
+  /** @type {Map<number, { action: string, matchedExpenseId?: string, incomingId?: string }>} */
+  #itemResolutions = new Map();
+
   /** @type {Array<function(): void>} */
   #cleanupListeners = [];
 
@@ -1312,7 +1318,7 @@ export class ImportView {
     });
   }
 
-  handleStatementResult(res) {
+  async handleStatementResult(res) {
     if (!res || res.canceled) return;
 
     if (!res.success || !Array.isArray(res.expenses) || res.expenses.length === 0) {
@@ -1325,6 +1331,45 @@ export class ImportView {
     }
 
     this.#pendingExpenses = res.expenses;
+    this.#itemResolutions = new Map();
+
+    // Perform Tri-State Multi-Signal Fuzzy Reconciliation
+    if (this.#api?.reconcileStatementBatch) {
+      try {
+        const reconRes = await this.#api.reconcileStatementBatch(this.#pendingExpenses);
+        if (reconRes && reconRes.success && reconRes.data) {
+          this.#reconciliationBatchResult = reconRes.data;
+          if (Array.isArray(this.#reconciliationBatchResult.results)) {
+            this.#reconciliationBatchResult.results.forEach((item, idx) => {
+              if (item.status === 'matched_merged') {
+                this.#itemResolutions.set(idx, {
+                  action: 'merge',
+                  matchedExpenseId: item.match?.expense?.id,
+                  incomingId: item.id
+                });
+              } else if (item.status === 'conflict') {
+                this.#itemResolutions.set(idx, {
+                  action: 'skip',
+                  matchedExpenseId: item.candidates?.[0]?.expense?.id,
+                  incomingId: item.id
+                });
+              } else {
+                this.#itemResolutions.set(idx, {
+                  action: 'import',
+                  incomingId: item.id
+                });
+              }
+            });
+          }
+        } else {
+          this.#reconciliationBatchResult = null;
+        }
+      } catch (err) {
+        console.warn('[ImportView] Reconciliation engine execution error:', err);
+        this.#reconciliationBatchResult = null;
+      }
+    }
+
     const staging = document.getElementById('statement-staging-container');
     const formatBadge = document.getElementById('statement-format-badge');
     const countText = document.getElementById('statement-count-text');
@@ -1347,12 +1392,73 @@ export class ImportView {
     const html = this.#pendingExpenses
       .slice(0, 150)
       .map((exp, idx) => {
-        const isDup = this.isPotentialDuplicate(exp);
+        const reconItem = this.#reconciliationBatchResult?.results?.[idx];
+        const isMatched = reconItem?.status === 'matched_merged';
+        const isConflict = reconItem?.status === 'conflict';
+        const isDup = isMatched || isConflict || this.isPotentialDuplicate(exp);
         if (isDup) dupCount++;
+
+        let statusBadgeHtml;
+        let actionDropdownHtml = '';
+
+        if (reconItem) {
+          if (reconItem.status === 'matched_merged') {
+            const scorePct = Math.round((reconItem.match?.score || 0) * 100);
+            const targetTitle = escapeHTML(reconItem.match?.expense?.title || 'Ledger Match');
+            statusBadgeHtml = `
+              <span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #059669; background: rgba(16, 185, 129, 0.12);" title="Matched with existing ledger item: ${targetTitle} (${scorePct}%)">
+                ✓ Matched (${scorePct}%)
+              </span>
+              <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Merge Target: ${targetTitle}</div>
+            `;
+            actionDropdownHtml = `
+              <select class="statement-action-select" data-idx="${idx}" style="font-size: 11px; padding: 2px 4px; border-radius: 4px; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); margin-top: 4px;">
+                <option value="merge" selected>Merge</option>
+                <option value="import">Import as New</option>
+                <option value="skip">Skip</option>
+              </select>
+            `;
+          } else if (reconItem.status === 'conflict') {
+            const topScore = Math.round((reconItem.candidates?.[0]?.score || 0.5) * 100);
+            const candidateTitle = escapeHTML(reconItem.candidates?.[0]?.expense?.title || 'Candidate');
+            statusBadgeHtml = `
+              <span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #D97706; background: rgba(245, 158, 11, 0.14);" title="${escapeHTML(reconItem.reason || 'Multiple competing ledger matches')}">
+                ⚠️ Ambiguous (${topScore}%)
+              </span>
+              <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Near: ${candidateTitle}</div>
+            `;
+            actionDropdownHtml = `
+              <select class="statement-action-select" data-idx="${idx}" style="font-size: 11px; padding: 2px 4px; border-radius: 4px; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); margin-top: 4px;">
+                <option value="skip" selected>Skip (Review)</option>
+                <option value="merge">Merge with Near</option>
+                <option value="import">Import as New</option>
+              </select>
+            `;
+          } else {
+            statusBadgeHtml = `
+              <span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #2563EB; background: rgba(37, 99, 235, 0.12);">
+                + Net-New
+              </span>
+            `;
+            actionDropdownHtml = `
+              <select class="statement-action-select" data-idx="${idx}" style="font-size: 11px; padding: 2px 4px; border-radius: 4px; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); margin-top: 4px;">
+                <option value="import" selected>Import</option>
+                <option value="skip">Skip</option>
+              </select>
+            `;
+          }
+        } else {
+          statusBadgeHtml = isDup
+            ? '<span style="color: #F59E0B; font-size: 11px; font-weight: 700;">⚠️ Duplicate</span>'
+            : '<span style="color: #10B981; font-size: 11px; font-weight: 700;">✓ Ready</span>';
+        }
+
+        const isCheckedByDefault = isConflict ? false : true;
+
         return `
-        <tr style="${isDup ? 'background: rgba(245, 158, 11, 0.06);' : ''}">
+        <tr style="${isDup ? 'background: rgba(245, 158, 11, 0.05);' : ''}">
           <td>
-            <input type="checkbox" class="statement-row-cb" data-idx="${idx}" ${isDup ? '' : 'checked'}>
+            <input type="checkbox" class="statement-row-cb" data-idx="${idx}" ${isCheckedByDefault ? 'checked' : ''}>
           </td>
           <td style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted);">${escapeHTML(exp.date || 'Today')}</td>
           <td><strong>${escapeHTML(exp.title || 'Expense')}</strong></td>
@@ -1360,11 +1466,8 @@ export class ImportView {
           <td style="text-align: right; font-family: var(--font-mono); color: var(--accent-primary);">-${formatCurrency(parseFloat(exp.amount) || 0, 2, salaryConfig)}</td>
           <td style="font-size: 11px; color: var(--text-dim);">${escapeHTML(exp.paymentMethod || 'Statement')}</td>
           <td>
-            ${
-              isDup
-                ? '<span style="color: #F59E0B; font-size: 11px; font-weight: 700;">⚠️ Duplicate</span>'
-                : '<span style="color: #10B981; font-size: 11px; font-weight: 700;">✓ Ready</span>'
-            }
+            ${statusBadgeHtml}
+            ${actionDropdownHtml}
           </td>
         </tr>
       `;
@@ -1373,14 +1476,21 @@ export class ImportView {
 
     setInnerHTML(tbody, html);
 
-    // Duplicate alert bar
+    // Duplicate alert / reconciliation bar
     const reconBar = document.getElementById('statement-reconciliation-bar');
     const dupCountText = document.getElementById('statement-duplicates-count-text');
     if (reconBar) {
-      if (dupCount > 0) {
+      if (this.#reconciliationBatchResult) {
+        const stats = this.#reconciliationBatchResult.stats;
         reconBar.classList.remove('hidden');
-        if (dupCountText)
+        if (dupCountText) {
+          dupCountText.innerHTML = `<strong>Reconciliation Cockpit:</strong> ${stats.matched} Matched & Merged · ${stats.netNew} Net-New · ${stats.conflicts} Ambiguous (${this.#reconciliationBatchResult.executionTimeMs || 0}ms)`;
+        }
+      } else if (dupCount > 0) {
+        reconBar.classList.remove('hidden');
+        if (dupCountText) {
           dupCountText.textContent = `Found ${dupCount} potential duplicate transaction${dupCount > 1 ? 's' : ''} within ±2 days.`;
+        }
       } else {
         reconBar.classList.add('hidden');
       }
@@ -1388,6 +1498,22 @@ export class ImportView {
 
     tbody.querySelectorAll('.statement-row-cb').forEach(cb => {
       cb.addEventListener('change', () => this.#updateStatementSelectedCount());
+    });
+
+    tbody.querySelectorAll('.statement-action-select').forEach(sel => {
+      sel.addEventListener('change', e => {
+        const idx = parseInt(sel.getAttribute('data-idx') || '-1', 10);
+        if (idx >= 0) {
+          const existing = this.#itemResolutions.get(idx) || { incomingId: `tx_${idx}` };
+          existing.action = /** @type {HTMLSelectElement} */ (e.target).value;
+          this.#itemResolutions.set(idx, existing);
+          const cb = /** @type {HTMLInputElement|null} */ (tbody.querySelector(`.statement-row-cb[data-idx="${idx}"]`));
+          if (cb) {
+            cb.checked = existing.action !== 'skip';
+          }
+          this.#updateStatementSelectedCount();
+        }
+      });
     });
 
     this.#updateStatementSelectedCount();
@@ -1403,22 +1529,64 @@ export class ImportView {
     if (this.#pendingExpenses.length === 0) return;
 
     const checkedRows = Array.from(document.querySelectorAll('.statement-row-cb:checked'));
-    const selectedExpenses = checkedRows
-      .map(cb => {
-        const idx = parseInt(cb.getAttribute('data-idx') || '0', 10);
-        return this.#pendingExpenses[idx];
-      })
-      .filter(Boolean);
+    const checkedIndices = new Set(checkedRows.map(cb => parseInt(cb.getAttribute('data-idx') || '0', 10)));
 
-    if (selectedExpenses.length === 0) {
+    if (checkedIndices.size === 0) {
       if (typeof alert !== 'undefined') alert('Please select at least one statement record to import.');
       return;
     }
+
+    // If Tri-State Reconciliation is active, apply resolutions
+    if (this.#reconciliationBatchResult && typeof this.#api?.applyReconciliation === 'function') {
+      const resolutions = [];
+      for (let i = 0; i < this.#pendingExpenses.length; i++) {
+        const exp = this.#pendingExpenses[i];
+        const isChecked = checkedIndices.has(i);
+        const resConfig = this.#itemResolutions.get(i) || { action: 'import' };
+        if (!isChecked) {
+          resolutions.push({
+            incomingId: resConfig.incomingId || `tx_${i}`,
+            action: 'skip'
+          });
+        } else {
+          resolutions.push({
+            incomingId: resConfig.incomingId || `tx_${i}`,
+            action: resConfig.action || 'import',
+            matchedExpenseId: resConfig.matchedExpenseId,
+            expenseData: exp
+          });
+        }
+      }
+
+      const res = await this.#api.applyReconciliation(resolutions);
+      if (res?.success) {
+        showToast(
+          `⚡ Reconciled: ${res.mergedCount} merged, ${res.importedCount} imported, ${res.skippedCount} skipped!`
+        );
+        this.#pendingExpenses = [];
+        this.#reconciliationBatchResult = null;
+        this.#itemResolutions.clear();
+        const staging = document.getElementById('statement-staging-container');
+        staging?.classList.add('hidden');
+        await this.#refreshAppData();
+      } else {
+        const errorMsg = res?.errors?.join(', ') || 'Failed to apply reconciliation.';
+        if (typeof alert !== 'undefined') alert(`Reconciliation Error: ${errorMsg}`);
+      }
+      return;
+    }
+
+    // Fallback import
+    const selectedExpenses = Array.from(checkedIndices)
+      .map(idx => this.#pendingExpenses[idx])
+      .filter(Boolean);
 
     const res = await this.#api.confirmImport(selectedExpenses);
     if (res?.success) {
       showToast(`Successfully imported ${res.imported} statement records!`);
       this.#pendingExpenses = [];
+      this.#reconciliationBatchResult = null;
+      this.#itemResolutions.clear();
       const staging = document.getElementById('statement-staging-container');
       staging?.classList.add('hidden');
       await this.#refreshAppData();
@@ -1439,6 +1607,19 @@ export class ImportView {
    * @returns {boolean} True if matching title, date, and amount exists
    */
   isPotentialDuplicate(exp) {
+    if (this.#reconciliationBatchResult && Array.isArray(this.#reconciliationBatchResult.results)) {
+      const match = this.#reconciliationBatchResult.results.find(
+        r =>
+          r.incoming === exp ||
+          (r.incoming?.title === exp.title &&
+            r.incoming?.amount === exp.amount &&
+            r.incoming?.date === exp.date)
+      );
+      if (match) {
+        return match.status === 'matched_merged' || match.status === 'conflict';
+      }
+    }
+
     if (!exp || !exp.date || !exp.amount) return false;
     const existingExpenses = this.#state.get('expenses') || [];
 

@@ -186,8 +186,57 @@ contextBridge.exposeInMainWorld('electronAPI', {
   generatePairingToken: () => invokeIPC('generate-pairing-token'),
   getPairedDevices: () => invokeIPC('get-paired-devices'),
   revokePairedDevice: deviceId => invokeIPC('revoke-paired-device', deviceId),
+  startPairingBeacon: () => invokeIPC('start-pairing-beacon'),
+  stopPairingBeacon: () => invokeIPC('stop-pairing-beacon'),
+  resetPairingLockout: () => invokeIPC('reset-pairing-lockout'),
+  getPairingSecurityConfig: () => invokeIPC('get-pairing-security-config'),
+  updatePairingSecurityConfig: config => invokeIPC('update-pairing-security-config', config),
+
+  // Continuous Mirroring & Local Backup Vault Engine (Phase 0.7.3)
+  selectMirrorFolder: () => invokeIPC('mirror-select-folder'),
+  getMirrorStatus: () => invokeIPC('mirror-get-status'),
+  configureMirror: payload => invokeIPC('mirror-configure', payload),
+  syncMirrorNow: () => invokeIPC('mirror-sync-now'),
+  verifyMirrorVault: vaultDir => invokeIPC('mirror-verify-vault', vaultDir),
+  restoreMirrorVault: vaultDir => invokeIPC('mirror-restore', vaultDir),
+
+  // Adaptive Receipt Vision & Learning Loop (Phase 0.8.1)
+  learnMerchantAlias: (rawMerchant, canonicalMerchant) =>
+    invokeIPC('receipt-learn-alias', { rawMerchant, canonicalMerchant }),
+  getMerchantAliases: () => invokeIPC('receipt-get-aliases'),
+  deleteMerchantAlias: rawMerchant => invokeIPC('receipt-delete-alias', rawMerchant),
+  learnMerchantLayout: (identifier, layoutData) =>
+    invokeIPC('receipt-learn-layout', { identifier, ...layoutData }),
+  getMerchantLayouts: () => invokeIPC('receipt-get-layouts'),
+
+  // EDA & Financial Intelligence Foundation (Phase 0.8.2)
+  auditLedgerQuality: options => invokeIPC('intelligence-audit-ledger', options),
+  sanitizeLedgerQuality: options => invokeIPC('intelligence-sanitize-ledger', options),
+  getAggregationRollup: (timeframe, options) =>
+    invokeIPC('intelligence-get-rollups', { timeframe, options }),
+  getCategoryRollup: (period, options) =>
+    invokeIPC('intelligence-get-category-rollup', { period, ...(options || {}) }),
+  getVelocityMetrics: options => invokeIPC('intelligence-get-velocity-metrics', options),
+  getSafeToSpend: (targetDate, options) =>
+    invokeIPC('intelligence-get-safe-to-spend', { targetDate, ...(options || {}) }),
+  detectAnomalies: options => invokeIPC('intelligence-detect-anomalies', options),
+
+  // Statement Reconciliation & Deduplication (Phase 0.8.3)
+  reconcileStatementBatch: (incomingTransactions, options) =>
+    invokeIPC('reconciliation-match-batch', { incomingTransactions, options }),
+  reconcileStatementSingle: (incomingTransaction, options) =>
+    invokeIPC('reconciliation-match-single', { incomingTransaction, options }),
+  applyReconciliation: resolutions =>
+    invokeIPC('reconciliation-apply', resolutions),
+
+  // Smart Insights, Foresight Forecasting & Subscriptions (Phase 0.8.4)
+  detectSubscriptions: options => invokeIPC('subscriptions-detect', options),
+  getForesightForecast: (extraAmount, options) =>
+    invokeIPC('foresight-burn-rate', { extraAmount, options }),
+  getPacingInsights: options => invokeIPC('pacing-insights-get', options),
 
   // Event Subscriptions
+
   onNavigateToTab: callback => {
     ipcRenderer.removeAllListeners('navigate-to-tab');
     ipcRenderer.on('navigate-to-tab', (event, tab) => callback(tab));

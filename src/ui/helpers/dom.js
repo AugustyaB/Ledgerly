@@ -43,27 +43,51 @@ export function escapeHTML(str) {
  * @param {string} [actionAttribute='data-action'] - The attribute name specifying the action
  * @returns {function(): void} Cleanup function that unregisters the listener
  */
-export function delegateEvent(container, handlers, actionAttribute = 'data-action') {
+export function delegateEvent(container, handlers, actionAttribute = 'data-action', maybeCallback = null) {
   if (!container) {
     return () => {};
   }
 
-  const listener = event => {
-    // Find closest element with the action attribute up to container
-    const target = event.target.closest(`[${actionAttribute}]`);
-    if (!target || !container.contains(target)) {
-      return;
-    }
+  // Support signature: delegateEvent(container, eventType, selector, callback)
+  if (typeof actionAttribute === 'function' || typeof maybeCallback === 'function') {
+    const callback = typeof maybeCallback === 'function' ? maybeCallback : actionAttribute;
+    const eventType = typeof handlers === 'string' ? handlers : 'click';
+    const listener = async event => {
+      const target = event.target.closest('[data-action]');
+      if (!target || !container.contains(target)) return;
+      await callback(event, target);
+    };
+    container.addEventListener(eventType, listener);
+    return () => container.removeEventListener(eventType, listener);
+  }
 
-    const action = target.getAttribute(actionAttribute);
+  const isClassOrIdOrAttr = /^[.#[\]]/.test(actionAttribute);
+  const selector = isClassOrIdOrAttr ? actionAttribute : `[${actionAttribute}]`;
+  const attrName = actionAttribute.replace(/^[[.#!]+|[\]]+$/g, '');
+
+  // Support signature: delegateEvent(container, callbackFunction)
+  if (typeof handlers === 'function') {
+    const listener = async event => {
+      const target = event.target.closest(selector);
+      if (!target || !container.contains(target)) return;
+      await handlers(event, target);
+    };
+    container.addEventListener('click', listener);
+    return () => container.removeEventListener('click', listener);
+  }
+
+  // Support standard object-map signature: delegateEvent(container, { [action]: handler }, actionAttribute)
+  const listener = async event => {
+    const target = event.target.closest(selector);
+    if (!target || !container.contains(target)) return;
+    const action = target.getAttribute(attrName) || target.dataset?.[attrName];
     if (action && typeof handlers[action] === 'function') {
-      handlers[action](target, event);
+      await handlers[action](target, event);
     }
   };
 
   container.addEventListener('click', listener);
 
-  // Return teardown function for unmount cleanup
   return () => {
     container.removeEventListener('click', listener);
   };

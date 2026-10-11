@@ -43,14 +43,20 @@ class NLPParser {
     let isHousehold = false;
     let splitTokenStr = '';
     let detectedCategory;
+    let detectedCurrency = '₹';
 
     // -------------------------------------------------------------------------
-    // PASS 1: Amount Extraction (e.g. ₹350, 350.50, 1.2k, rs 500, $25)
+    // PASS 1: Amount Extraction (e.g. ₹350, 350.50, 1.2k, rs 500, $25, 17,39 €, 1.14 EUR)
     // -------------------------------------------------------------------------
-    const amountRegex = /(?:₹|rs\.?|\$)?\s*(\b\d+(?:\.\d{1,2})?(?:k|K)?\b)/;
+    const amountRegex =
+      /(?:(?:[₹$€£]|\b(?:rs\.?|inr|usd|eur|gbp)\b)\s*)?(\b\d+(?:[.,]\d{1,2})?(?:k|K)?)(?:\s*(?:[₹$€£]|\b(?:rs\.?|inr|usd|eur|gbp)\b)|\b)/i;
     const amountMatch = workingStr.match(amountRegex);
     if (amountMatch) {
-      let numValStr = amountMatch[1].toLowerCase();
+      if (/€|\beur\b/i.test(amountMatch[0])) detectedCurrency = '€';
+      else if (/\$|\busd\b/i.test(amountMatch[0])) detectedCurrency = '$';
+      else if (/£|\bgbp\b/i.test(amountMatch[0])) detectedCurrency = '£';
+
+      let numValStr = amountMatch[1].toLowerCase().replace(',', '.');
       if (numValStr.endsWith('k')) {
         detectedAmount = parseFloat(numValStr.replace('k', '')) * 1000;
       } else {
@@ -208,7 +214,7 @@ class NLPParser {
       splitWith: splitWithMembers,
       isHouseholdExpense: isHousehold,
       tokens: {
-        amountStr: detectedAmount ? `₹${detectedAmount.toFixed(2)}` : '₹0.00',
+        amountStr: detectedAmount ? `${detectedCurrency}${detectedAmount.toFixed(2)}` : `${detectedCurrency}0.00`,
         titleStr: cleanedTitle,
         categoryStr: detectedCategory,
         dateStr: dateTokenStr,
