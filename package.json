@@ -60,6 +60,7 @@
     "mobile:cap:open": "npm -w mobile exec -- cap open android",
     "mobile:cap:open:ios": "npm -w mobile exec -- cap open ios",
     "mobile:build:apk": "npm -w mobile exec -- cap sync android && cd mobile/android && gradlew.bat assembleDebug",
+    "reset:dev": "node scripts/reset-dev-data.js",
     "check": "node scripts/check-syntax.js && node scripts/check-architecture-layers.js",
     "check:layers": "node scripts/check-architecture-layers.js",
     "dist:win": "electron-builder --win --publish never",
