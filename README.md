@@ -13,15 +13,15 @@
 
 Get the latest pre-compiled binaries directly from this repository:
 
-| Platform | Recommended Package | Direct Repository Download | Features |
+| Platform | Recommended Package | Release Status | Capabilities |
 |---|---|---|---|
-| **🪟 Windows** | **`Ledgerly Setup 0.9.0.exe`** | [**📥 Download Windows Installer**](https://github.com/AugustyaB/Ledgerly/releases/latest) | NSIS setup wizard, in-place non-destructive repair, Desktop shortcut, and safe uninstall with local data retention. |
-| **🤖 Android** | **`app-debug.apk`** *(8.61 MB)* | [**📥 Download Android APK**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Sideloadable APK with camera receipt capture, offline queue, and 1-tap Optical QR LAN pairing. |
-| **🍎 macOS** | **`Ledgerly-0.9.0.dmg`** | [**📥 Download macOS Image**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Drag-to-Applications `.dmg` for Apple Silicon & Intel Macs. |
-| **🐧 Linux** | **`Ledgerly-0.9.0.AppImage`** | [**📥 Download Linux AppImage**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Zero-install standalone executable (`chmod +x`). |
-| **🍏 Apple iOS** | **`Ledgerly-iOS-App.xcarchive`** | [**📥 Download iOS Archive**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Unsigned Xcode archive with local Wi-Fi networking permissions (`ATS`). |
+| **🪟 Windows (10/11)** | **`Ledgerly Setup 0.9.0.exe`** | [**📥 Download `.exe` (Latest Release)**](https://github.com/AugustyaB/Ledgerly/releases/latest) | NSIS setup wizard, in-place non-destructive repair, Desktop shortcut, and safe uninstall with local data retention. |
+| **🤖 Android (8.0+)** | **`app-debug.apk`** *(8.61 MB)* | [**📥 Download `.apk` (Latest Release)**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Direct sideload APK with camera receipt intake, offline IndexedDB queue, and 1-tap Optical QR LAN pairing. |
+| **🍎 macOS (Silicon/Intel)** | **`Ledgerly-0.9.0.dmg`** | [**📦 CI Builds & Releases**](https://github.com/AugustyaB/Ledgerly/actions) | Drag-to-Applications `.dmg` built via GitHub Actions cloud Mac runner (or build locally via `npm run dist:mac`). |
+| **🐧 Linux (Universal)** | **`Ledgerly-0.9.0.AppImage`** | [**📦 CI Builds & Releases**](https://github.com/AugustyaB/Ledgerly/actions) | Standalone portable executable (`chmod +x`) built via GitHub Actions cloud Linux runner (or `npm run dist:linux`). |
+| **🍏 Apple iOS** | **`Ledgerly-iOS-App.xcarchive`** | [**📦 CI Builds & Releases**](https://github.com/AugustyaB/Ledgerly/actions) | Unsigned Xcode archive with local Wi-Fi networking permissions (`ATS`) generated via macOS CI workflow. |
 
-*All compiled releases and release notes are maintained directly in [GitHub Releases](https://github.com/AugustyaB/Ledgerly/releases).*
+*Pre-compiled Windows and Android packages are published directly in [GitHub Releases](https://github.com/AugustyaB/Ledgerly/releases); cross-platform packages are generated via [GitHub Actions](https://github.com/AugustyaB/Ledgerly/actions).*
 
 ---
 
