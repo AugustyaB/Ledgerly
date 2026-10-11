@@ -1,457 +1,172 @@
-# 🔄 Ledgerly — System Architecture & Application Flow (`FLOW.md`)
+# 🔄 Ledgerly — System Architecture & Wireframe Matrix (`FLOW.md`)
 
-> **Version Cycle**: `0.6` — *Capacitor Mobile Companion, Zero-Cloud Local LAN Sync & iOS CI/CD*  
-> **Current State**: `v0.6.6` (Phase 6: Production Packaging, CI/CD Automated Workflow & Release Conclusion Complete — Concludes Version 0.6 Milestone)  
-> **Preceding Version**: `0.5.9` (On-Device ML Document Intelligence Milestone)  
-> **Status**: **ACTIVE & CANONICAL**  
-> **Scope**: Complete end-to-end data lifecycle, component interaction, IPC contracts, state management, mobile companion runtime, local LAN sync protocol, and cross-platform distribution across Version 0.6 subsections (v0.6.1 to v0.6.6).
+> **Version Cycle**: `v0.8.5-certified` | **Status**: **ACTIVE & CANONICAL (ADR-013)**
+> **Header-First Rule (Tier 2):** Read **Lines 1–42 only** (~450 tokens) for the complete 5-Layer × 6-Section codebase and wireframe map. Read Line 43+ only when deep section wireframe blueprints or IPC flow diagrams are needed.
 
 ---
 
-## 🧭 Executive Summary
+## 🗺️ 1. The 5 Horizontal Layers (Bottom-to-Top Stack)
 
-In **Version 0.4**, Ledgerly underwent a complete architectural decomposition of both its backend and frontend monoliths. The monolithic 4,862-line `src/app.js` orchestrator was decomposed into 8 specialized view modules, 3 reusable UI components, and a dedicated router and reactive state container, reducing the root orchestrator down to 567 lines (**88.3% line reduction**). Concurrently, the backend data layer was dismantled from a monolithic storage file into 8 dedicated domain services under `src/services/`, preserved under an API Facade ensuring 100% backward compatibility.
-
-All inline event attributes (`onclick=`, `onchange=`, `onsubmit=`) were stripped from HTML templates and replaced with semantic event delegation (`data-action="..."`, `data-tab="..."`), allowing the Content Security Policy (CSP) to be hardened to `script-src 'self'`.
+1. **🗄️ Layer 1 — Data & Persistence (`L1`):**
+   - Partitioned JSON DB: `data/active_ledger.json` (<90d) & `data/legacy_archive.json` (>90d) via `src/services/JsonDatabase.js` & `src/storage.js`
+   - Config, Schemas & Constants: `expenses_config.json` (`behavioralProfiles_v1`, `deduplicationSignatures_v1`, `securityConfig_v1`, `merchantAliases`), `src/constants.js`, `src/types.js`
+   - Binary & Vault Store: `src/receiptStorage.js` (photos), `src/services/BackupMirrorService.js` (SHA-256 mirror), `mobile/src/storage/indexedDbQueue.js` & `mobileSettings.js`
+2. **⚙️ Layer 2 — Core Domain Services (`L2` — CRUD & Integrity):**
+   - Core CRUD: `ExpenseService.js`, `BudgetService.js`, `ProfileService.js`, `HouseholdService.js`, `NotesService.js`, `AuthService.js`
+   - Self-Healing & Diagnostics: `DatabaseAuditor.js`, `DataQualityAuditor.js`, `DiagnosticExporter.js`, `src/logger/crashLogger.js`
+3. **🧠 Layer 3 — Intelligence & Automation (`L3` — Math, Heuristics & Offline ML):**
+   - Receipt Vision: `DocumentIntelligenceService.js`, `DocumentNormalizer.js`, `ReceiptTier1Engine.js`, `ReceiptTier2VisionEngine.js`, `ReceiptTier3RegionalEngine.js`, `ReceiptLearningService.js`, `ModelManager.js`, `RegionalIntelligenceRegistry.js`, `SmartDocumentAnalyzer.js`, `mobile/src/camera/cameraService.js`, `mobile/src/camera/imageCompressor.js`
+   - Financial & Statement Math: `FinancialIntelligenceFacade.js`, `AggregationRollupService.js`, `StatementReconciliationService.js`, `SubscriptionHunterService.js`, `src/foresightEngine.js`, `NotificationEngine.js`, `src/nlpParser.js`, `src/categoryMatcher.js`, `src/fileImporter.js`
+4. **🔌 Layer 4 — IPC Bridge, Validation & LAN Transport (`L4`):**
+   - Desktop IPC: `src/main.js`, `src/preload.js`, `src/validation/ipcGuard.js`, `src/validation/schemaValidator.js`
+   - LAN Sync & Discovery: `src/services/SyncServer.js` (HTTP), `src/services/LanBeaconService.js` (UDP 52411), `src/services/SyncEngine.js`, `mobile/src/services/SyncClient.js`, `mobile/src/shared/validator.js`
+5. **🎨 Layer 5 — Presentation & Visuals (`L5A` Stateful Views vs. `L5B` Pure Visuals):**
+   - **`L5A` Stateful Feature Views (IPC-Connected):** `src/app.js`, `AppRouter.js`, `AppState.js`, `DashboardView.js`, `ExpenseFeedView.js`, `BatchView.js`, `ImportView.js`, `HouseholdView.js`, `NotesView.js`, `NotificationView.js`, `SettingsView.js`, `AuthScreen.js`, `ErrorBoundary.js`, `quickPill.js`; Mobile: `mobile/src/main.js`, `router.js`, `CaptureView.js`, `QueueView.js`, `QuickAddView.js`, `SyncView.js`
+   - **`L5B` Pure Visuals (Zero Backend / Stateless UI):** `src/styles.css`, `mobile/src/styles/mobile.css` (Theme 3 tokens), `src/icons.js` & `mobile/src/icons.js`, `src/utils/qrCodeGenerator.js`, `ChartManager.js`, `CommandPalette.js`, `dom.js`, `formatters.js`, `toast.js`
 
 ---
 
-## 🏛️ End-to-End System Architecture
+## 🧩 2. The 6 Product Wireframe Sections (2D Layer × Section Matrix)
 
-```
-+-----------------------------------------------------------------------------------------+
-|                                    RENDERER PROCESS                                     |
-|                                                                                         |
-|   +---------------------------------------------------------------------------------+   |
-|   |                              src/index.html                                     |   |
-|   |  - Static Shell Layout       - Navigation Sidebar        - Modals Containers    |   |
-|   |  - Hardened CSP (script-src 'self')                     - Native ES Module Entry |   |
-|   +---------------------------------------+-----------------------------------------+   |
-|                                           |                                             |
-|                                           v                                             |
-|   +---------------------------------------------------------------------------------+   |
-|   |                                 src/app.js                                      |   |
-|   |           Application Orchestrator & Bootstrapper (567 lines)                   |   |
-|   |  - Wires event delegation    - Initializes Router       - Binds Global Hotkeys  |   |
-|   +-------------------+---------------------------------------------+---------------+   |
-|                       |                                             |                   |
-|                       v                                             v                   |
-|   +---------------------------------------+     +-----------------------------------+   |
-|   |           src/ui/AppRouter.js         |     |        src/ui/AppState.js         |   |
-|   |  - Tab Navigation Engine              |     |  - Centralized Reactive Store     |   |
-|   |  - Route history & active classes     |     |  - Key-value state management     |   |
-|   |  - Isolated try/catch view rendering  |     |  - Observer pattern subscriptions |   |
-|   +-------------------+-------------------+     +-----------------+-----------------+   |
-|                       |                                           |                     |
-|                       v                                           |                     |
-|   +-------------------------------------------------------------+ |                     |
-|   |                    Modular View Controllers                 | |                     |
-|   |  - DashboardView.js      - ExpenseFeedView.js               | |                     |
-|   |  - HouseholdView.js      - BatchView.js                     | |                     |
-|   |  - SettingsView.js       - NotesView.js                     | |                     |
-|   |  - NotificationView.js   - ImportView.js                    | |                     |
-|   +-------------------------------------------------------------+ |                     |
-|   |                     Reusable UI Components                  | |                     |
-|   |  - AuthScreen.js         - CommandPalette.js                | |                     |
-|   |  - ChartManager.js       - quickPill.js                     | |                     |
-|   +---------------------------------------+---------------------+ |                     |
-|                                           |                       |                     |
-|                                           | Dispatches User       | Reads/Updates State |
-|                                           | Actions               |                     |
-|                                           v                       v                     |
-|   +---------------------------------------------------------------------------------+   |
-|   |                       src/preload.js (Context Bridge)                           |   |
-|   |  - Secure window.electronAPI method exposure via contextBridge.exposeInMainWorld|   |
-|   |  - Strict boundary isolation (nodeIntegration: false, contextIsolation: true)  |   |
-|   +---------------------------------------+-----------------------------------------+   |
-+-------------------------------------------|---------------------------------------------+
-                                            |
-                                            | ipcRenderer.invoke(channel, ...args)
-                                            v
-+-----------------------------------------------------------------------------------------+
-|                                      MAIN PROCESS                                       |
-|                                                                                         |
-|   +---------------------------------------------------------------------------------+   |
-|   |                                  src/main.js                                    |   |
-|   |  - Electron Lifecycle & BrowserWindow management                                |   |
-|   |  - ipcMain.handle(...) dispatch router                                          |   |
-|   |  - Native OS File Picker & Shell integrations                                   |   |
-|   +---------------------------------------+-----------------------------------------+   |
-|                                           |                                             |
-|                                           v                                             |
-|   +---------------------------------------------------------------------------------+   |
-|   |                                src/storage.js                                   |   |
-|   |                          Backwards-Compatible Facade                            |   |
-|   |  - Delegates incoming calls to specialized domain services                      |   |
-|   |  - Coordinates cross-domain multi-service transactions                          |   |
-|   +---------------------------------------+-----------------------------------------+   |
-|                                           |                                             |
-|         +---------------------------------+---------------------------------+           |
-|         |                                 |                                 |           |
-|         v                                 v                                 v           |
-| +--------------------+          +--------------------+            +-------------------+ |
-| | src/services/      |          | src/services/      |            | src/services/     | |
-| | AuthService.js     |          | ProfileService.js  |            | ExpenseService.js | |
-| | - PBKDF2-SHA512    |          | - Profile CRUD     |            | - Transactions    | |
-| | - Salt & Throttling|          | - Monograms        |            | - Presets & Search| |
-| +--------------------+          +--------------------+            +-------------------+ |
-|         |                                 |                                 |           |
-|         v                                 v                                 v           |
-| +--------------------+          +--------------------+            +-------------------+ |
-| | src/services/      |          | src/services/      |            | src/services/     | |
-| | BudgetService.js   |          | HouseholdService.js|            | NotesService.js   | |
-| | - Salary Allocation|          | - Shared Splitting |            | - Scoped Memos    | |
-| | - Pacing & Rollover|          | - Pairwise Netting |            | - Context Badges  | |
-| +--------------------+          +--------------------+            +-------------------+ |
-|         |                                 |                                 |           |
-|         v                                 v                                 v           |
-| +--------------------+          +--------------------+            +-------------------+ |
-| | src/services/      |          | src/fileImporter.js|            |src/receiptStorage | |
-| | NotificationEngine |          | - Multi-Format CSV/|            | - Image validation| |
-| | - Bill & Overspend |          |   XLSX/OFX/PDF     |            | - Disk attachment | |
-| +--------------------+          +--------------------+            +-------------------+ |
-|                                           |                                             |
-|                                           v                                             |
-|   +---------------------------------------------------------------------------------+   |
-|   |                        src/database/JsonDatabase.js                             |   |
-|   |  - Atomic writes: write to .tmp -> flush -> fs.renameSync to target file        |   |
-|   |  - Windows file-lock exponential backoff retries (EPERM / EBUSY)                |   |
-|   |  - Corrupt JSON self-healing via automated rotating .bak recovery              |   |
-|   +---------------------------------------+-----------------------------------------+   |
-+-------------------------------------------|---------------------------------------------+
-                                            |
-                                            | Atomic File I/O
-                                            v
-+-----------------------------------------------------------------------------------------+
-|                                    PHYSICAL DISK                                        |
-|                                                                                         |
-|   - %APPDATA%/Ledgerly/expenses_db.json (Active Database)                               |
-|   - %APPDATA%/Ledgerly/expenses_db.json.bak (Automated Backup)                          |
-|   - %APPDATA%/Ledgerly/receipts/* (Local Receipt Image Files)                           |
-+-----------------------------------------------------------------------------------------+
+| Wireframe Section | `L5B` Pure Visuals (Zero Backend) | `L5A` Stateful UI Views | `L3` Intelligence & Math | `L1–L2` Core Services & Data |
+|---|---|---|---|---|
+| **Sec 1: Fast Entry & Ledger** | Preset chip pills, spreadsheet focus grid, `formatters.js`, `constants.js` | `DashboardView` (Express Bar), `BatchView`, `ExpenseFeedView`, `quickPill` | `nlpParser.js`, `categoryMatcher.js` | `ExpenseService`, `active_ledger.json`, `legacy_archive.json` |
+| **Sec 2: Budget, Pace & Foresight** | Chart.js canvases (`ChartManager.js`), pace gauges | `DashboardView` (What-If simulator), `NotificationView` | `foresightEngine`, `SubscriptionHunterService`, `AggregationRollupService`, `NotificationEngine` | `BudgetService`, `behavioralProfiles_v1` |
+| **Sec 3: Receipts & Statements** | Confidence badges, Tri-State tabs | `ImportView` (Staging & Reconciliation Cockpit) | `DocumentIntelligenceService`, `ReceiptTier1-3`, `ReceiptLearningService`, `StatementReconciliationService` | `fileImporter`, `receiptStorage`, `deduplicationSignatures_v1` |
+| **Sec 4: Household & Profiles** | Monogram avatars, debt flow arrows (`──▶`), bill countdown pills | `HouseholdView`, `NotesView`, Profile Switcher | Pairwise greedy debt settlement math | `HouseholdService`, `ProfileService`, `NotesService` |
+| **Sec 5: Mobile & LAN Sync** | `qrCodeGenerator.js` (SVG matrix), OpenGym 4-tab dock | `SettingsView` (Sync pane), Mobile `CaptureView`, `QueueView`, `QuickAddView`, `SyncView` | `imageCompressor.js` (1600px Canvas), `BarcodeDetector` QR scan | `SyncServer`, `LanBeaconService`, `SyncClient`, `indexedDbQueue` |
+| **Sec 6: Security & Vault** | Privacy Mode blur (`P`), `CommandPalette`, `toast`, `dom` | `AuthScreen`, `ErrorBoundary`, `SettingsView` (Security & Mirror panes) | SHA-256 manifest verifier, IP rate-limit bucket | `AuthService`, `BackupMirrorService`, `DatabaseAuditor`, `crashLogger` |
+
+---
+
+## 🏛️ 3. Master 5-Layer System Stack Diagram (Deep Reference — Line 43+)
+
+> **Layer Dependency Contract (Enforced by `scripts/check-architecture-layers.js`):**
+> - **`L5B` (Pure Visuals):** Strictly zero IPC (`window.api`, `ipcRenderer`) and zero backend imports (`L1–L4`).
+> - **Unidirectional Downward Flow:** `L5A` $\rightarrow$ `L4` $\rightarrow$ `L3` $\rightarrow$ `L2` $\rightarrow$ `L1`. Lower layers (`L1–L3`) never import `L4` (`main.js`/`preload.js`) or `L5` UI.
+
+```text
++=========================================================================================+
+| 🎨 LAYER 5: PRESENTATION & VISUALS (Renderer / Mobile WebView)                          |
+|-----------------------------------------------------------------------------------------|
+| [L5B: Pure Visuals — Zero Backend / Zero IPC]                                           |
+| • Theme 3 CSS (Graphite #121316 & Spiced Chai Amber #F59E0B) • 93 Lucide SVG Icons      |
+| • qrCodeGenerator.js (<2.2ms SVG) • ChartManager.js • CommandPalette.js                 |
+| • Helpers: dom.js, formatters.js, toast.js, constants.js, types.js                      |
+|-----------------------------------------------------------------------------------------|
+| [L5A: Stateful Feature Views — IPC / SyncClient Connected]                              |
+| • Desktop: app.js, AppRouter, AppState, DashboardView, ExpenseFeedView, BatchView,      |
+|   ImportView, HouseholdView, NotesView, NotificationView, SettingsView, AuthScreen,     |
+|   ErrorBoundary, quickPill.js                                                           |
+| • Mobile: main.js, router.js, CaptureView, QuickAddView, QueueView, SyncView            |
++=========================================================================================+
+                                           │  ▲
+                            window.api.*   │  │   HTTP /api/v1/* + UDP 52411
+                                           ▼  │
++=========================================================================================+
+| 🔌 LAYER 4: IPC BRIDGE, VALIDATION & LAN TRANSPORT                                      |
+| • Desktop IPC: src/main.js, src/preload.js, ipcGuard.js, schemaValidator.js             |
+| • LAN Transport: SyncServer.js (HTTP + Per-IP Rate Limiter), LanBeaconService.js (UDP), |
+|   SyncEngine.js, mobile/src/services/SyncClient.js, mobile/src/shared/validator.js      |
++=========================================================================================+
+                                           │  ▲
+                                           ▼  │
++=========================================================================================+
+| 🧠 LAYER 3: INTELLIGENCE & AUTOMATION (Offline ML, Heuristics & Financial Math)         |
+| • Vision Pipeline: DocumentIntelligenceService, DocumentNormalizer, ReceiptTier1Engine, |
+|   ReceiptTier2VisionEngine, ReceiptTier3RegionalEngine, ReceiptLearningService,         |
+|   ModelManager, RegionalIntelligenceRegistry, SmartDocumentAnalyzer                     |
+| • Financial Math: FinancialIntelligenceFacade, AggregationRollupService (<2.2ms),       |
+|   StatementReconciliationService (Fuzzy + Coffee Invariant), SubscriptionHunterService, |
+|   foresightEngine.js (>20d Burn Rate), NotificationEngine, nlpParser, categoryMatcher   |
++=========================================================================================+
+                                           │  ▲
+                                           ▼  │
++=========================================================================================+
+| ⚙️ LAYER 2: CORE DOMAIN SERVICES (Deterministic CRUD & Self-Healing Integrity)          |
+| • Domain CRUD: ExpenseService, BudgetService, ProfileService, HouseholdService,         |
+|   NotesService, AuthService                                                             |
+| • Self-Healing & Diagnostics: DatabaseAuditor, DataQualityAuditor, DiagnosticExporter,  |
+|   src/logger/crashLogger.js                                                             |
++=========================================================================================+
+                                           │  ▲
+                                           ▼  │
++=========================================================================================+
+| 🗄️ LAYER 1: DATA & PERSISTENCE (Partitioned Local Disk & Encrypted Vaults)              |
+| • Partitioned JSON DB (JsonDatabase.js / storage.js):                                   |
+|   ├── data/active_ledger.json (<90 days hot window)                                     |
+|   ├── data/legacy_archive.json (>90 days historical partitions)                         |
+|   └── expenses_config.json (Aliases, Layouts, Behavioral, Dedup, SecurityConfig_v1)     |
+| • Binary & Mirror: receiptStorage.js, BackupMirrorService.js (SHA-256 Vault),           |
+|   mobile/src/storage/indexedDbQueue.js & mobileSettings.js                              |
++=========================================================================================+
 ```
 
 ---
 
-## 🔄 Core Operational Lifecycles
+## 📐 4. Section-by-Section Wireframe & Layer Blueprints (`Sec 1` – `Sec 6`)
 
-### 1. Application Boot & Authentication Lifecycle
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant OS as Operating System
-    participant Main as src/main.js
-    participant Preload as src/preload.js
-    participant App as src/app.js
-    participant Auth as src/ui/AuthScreen.js
-    participant Store as src/storage.js
-    participant DB as JsonDatabase / Disk
-
-    OS->>Main: Launch Electron Application
-    Main->>DB: Initialize Database & verify .bak integrity
-    Main->>Main: Create BrowserWindow (CSP: script-src 'self', contextIsolation: true)
-    Main->>Preload: Inject contextBridge APIs (window.electronAPI)
-    Main->>App: Load src/index.html (type="module" src="app.js")
-    
-    App->>Store: window.electronAPI.getAllData()
-    Store->>DB: Read & parse expenses_db.json
-    DB-->>Store: Database payload
-    Store-->>App: { expenses, categories, profiles, settings, auth }
-    
-    alt Master Password Configured
-        App->>Auth: Mount AuthScreen (Lock Overlay)
-        Auth-->>App: User submits password
-        App->>Store: window.electronAPI.verifyPassword(input)
-        Store->>Store: AuthService PBKDF2 verification (210,000 rounds)
-        Store-->>App: Verification Result (Success / Locked)
-    end
-
-    App->>App: Initialize AppState & Register Views
-    App->>App: AppRouter.navigateTo('dashboard')
-    App->>App: Render DashboardView & Hydrate Lucide Icons
-```
-
-### 2. Transaction Ingestion Lifecycle (Express Bar & Preset Chips)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant User as User
-    participant View as src/ui/DashboardView.js
-    participant State as src/ui/AppState.js
-    participant Bridge as src/preload.js
-    participant Main as src/main.js
-    participant Facade as src/storage.js
-    participant ExpenseSvc as src/services/ExpenseService.js
-    participant BudgetSvc as src/services/BudgetService.js
-    participant Disk as JsonDatabase / Disk
-
-    User->>View: Enters Title, Amount, Category & presses Enter
-    View->>View: Validate input fields & sanitize strings
-    View->>Bridge: window.electronAPI.addExpense(expenseData)
-    Bridge->>Main: ipcRenderer.invoke('add-expense', expenseData)
-    Main->>Facade: storage.addExpense(expenseData)
-    Facade->>ExpenseSvc: addExpense(expenseData)
-    
-    ExpenseSvc->>ExpenseSvc: Assign UUID, Timestamp & Active Profile ID
-    ExpenseSvc->>BudgetSvc: Recalculate daily budget pace & rollover
-    ExpenseSvc->>Disk: Request atomic commit
-    Disk->>Disk: Write expenses_db.json.tmp
-    Disk->>Disk: Rename to expenses_db.json (atomic swap)
-    Disk-->>ExpenseSvc: Commit confirmed
-    
-    ExpenseSvc-->>Facade: Created Expense Record
-    Facade-->>Main: Result payload
-    Main-->>Bridge: IPC Response
-    Bridge-->>View: Created Expense Record
-    
-    View->>State: AppState.update({ expenses: [...], lastAdded: record })
-    State-->>View: State update notification
-    View->>View: Update metric cards, recent feed, and budget rings
-    View->>View: Reset express input bar & refocus cursor
-```
-
-### 3. Tab Routing & View Rendering Boundary
-
-Every view switch flows through `src/ui/AppRouter.js` using an isolated `try/catch` boundary:
-
-```javascript
-// AppRouter.js rendering isolation pattern:
-try {
-  view.render(viewContainer, appState.getState());
-  hydrateIcons();
-  this.dispatchRouteChange(targetTabId);
-} catch (error) {
-  console.error(`[AppRouter] Error rendering view ${targetTabId}:`, error);
-  viewContainer.innerHTML = `
-    <div class="view-error-card">
-      <h3>Failed to load ${targetTabId}</h3>
-      <p>${error.message}</p>
-      <button data-action="reload-tab" data-tab="${targetTabId}">Retry</button>
-    </div>
-  `;
-}
-```
+### Section 1 (`Sec 1`): Fast Entry & Ledger
+- **Wireframe Surfaces (`L5A` + `L5B`):**
+  1. **Express Bar (`DashboardView.js`):** Single-line natural language input (`"450 lunch at Udupi today #food"`) + live parsed preview pills (`L5B`).
+  2. **1-Click Preset Chips (`DashboardView.js`):** Customizable quick-fire expense chips with instant toast Undo (`toast.js`).
+  3. **Global Quick Pill (`quickPill.js`):** `Ctrl+Shift+L` floating desktop overlay for zero-context-switch logging.
+  4. **Batch Entry Grid (`BatchView.js`):** Keyboard-driven spreadsheet (`Enter`/`Tab` navigation) for bulk logging.
+  5. **Master Expense Feed (`ExpenseFeedView.js`):** Virtualized/filtered transaction table with inline search, category tags, and receipt lightbox.
+- **Layer Execution Path:**
+  `L5A (DashboardView / BatchView / ExpenseFeedView)` $\rightarrow$ `L4 (ipcGuard + schemaValidator)` $\rightarrow$ `L3 (nlpParser + categoryMatcher)` $\rightarrow$ `L2 (ExpenseService)` $\rightarrow$ `L1 (JsonDatabase: active_ledger.json / legacy_archive.json)`.
 
 ---
 
-## 🔒 Security & Content Security Policy (CSP) Flow
-
-```
-[Old Architecture (v0.3 and below)]
-  HTML Template Literal: `<button onclick="editExpense('${id}')">Edit</button>`
-  Requirement: Content-Security-Policy: script-src 'self' 'unsafe-inline';
-  Risk: Inline script injection, XSS vulnerability surface.
-
-[New Architecture (v0.4)]
-  HTML Template Literal: `<button class="btn" data-action="edit-expense" data-id="${id}">Edit</button>`
-  Event Delegation: Container listens for clicks -> reads e.target.closest('[data-action]') -> dispatches handler
-  Requirement: Content-Security-Policy: script-src 'self';
-  Result: 100% elimination of 'unsafe-inline', rigorous DOM security isolation.
-```
+### Section 2 (`Sec 2`): Budget, Pace & Foresight
+- **Wireframe Surfaces (`L5A` + `L5B`):**
+  1. **Salary Pace & Safe-to-Spend Hero (`DashboardView.js`):** Displays daily safe-to-spend allowance, rollover balance, and payday shift chips.
+  2. **Chart.js Visual Analytics (`ChartManager.js` — `L5B`):** Category doughnut chart, 30-day spending velocity bar chart, and cumulative pace curve.
+  3. **Data-Gated "What-If" Burn-Rate Simulator (`DashboardView.js`):** Interactive purchase simulator calculating days-to-zero impact (unlocked after $\ge 20$ days of ledger history).
+  4. **"Zombie" Subscription Hunter (`DashboardView.js` / `NotificationView.js`):** Flags recurring weekly/monthly/annual charges and silent price hikes.
+- **Layer Execution Path:**
+  `L5B (ChartManager)` $\leftarrow$ `L5A (DashboardView / NotificationView)` $\rightarrow$ `L4 (IPC)` $\rightarrow$ `L3 (FinancialIntelligenceFacade, AggregationRollupService, foresightEngine, SubscriptionHunterService, NotificationEngine)` $\rightarrow$ `L2 (BudgetService)` $\rightarrow$ `L1 (behavioralProfiles_v1)`.
 
 ---
 
-## 🛡️ Multi-Phase Error Handling & Resilience Architecture
-
-The application implements a multi-tier resilience strategy distributed across current safeguards and upcoming hardening phases:
-
-```
-+-----------------------------------------------------------------------------------------+
-|                                RESILIENCE & ERROR ROADMAP                               |
-+-----------------------------------------------------------------------------------------+
-| [CURRENT BASELINE - v0.4]                                                               |
-| - Atomic Disk Writes (tmp -> rename) in JsonDatabase                                    |
-| - Exponential Backoff Retries on Windows file locks (EPERM / EBUSY)                     |
-| - Corrupt Database Recovery via automated .bak file fallback                            |
-| - PBKDF2-SHA512 Cryptographic Timing-Safe Password Verification & 30s Lockout          |
-| - CSV / Excel Formula Injection Sanitization (=, +, -, @) in fileImporter               |
-| - Isolated View try/catch Rendering Boundaries in AppRouter                             |
-| - Headless SSR Guards (typeof document === 'undefined') across all UI modules           |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 5: IPC RUNTIME SCHEMA VALIDATION & ERROR CONTRACT STANDARDIZATION - COMPLETE]   |
-| - Zero-dependency runtime schema validator (src/validation/schemaValidator.js)          |
-| - Boundary guard wrapIPC middleware intercepting all ipcMain.handle channels            |
-| - Standardized envelope: { success, data, error, code, details } across all wire calls   |
-| - Dual array and envelope compatibility wrapper in src/preload.js (invokeIPC)           |
-| - 39/39 automated positive, negative, and boundary tests passing in scratch/            |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 6: GLOBAL UI ERROR BOUNDARIES, CRASH TRAPS & AUDIT REMEDIATION - COMPLETE]       |
-| - UI Error Boundary: ErrorBoundary.js with isolated section degradation fallback cards  |
-| - Recovery actions: Retry Section, Return to Dashboard, Copy Diagnostics                |
-| - Global renderer traps: setupGlobalErrorTraps() for window.onerror & unhandledrejection|
-| - Main process crash traps: uncaughtException, unhandledRejection, render-process-gone  |
-| - Persistent file crash logger: crashLogger.js with 5MB rotation (crash.log)           |
-| - Universal importer safeguards: 50MB file size limit, 25k row capping, truncate alert  |
-| - Remediated QA audit defects: BUG-001 (decimals), BUG-002 (DB env), BUG-003, BUG-004   |
-| - 11/11 automated resilience unit & stress tests passing in scratch/                    |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 7: ENTERPRISE RESILIENCE, OFFLINE SYNC CONFLICTS & ADVANCED TELEMETRY - COMPLETE] |
-| - Self-Healing Startup Database Auditor: DatabaseAuditor.js with .pre-audit.bak snapshot |
-| - Privacy-Sanitized Offline Telemetry: DiagnosticExporter.js with path & token masking    |
-| - Deterministic Offline Sync Engine: SyncEngine.js (vector clocks, LWW, 3-way merge)       |
-| - Bounded 10-Item Undo Stack: AppState.js with global Ctrl+Z and action toasts            |
-| - Express Import Reconciliation: Fuzzy duplicate detection (₹0.01 / ±2 days) & skip toggle|
-| - Proactive Recurring Bill Due Banner: 1-click execution on Dashboard cockpit             |
-| - Spotlight Zero-Eval Calculator: safeEvaluateMath() Shunting-Yard parser & notes search   |
-| - 12/12 automated resilience unit tests passing in scratch/test_phase7_resilience.js      |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 0.5.2: DOCUMENT NORMALIZATION & IMAGE PREPROCESSING ENGINE - COMPLETE]           |
-| - Magic byte sniffing (PDF, JPEG, PNG, WebP, BMP, TIFF)                                 |
-| - Adaptive 1200-2400px detail density scaling based on Laplacian edge transitions       |
-| - Early blur rejection gate (Laplacian variance < 32.0 -> ERR_IMAGE_BLURRY)             |
-| - Adaptive thermal receipt contrast booster (P5/P95 histogram stretching)               |
-| - Digital vector PDF fast-path (<10ms Flate decompression) + multi-page selection        |
-| - Encrypted PDF trap (ERR_PDF_ENCRYPTED) & zero-native build tool guarantee             |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 0.5.3: TIER 1 FAST-LITE RECEIPT ENGINE & INSTANT AUTOFILL - COMPLETE]            |
-| - Bundled offline Tesseract WASM OCR (assets/models/tesseract/eng.traineddata, 5.19MB)   |
-| - Reverse bottom-to-top token attention parser for grand totals & merchant resolution   |
-| - Indian GSTIN (15-char) & tax split (CGST/SGST/IGST) + UPI payment slip extraction     |
-| - Multi-currency support (INR ₹, USD $, EUR €, GBP £) & ISO date normalization           |
-| - 0% false-positive financial intent rejection gate (9/9 negative controls cleanly rejected)|
-| - Smart non-destructive autofill in ExpenseFeedView modal & QuickPill drag-and-drop     |
-| - 50/50 automated test assertions passing in scratch/test_receipt_tier1.js              |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 0.5.4: HANDY-STYLE SETTINGS HUB MODEL MANAGER & ON-DEMAND DOWNLOADER - COMPLETE]  |
-| - Centralized model registry (Tier 1 Bundled, Tier 2 Vision-Pro, Tier 3 Regional India)  |
-| - Resilient chunked streaming downloader with live progress and cancel support          |
-| - Cryptographic SHA-256 integrity verification (0% bit rot guarantee)                   |
-| - Protected bundled engine deletion guard (ERR_MODEL_PROTECTED)                         |
-| - Currency-aware recommendation engine (highlights Tier 3 for INR ₹ profiles)           |
-| - Handy-style Settings Hub UI cards with storage metrics, active toggles & auto-prompts |
-| - Fine-tuning export pipeline: fine_tune_models.py (quantized models & manifest export) |
-| - 18/18 automated test assertions passing in scratch/test_model_manager.js              |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 0.5.5: MULTI-ENGINE INFERENCE RUNTIME & TABLE LAYOUT PARSING - COMPLETE]         |
-| - DocumentIntelligenceService dispatcher with dynamic active model routing              |
-| - Zero-crash fallback guarantee to Tier 1 with user toast notification alert           |
-| - Tier 2 Vision-Pro deep table parsing (column identification & multi-line wrapped text)|
-| - Tier 2 mathematical table reconciliation (sum(lineItems) == subtotal)                |
-| - Option A line item description formatting & full persistence in metadata.lineItems   |
-| - Tier 3 Regional India specialist (15-char GSTIN & 01-38 state code decoding)         |
-| - Tier 3 multi-slab GST decomposition (0%, 5%, 12%, 18%, 28% CGST/SGST/IGST)           |
-| - Digital UPI slip processing (PhonePe, Google Pay, Paytm, BHIM, 12-digit UTR, VPAs)   |
-| - UPI app auto-selection & in-modal expense purpose prompt with title focus            |
-| - 16/16 automated test assertions passing in scratch/test_phase5_multi_engine.js       |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 0.5.6: INGESTION WORKFLOW & SCANNED BILL REVIEW QUEUE UI - COMPLETE]             |
-| - First-class Import workspace with Scanned Bills Queue vs Bank Statements segmented tab|
-| - SmartDocumentAnalyzer: <1ms in-memory post-scan classifier (invoice/multi-bills/stmt) |
-| - Interactive 3-way toggle pill in review cockpit with immediate user toast feedback   |
-| - Auto-approval middle ground (>=94% confidence, <=3 items, reconciled, not duplicate)  |
-| - Side-by-side review cockpit (intake list, zoom/pan/rotate viewer, structured form)   |
-| - Dense bill line-items table with live Qty*UnitPrice recalculation and 1-click sync   |
-| - ExpenseService.bulkAdd metadata & receiptFilename persistence                        |
-| - 15/15 automated test assertions passing in scratch/test_phase6_ingestion_queue.js     |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 0.5.7: TIER 3 REGIONAL SPECIALIST MODELS ARCHITECTURE - COMPLETE]                |
-| - 4 Core Regional Specialists: India, North America, Europe/UK, Australia/Japan       |
-| - Statutory Checksums: ATO Mod-89 ABN, IRS 9-digit EIN, European VIES, Japan T-Number  |
-| - Regional Utility Discoms: ConEd, BESCOM, British Gas, EnergyAustralia (kWh & units)   |
-| - Payment Rails: UPI, Apple Pay DAN, Venmo, Cash App, Zelle, BPAY, PayID, PayPay, IC   |
-| - Cultural Disambiguation: Comma vs period decimal parser, regional date disambiguator  |
-| - Settings Hub Region Filters & dynamic Review Cockpit statutory chips bar              |
-| - Currency Auto-Routing & graceful zero-crash Tier 1 fallback                           |
-| - 21/21 automated test assertions passing in scratch/test_phase7_tier3_models.js        |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 0.5.8: TIER 2 VISION-PRO MULTI-MODEL ARCHITECTURE - COMPLETE]                    |
-| - 4 Specialized Visual Models: Precision, Degraded Paper, Handwritten, Multilingual    |
-| - Arithmetic Inpainting Solver: Solves torn/missing totals via mathematical constraints |
-| - Comprehensive Anti-Trap Filtering: Eliminates change due, cash tendered, promo banners|
-| - Creased/Crumpled Paper Repair: Bridges disjointed character blocks across fold lines  |
-| - Thermal POS Fade Recovery: Restores missing decimal points on bleached thermal paper  |
-| - Rubber Stamp Layer Separation: Strips overlaid PAID/CANCELLED ink from line items     |
-| - Handwritten Chit Processor (HTR): Numerals 0/6/8, 1/7 disambiguation, slashed zeros Ø |
-| - Multilingual & Travel DCC: Dynamic currency conversion extraction, Kanji, Eastern     |
-|   Arabic [٠-٩], Devanagari [०-९] and Cyrillic script comprehension                       |
-| - Intelligent Auto-Escalation: Tier 1 structural inspection recommends Tier 2 models    |
-| - 21/21 automated test assertions passing in scratch/test_phase8_tier2_models.js        |
-+-----------------------------------------------------------------------------------------+
-                                            |
-                                            v
-+-----------------------------------------------------------------------------------------+
-| [PHASE 0.5.9: SUBSYSTEM INTEGRATION & PRODUCTION PACKAGING - COMPLETE]                  |
-| - Full Cross-Tier Interoperability: Pipeline flow from intake to DB persistence         |
-| - High-Throughput Concurrency Stress: 35 concurrent scans without deadlocks/corruption  |
-| - Chaos Fuzzing Pass: 0-byte, corrupt streams, missing files, 0% false positives        |
-| - Enterprise Regression Audit: 180+ tests passing across 11 test suites with 0 errors    |
-| - 0 ESLint errors/warnings (npm run lint), 52/52 JS files clean (npm run check)         |
-| - Windows Production Distribution: NSIS installer & portable EXE via electron-builder    |
-| - Playwright E2E smoke test verifying packaged binary dist/win-unpacked/Ledgerly.exe    |
-+-----------------------------------------------------------------------------------------+
-```
+### Section 3 (`Sec 3`): Receipts & Statements
+- **Wireframe Surfaces (`L5A` + `L5B`):**
+  1. **Multi-Format Dropzone (`ImportView.js`):** Accepts `.csv`, `.xlsx`, `.pdf`, `.jpg`, `.png`, `.webp`.
+  2. **Adaptive Receipt Review Modal (`ImportView.js`):** Displays extracted `merchant`, `date`, `total`, `tax` with field-level confidence badges (`L5B`), highlighting `lowConfidenceFields` (`<0.75`). User edits trigger `ReceiptLearningService` (`1.0` alias auto-resolution on future scans).
+  3. **Tri-State Reconciliation Cockpit (`ImportView.js`):** Separates statement rows into 🟢 *Matched & Merged* ($\pm 5\%$ amount, $\pm 48\text{h}$ date, Coffee Invariant protected), 🔵 *Net-New*, and 🟠 *Conflict*.
+- **Layer Execution Path:**
+  `L5A (ImportView)` $\rightarrow$ `L4 (IPC)` $\rightarrow$ `L3 (DocumentIntelligenceService, DocumentNormalizer, ReceiptTier1-3, ReceiptLearningService, StatementReconciliationService, fileImporter)` $\rightarrow$ `L1 (receiptStorage.js, deduplicationSignatures_v1)`.
 
 ---
 
-## 📊 Version Milestone Lineage
+### Section 4 (`Sec 4`): Household & Profiles
+- **Wireframe Surfaces (`L5A` + `L5B`):**
+  1. **Multi-Profile Workspace Switcher (`AppRouter.js` / Sidebar):** Isolates personal, business, and family ledgers with monogram avatars (`L5B`).
+  2. **Household Split & Pairwise Debt Settlement (`HouseholdView.js`):** Visualizes minimum-transfer settlement flows (`Member A ──$42.50──▶ Member B`) and shared recurring bills with countdown badges.
+  3. **Contextual Financial Notes (`NotesView.js`):** Pinned and archived financial notes per profile.
+- **Layer Execution Path:**
+  `L5A (HouseholdView / NotesView)` $\rightarrow$ `L4 (IPC)` $\rightarrow$ `L2 (HouseholdService, ProfileService, NotesService)` $\rightarrow$ `L1 (JsonDatabase)`.
 
-> [!NOTE]
-> **Versioning Taxonomy**:
-> - The leading **`0`** denotes that Ledgerly is currently within its **Alpha Build Phase** (`0.x.x`) of active architecture and feature building. The official **`v1.0.0`** release will mark the production-ready build for user download and deployment.
-> - The version **`0.4`** represents the **overall phase structure** (*Major Codebase Restructuring Improving Its Readability*).
-> - Each phase represents a specific **subsection of version 0.4** (`0.4.1` through `0.4.7`).
-> - The version **`0.5`** represents the **on-device machine learning document intelligence cycle** (`0.5.1` through `0.5.9`).
+---
 
-| Version / Sub-version | Milestone / Phase Name | Key Architectural Shift |
-|---|---|---|
-| **v0.1.0** | Desktop Core Foundation | Offline Electron runtime, local JSON db, express bar, presets, batch mode, salary pace & rollover, local receipts |
-| **v0.2.0** | Visual Design Language System | Theme 3 (Graphite & Spiced Chai Amber), Inter & JetBrains Mono fonts, 93 Lucide SVG icons, monogram avatars, offline Chart.js |
-| **v0.3.0** | Ambient Intelligence & Polish | Multi-profile switcher, universal statement importer (CSV/XLSX/OFX/PDF), contextual notes, pairwise debt netting, quick-add pill widget |
-| **v0.4** | **Major Restructuring of the Code Improving Its Readability** | **Complete dual-monolith decomposition, IPC boundary guard & enterprise resilience** |
-| ↳ **v0.4.1** (Phase 1) | Security Hardening Baseline | CSP baseline, PBKDF2 (210K rounds), formula sanitization |
-| ↳ **v0.4.2** (Phase 2) | Tooling, Type Contracts & Constants | ESLint, Prettier, JSDoc `types.js`, frozen constants |
-| ↳ **v0.4.3** (Phase 3) | Backend Domain Service Decomposition | 8 domain services (`src/services/`), backward-compatible facade |
-| ↳ **v0.4.4** (Phase 4) | Frontend Modular UI Decomposition | 8 views, 3 components (`src/ui/`), ES modules, zero inline events (88.3% line reduction) |
-| ↳ **v0.4.5** (Phase 5) | IPC Runtime Schema Validation Layer | Boundary schema validation in `main.js`, standardized `{ success, data, error }` envelopes |
-| ↳ **v0.4.6** (Phase 6) | Global UI Error Boundaries, Crash Traps & Audit Remediation | `ErrorBoundary.js`, section fallback cards, `crashLogger.js` (5MB rotation), uncaughtException/unhandledRejection traps, importer safeguards, resolved BUG-001..004 |
-| ↳ **v0.4.7** (Phase 7) | Enterprise Resilience, Offline Sync & Diagnostics | DatabaseAuditor self-healing, DiagnosticExporter telemetry, SyncEngine 3-way merge, Ctrl+Z undo, fuzzy deduplication (Concludes Version 0.4) |
-| **v0.5** | **On-Device Machine Learning Document Intelligence & Multi-Tier Receipt Processing Engine** | **Local, zero-cloud ML models for camera photos, PDF statements, and receipts (Complete)** |
-| ↳ **v0.5.1** (Phase 1) | Dataset Sourcing & Base Model Discovery | Standardized schema (SROIE, CORD, Indian GST & UPI), 54-sample negative control gate, 3-tier model profiling |
-| ↳ **v0.5.2** (Phase 2) | Document Normalization & Image Preprocessing | Magic byte sniffing, EXIF rotation, adaptive 1200-2400px density scaling, blur rejection gate, thermal contrast boosting, vector PDF fast-path (<10ms) |
-| ↳ **v0.5.3** (Phase 3) | Tier 1 (Fast-Lite) Bundled Engine & Instant Receipt Autofill | Offline Tesseract WASM (5.19MB), reverse token attention, smart non-destructive autofill, UPI & GST breakdown, negative transaction gate |
-| ↳ **v0.5.4** (Phase 4) | Handy-Style Settings Hub Model Manager & On-Demand Downloader | ModelManager service (chunked streaming, SHA-256 verification), Handy-style Settings Hub UI, currency recommendations, auto-fallback |
-| ↳ **v0.5.5** (Phase 5) | Multi-Engine Inference Runtime & Table Layout Parsing | DocumentIntelligenceService dispatcher, Tier 2 table parsing & mathematical reconciliation, Tier 3 GSTIN/UPI engine, fallback toasts |
-| ↳ **v0.5.6** (Phase 6) | Ingestion Workflow & Scanned Bill Review Queue UI | First-class Import workspace, Smart Document Analyzer (<1ms 3-way classifier), auto-approval middle ground, side-by-side cockpit, interactive line items table, metadata persistence |
-| ↳ **v0.5.7** (Phase 7) | Tier 3 Regional Specialist Models Architecture | 4 regional specialists (India, North America, Europe/UK, APAC), statutory checksums (ABN Mod-89, EIN, VIES, T-Number), utility bills, currency routing (Complete) |
-| ↳ **v0.5.8** (Phase 8) | Tier 2 Vision-Pro Multi-Model Architecture & Visual Understanding | 4 specialized visual models (Precision microtext/inpainting, Degraded paper/creases, Handwritten chits HTR, Multilingual travel DCC) + balanced baseline, auto-escalation (Complete) |
-| ↳ **v0.5.9** (Phase 9) | Subsystem Integration, Documentation & Production Packaging | End-to-end stress testing, system resilience auditing, final documentation sync, and production electron-builder installer packaging (Complete — Concludes Version 0.5 Milestone) |
-| **v0.6** | **Capacitor Mobile Companion, Zero-Cloud Local LAN Sync & iOS CI/CD** | **Native mobile receipt intake, IndexedDB staging queue, desktop Wi-Fi sync, Android APK, iOS WebKit containerization (Complete)** |
-| ↳ **v0.6.1** (Phase 1) | Architecture Blueprint & Shared Contract Schemas | Unified mobile architecture, shared IPC/HTTP contracts, IndexedDB queue schemas, security handshake specification |
-| ↳ **v0.6.2** (Phase 2) | Mobile Camera Ingestion & Persistent Offline Queue | Capacitor 7 container, hardware camera/gallery capture, JPEG 90% compression, thumbnail generation, persistent IndexedDB staging |
-| ↳ **v0.6.3** (Phase 3) | Desktop Sync Server & Local LAN Discovery | Embedded Node.js HTTP/WebSocket server (port 8765), dynamic PIN pairing, SHA-256 HMAC auth tokens, desktop Settings QR display |
-| ↳ **v0.6.4** (Phase 4) | Cross-Device E2E Sync & Android Debug APK | Bidirectional push/pull sync, delta preservation, Android debug APK compilation (4.08 MB), Playwright E2E cross-device test suite |
-| ↳ **v0.6.5** (Phase 5) | Apple iOS Native Container, ATS Local LAN & WebKit Polish | iOS Xcode container, Info.plist camera & local network permissions, NSAllowsLocalNetworking, WebKit safe area & touch ergonomics |
-| ↳ **v0.6.6** (Phase 6) | Production Packaging, CI/CD Automated Workflow & Release Conclusion | GitHub Actions macOS iOS CI workflow, scripts/check-ci-workflow.js (9/9), 10-area resilience & fallback hardening (DEFECT-606-01..10), Windows NSIS & portable packaging, unified test runner (129 assertions, 100% pass) (Concludes Version 0.6 Milestone) |
-| **v1.0.0** | **Official Production Release** | Production-ready deployment for user download |
+### Section 5 (`Sec 5`): Mobile & LAN Sync
+- **Wireframe Surfaces (`L5A` + `L5B`):**
+  1. **Desktop LAN Pairing Card (`SettingsView.js` + `qrCodeGenerator.js` `L5B`):** Displays zero-dependency SVG QR matrix (`<2.2ms`), 6-digit PIN, 5-minute live countdown badge, and security lockout status.
+  2. **Mobile 4-Tab Dock (`mobile/src/views/*`):**
+     - `CaptureView.js`: Camera shutter $\rightarrow$ `imageCompressor.js` (`1600px` Canvas JPEG).
+     - `QuickAddView.js`: Tactile calculator numpad for cash logging.
+     - `QueueView.js`: Offline IndexedDB staging queue (`indexedDbQueue.js`).
+     - `SyncView.js`: 1-tap `[ Scan QR Code ]` optical viewfinder (`BarcodeDetector` / fallback) + UDP auto-discovery (`DISCOVER_LEDGERLY` on port `52411`).
+- **Layer Execution Path:**
+  `Mobile L5A (SyncView)` $\rightarrow$ `L4 (SyncClient <-> LanBeaconService UDP 52411 & SyncServer HTTP /api/v1/*)` $\rightarrow$ `L4 (SyncEngine)` $\rightarrow$ `L1–L3 (Desktop Storage & Receipt Vision)`.
+
+---
+
+### Section 6 (`Sec 6`): Security, Vault & Self-Healing
+- **Wireframe Surfaces (`L5A` + `L5B`):**
+  1. **Local Account Lock & Recovery (`AuthScreen.js`):** PBKDF2-SHA512 authentication and 12-word recovery phrase verification.
+  2. **Global Privacy Blur & Command Palette (`L5B`):** Single-key `P` privacy blur across all monetary values; `Ctrl+K` `CommandPalette.js`.
+  3. **Global Error Boundary (`ErrorBoundary.js`):** Traps renderer exceptions into recovery banners and forwards sanitized stacks to `crashLogger.js`.
+  4. **Continuous Mirror Vault & Diagnostics (`SettingsView.js`):** SHA-256 verified backup folder mirroring (`BackupMirrorService.js`), 1-click self-healing database audit (`DatabaseAuditor.js`), and path-masked telemetry bundle export (`DiagnosticExporter.js`).
+- **Layer Execution Path:**
+  `L5A (AuthScreen / ErrorBoundary / SettingsView)` $\rightarrow$ `L4 (IPC + SyncServer IP Rate Limiter)` $\rightarrow$ `L2 (AuthService, DatabaseAuditor, DataQualityAuditor, DiagnosticExporter, crashLogger)` $\rightarrow$ `L1 (BackupMirrorService, securityConfig_v1)`.

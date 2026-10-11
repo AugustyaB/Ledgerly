@@ -1,4 +1,4 @@
-﻿// Smart Merchant Auto-Categorization & Keyword Learning Engine (Offline)
+// Smart Merchant Auto-Categorization & Keyword Learning Engine (Offline)
 
 const KEYWORD_CATEGORY_MAP = {
   'Food & Dining': [
@@ -205,6 +205,24 @@ const KEYWORD_CATEGORY_MAP = {
   ]
 };
 
+/**
+ * Helper to match keyword with strict word boundary isolation to avoid false positive substring matches
+ * (e.g. "VIELEN DANK" false matching telecom keyword "vi", or "snapple" matching "apple").
+ * @param {string} text - Target text.
+ * @param {string} keyword - Keyword pattern to match.
+ * @returns {boolean}
+ */
+function matchesKeyword(text, keyword) {
+  if (!text || !keyword) return false;
+  const kw = keyword.trim().toLowerCase();
+  if (!kw) return false;
+  const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const startBoundary = /^[\p{L}\p{N}_]/u.test(kw) ? '(?<![\\p{L}\\p{N}_])' : '';
+  const endBoundary = /[\p{L}\p{N}_]$/u.test(kw) ? '(?![\\p{L}\\p{N}_])' : '';
+  const regex = new RegExp(`${startBoundary}${escaped}${endBoundary}`, 'iu');
+  return regex.test(text);
+}
+
 class CategoryMatcher {
   constructor(customOverrides = {}) {
     this.customOverrides = customOverrides || {};
@@ -223,17 +241,17 @@ class CategoryMatcher {
     const lower = titleText.toLowerCase().trim();
     const overrides = userKeywordsMap || this.customOverrides;
 
-    // 1. Check User-Trained Overrides
+    // 1. Check User-Trained Overrides with Word Boundaries
     for (const [kw, category] of Object.entries(overrides)) {
-      if (lower.includes(kw.toLowerCase())) {
+      if (matchesKeyword(lower, kw)) {
         return category;
       }
     }
 
-    // 2. Check Built-in Keyword Dictionary
+    // 2. Check Built-in Keyword Dictionary with Word Boundaries
     for (const [category, keywords] of Object.entries(KEYWORD_CATEGORY_MAP)) {
       for (const kw of keywords) {
-        if (lower.includes(kw)) {
+        if (matchesKeyword(lower, kw)) {
           return category;
         }
       }
@@ -251,6 +269,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     CategoryMatcher,
     KEYWORD_CATEGORY_MAP,
+    matchesKeyword,
     predictCategory: (title, overrides) => new CategoryMatcher(overrides).predictCategory(title)
   };
 }

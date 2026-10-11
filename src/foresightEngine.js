@@ -2,23 +2,33 @@
 
 class ForesightEngine {
   /**
-   * Simulates the mathematical ripple effect of a potential purchase on subsequent daily budgets.
-   * @param {number} extraAmount - The test expenditure amount in Rupees (₹).
-   * @param {Object} salaryConfig - { monthlyIncome, fixedBills, savingsGoal }
+   * Minimum active logging days required before unlocking statistical burn rate forecasting.
+   * @readonly
+   */
+  static REQUIRED_LOGGED_DAYS = 20;
+
+  /**
+   * Simulates the mathematical ripple effect of a potential purchase on subsequent daily budgets,
+   * with data-gated statistical burn rate and runway forecasting (Phase 0.8.4).
+   *
+   * @param {number} extraAmount - The test expenditure amount.
+   * @param {Object} salaryConfig - { monthlyIncome, fixedBills, savingsGoal, currencySymbol }
    * @param {number} spentMonthToDate - Total spent in the current month so far.
    * @param {Date|string} [targetDate] - Target date (defaults to today).
-   * @returns {Object} Simulation analysis and forecast
+   * @param {any[]} [expenses=[]] - Historical transactions for active logging days & statistical burn rate.
+   * @returns {import('./types').ForesightBurnRateResult} Simulation analysis and forecast
    */
-  static simulatePurchase(extraAmount, salaryConfig, spentMonthToDate, targetDate = new Date()) {
+  static simulatePurchase(extraAmount, salaryConfig, spentMonthToDate, targetDate = new Date(), expenses = []) {
     const d = targetDate instanceof Date ? targetDate : new Date(targetDate);
     const year = d.getFullYear();
     const month = d.getMonth();
     const dayOfMonth = d.getDate();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    const monthlyIncome = parseFloat(salaryConfig.monthlyIncome) || 0;
-    const fixedBills = parseFloat(salaryConfig.fixedBills) || 0;
-    const savingsGoal = parseFloat(salaryConfig.savingsGoal) || 0;
+    const cfg = salaryConfig && typeof salaryConfig === 'object' ? salaryConfig : {};
+    const monthlyIncome = parseFloat(cfg.monthlyIncome) || 0;
+    const fixedBills = parseFloat(cfg.fixedBills) || 0;
+    const savingsGoal = parseFloat(cfg.savingsGoal) || 0;
     const discretionaryPool = Math.max(0, monthlyIncome - fixedBills - savingsGoal);
 
     const baselineDailyAllowance = daysInMonth > 0 ? discretionaryPool / daysInMonth : 0;
@@ -37,7 +47,7 @@ class ForesightEngine {
     const dropPercentage = currentPace > 0 ? (dailyDrop / currentPace) * 100 : 0;
 
     // Forecast Burnout & Risk Trajectory
-    const sym = salaryConfig.currencySymbol || '₹';
+    const sym = cfg.currencySymbol || '₹';
     let riskLevel = 'SAFE'; // 'SAFE' | 'CAUTION' | 'CRITICAL'
     let statusHeadline = 'Sustainable Purchase';
     let statusMessage = `Your daily budget will adjust smoothly to ${sym}${projectedPace.toFixed(0)}/day for the remaining ${subsequentDays} days.`;
@@ -56,7 +66,24 @@ class ForesightEngine {
       statusMessage = `Daily allowance tightens by ${sym}${dailyDrop.toFixed(0)}/day (new safe pace: ${sym}${projectedPace.toFixed(0)}/day).`;
     }
 
-    return {
+    // ========================================================================
+    // Data-Gated Statistical Burn Rate & Runway Forecasting (Phase 0.8.4)
+    // ========================================================================
+    const rawList = Array.isArray(expenses) ? expenses : [];
+    const validDates = new Set();
+    for (let i = 0; i < rawList.length; i++) {
+      const exp = rawList[i];
+      if (exp && exp.date && typeof exp.date === 'string') {
+        validDates.add(exp.date);
+      }
+    }
+    const activeDays = validDates.size;
+    const requiredDays = ForesightEngine.REQUIRED_LOGGED_DAYS;
+    const isDataGated = activeDays < requiredDays;
+    const daysRemainingToUnlock = Math.max(0, requiredDays - activeDays);
+    const unlockProgressPct = Math.min(100, Math.round((activeDays / requiredDays) * 100));
+
+    const result = {
       testAmount,
       discretionaryPool,
       spentMTD,
@@ -69,11 +96,73 @@ class ForesightEngine {
       dropPercentage: parseFloat(dropPercentage.toFixed(1)),
       riskLevel,
       statusHeadline,
-      statusMessage
+      statusMessage,
+      isDataGated,
+      activeDays,
+      requiredDays,
+      daysRemainingToUnlock,
+      unlockProgressPct
     };
+
+    if (isDataGated) {
+      result.gateMessage = `Burn rate forecasting unlocks after ${requiredDays} days of expense logging (currently ${activeDays}/${requiredDays} days).`;
+      return result;
+    }
+
+    // Data-Gate Unlocked: Compute Statistical Rolling Burn Rates
+    const targetTime = d.getTime();
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    let sum7d = 0;
+    let sum30d = 0;
+
+    for (let j = 0; j < rawList.length; j++) {
+      const exp = rawList[j];
+      if (!exp || !exp.date) continue;
+      const amt = typeof exp.amount === 'number' ? exp.amount : parseFloat(exp.amount) || 0;
+      if (amt <= 0) continue;
+
+      const expTime = new Date(exp.date + 'T00:00:00Z').getTime();
+      if (isNaN(expTime)) continue;
+
+      const diffDays = (targetTime - expTime) / MS_PER_DAY;
+      if (diffDays >= 0 && diffDays <= 7) {
+        sum7d += amt;
+      }
+      if (diffDays >= 0 && diffDays <= 30) {
+        sum30d += amt;
+      }
+    }
+
+    const burnRate7d = Math.round((sum7d / 7) * 100) / 100;
+    const burnRate30d = Math.round((sum30d / 30) * 100) / 100;
+    let burnRate = Math.round((0.6 * burnRate7d + 0.4 * burnRate30d) * 100) / 100;
+    if (burnRate <= 0) {
+      burnRate = parseFloat(currentPace.toFixed(2));
+    }
+
+    // Days to Zero (Runway Calculation)
+    const currentRunway =
+      burnRate > 0 ? Math.round((remainingDiscretionary / burnRate) * 10) / 10 : daysRemaining;
+    const projectedRunway =
+      burnRate > 0 ? Math.round((simulatedRemaining / burnRate) * 10) / 10 : 0;
+    const runwayDrop = Math.round(Math.max(0, currentRunway - projectedRunway) * 10) / 10;
+
+    result.burnRate = burnRate;
+    result.burnRate7d = burnRate7d;
+    result.burnRate30d = burnRate30d;
+    result.currentRunway = currentRunway;
+    result.projectedRunway = projectedRunway;
+    result.runwayDrop = runwayDrop;
+
+    if (testAmount > 0 && runwayDrop > 0) {
+      result.statusMessage += ` Runway impact: Shortens your ${currentRunway}d cash runway by ${runwayDrop}d.`;
+    }
+
+    return result;
   }
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = ForesightEngine;
 }
+

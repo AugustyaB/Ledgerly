@@ -91,7 +91,7 @@ module.exports = [
 
   // Dedicated ES Module configuration for frontend UI modules
   {
-    files: ['src/ui/**/*.js', 'src/app.js'],
+    files: ['src/ui/**/*.js', 'src/app.js', 'src/utils/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -127,7 +127,8 @@ module.exports = [
         getAvatarColor: 'readonly',
         renderMonogram: 'readonly',
         ICON_SVG_MAP: 'readonly',
-        Chart: 'readonly'
+        Chart: 'readonly',
+        TextEncoder: 'readonly'
       }
     },
     rules: {
@@ -176,7 +177,9 @@ module.exports = [
         setInterval: 'readonly',
         clearInterval: 'readonly',
         Set: 'readonly',
-        Map: 'readonly'
+        Map: 'readonly',
+        BarcodeDetector: 'readonly',
+        HTMLVideoElement: 'readonly'
       }
     },
     rules: {

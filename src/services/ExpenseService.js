@@ -81,6 +81,8 @@ class ExpenseService {
       status: expense.status || 'cleared',
       taxAmount: expense.taxAmount || 0,
       location: expense.location || null,
+      source: expense.source || null,
+      notes: expense.notes || '',
       metadata: expense.metadata || {}
     };
 
@@ -96,6 +98,13 @@ class ExpenseService {
    *
    * @param {Partial<import('../types').Expense> & { id: string }} updated - Fields to update.
    * @returns {import('../types').OperationResult & { expense?: import('../types').Expense }}
+   */
+  /**
+   * Updates an existing expense record by ID.
+   * Searches active profile first, secondary profiles in active ledger, and cold archive if needed.
+   *
+   * @param {Partial<import('../types').Expense> & { id: string }} updated - Fields to update.
+   * @returns {import('../types').OperationResult & { expense?: import('../types').Expense, isArchived?: boolean, profileId?: string }}
    */
   update(updated = { id: '' }) {
     if (!updated.id) {
@@ -150,17 +159,78 @@ class ExpenseService {
       };
 
       this._db.write(root);
-      return { success: true, expense: expList[targetIndex] };
+      return { success: true, expense: expList[targetIndex], isArchived: false };
+    }
+
+    // Check cold archive if not found in active working set
+    if (typeof this._db.readArchive === 'function' && typeof this._db.writeArchive === 'function') {
+      const archive = this._db.readArchive();
+      if (archive && archive.profiles) {
+        for (const [profId, list] of Object.entries(archive.profiles)) {
+          if (Array.isArray(list)) {
+            const idx = list.findIndex(e => e.id === updated.id);
+            if (idx !== -1) {
+              const mergedExpense = {
+                ...list[idx],
+                ...updated,
+                amount:
+                  updated.amount !== undefined
+                    ? parseFloat(String(updated.amount)) || list[idx].amount
+                    : list[idx].amount,
+                tags: Array.isArray(updated.tags)
+                  ? updated.tags
+                  : typeof updated.tags === 'string'
+                    ? updated.tags.split(',').map(t => t.trim())
+                    : list[idx].tags,
+                receiptFilename:
+                  updated.receiptFilename !== undefined ? updated.receiptFilename : list[idx].receiptFilename,
+                paidBy: updated.paidBy || list[idx].paidBy || 'Self',
+                splitWith: Array.isArray(updated.splitWith) ? updated.splitWith : list[idx].splitWith || [],
+                isHouseholdExpense:
+                  updated.isHouseholdExpense !== undefined
+                    ? Boolean(updated.isHouseholdExpense)
+                    : list[idx].isHouseholdExpense,
+                updatedAt: new Date().toISOString()
+              };
+
+              // If date was updated to recent (<90d), promote from cold archive to active working set
+              const cutoffMs = Date.now() - 90 * 24 * 60 * 60 * 1000;
+              const expTime = mergedExpense.date ? new Date(mergedExpense.date).getTime() : 0;
+
+              if (!isNaN(expTime) && expTime >= cutoffMs) {
+                list.splice(idx, 1);
+                this._db.writeArchive(archive);
+
+                const activeProfile = (root.profiles || []).find(p => p.id === profId) ||
+                  (root.profiles || []).find(p => p.id === root.activeProfileId);
+                if (activeProfile && activeProfile.data) {
+                  if (!Array.isArray(activeProfile.data.expenses)) {
+                    activeProfile.data.expenses = [];
+                  }
+                  activeProfile.data.expenses.unshift(mergedExpense);
+                  this._db.write(root);
+                }
+
+                return { success: true, expense: mergedExpense, isArchived: false, profileId: profId, promotedToActive: true };
+              }
+
+              list[idx] = mergedExpense;
+              this._db.writeArchive(archive);
+              return { success: true, expense: list[idx], isArchived: true, profileId: profId };
+            }
+          }
+        }
+      }
     }
 
     return { success: false, error: 'Expense not found' };
   }
 
   /**
-   * Deletes an expense by ID across active profile and secondary profiles.
+   * Deletes an expense by ID across active profile, secondary profiles, and cold archive.
    *
    * @param {string} id - Unique ID of the expense to remove.
-   * @returns {import('../types').OperationResult & { id?: string }}
+   * @returns {import('../types').OperationResult & { id?: string, isArchived?: boolean, profileId?: string }}
    */
   delete(id) {
     if (!id) {
@@ -176,18 +246,35 @@ class ExpenseService {
       if (idx !== -1) {
         active.data.expenses.splice(idx, 1);
         this._db.write(root);
-        return { success: true, id };
+        return { success: true, id, isArchived: false };
       }
     }
 
-    // 2. Search secondary profiles
+    // 2. Search secondary profiles in active ledger
     for (const p of root.profiles || []) {
       if (Array.isArray(p.data?.expenses)) {
         const idx = p.data.expenses.findIndex(e => e.id === id);
         if (idx !== -1) {
           p.data.expenses.splice(idx, 1);
           this._db.write(root);
-          return { success: true, id };
+          return { success: true, id, isArchived: false };
+        }
+      }
+    }
+
+    // 3. Search cold archive
+    if (typeof this._db.readArchive === 'function' && typeof this._db.writeArchive === 'function') {
+      const archive = this._db.readArchive();
+      if (archive && archive.profiles) {
+        for (const [profId, list] of Object.entries(archive.profiles)) {
+          if (Array.isArray(list)) {
+            const idx = list.findIndex(e => e.id === id);
+            if (idx !== -1) {
+              list.splice(idx, 1);
+              this._db.writeArchive(archive);
+              return { success: true, id, isArchived: true, profileId: profId };
+            }
+          }
         }
       }
     }
@@ -197,14 +284,31 @@ class ExpenseService {
 
   /**
    * Clears all expense records in the active profile.
+   * Optionally purges archived expenses if options.includeArchive is true.
    *
+   * @param {{ includeArchive?: boolean }} [options] - Options to purge archive records as well.
    * @returns {import('../types').OperationResult & { clearedCount: number }}
    */
-  clearAll() {
+  clearAll(options = {}) {
     const data = this._profiles.getActiveData();
-    const clearedCount = (data.expenses || []).length;
+    let clearedCount = (data.expenses || []).length;
     data.expenses = [];
     this._profiles.saveActiveData(data);
+
+    if (
+      options &&
+      options.includeArchive === true &&
+      typeof this._db.readArchive === 'function' &&
+      typeof this._db.writeArchive === 'function'
+    ) {
+      const activeProfileId = this._profiles.getActive()?.id || 'prof-default';
+      const archive = this._db.readArchive();
+      if (archive && archive.profiles && Array.isArray(archive.profiles[activeProfileId])) {
+        clearedCount += archive.profiles[activeProfileId].length;
+        archive.profiles[activeProfileId] = [];
+        this._db.writeArchive(archive);
+      }
+    }
 
     return { success: true, clearedCount };
   }
@@ -215,19 +319,46 @@ class ExpenseService {
 
   /**
    * Retrieves all expenses for the active profile.
+   * By default reads fast active working set (<90d). If options.includeArchive is true,
+   * merges active and cold archive records sorted descending by date.
    *
+   * @param {{ includeArchive?: boolean }} [options] - Query options.
    * @returns {import('../types').Expense[]}
    */
-  getAll() {
+  getAll(options = {}) {
     const data = this._profiles.getActiveData();
-    return data.expenses || [];
+    const activeExpenses = data.expenses || [];
+
+    if (options && options.includeArchive === true) {
+      const activeProfileId = this._profiles.getActive()?.id || 'prof-default';
+      const archive = typeof this._db.readArchive === 'function' ? this._db.readArchive() : null;
+      const archivedExpenses =
+        archive && archive.profiles && Array.isArray(archive.profiles[activeProfileId])
+          ? archive.profiles[activeProfileId]
+          : [];
+
+      if (archivedExpenses.length === 0) {
+        return activeExpenses;
+      }
+
+      const combined = [...activeExpenses, ...archivedExpenses];
+      combined.sort((a, b) => {
+        const dateA = a && a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b && b.date ? new Date(b.date).getTime() : 0;
+        if (dateB !== dateA) return dateB - dateA;
+        return (b.id || '').localeCompare(a.id || '');
+      });
+      return combined;
+    }
+
+    return activeExpenses;
   }
 
   /**
-   * Retrieves a single expense by ID across active profile and secondary profiles.
+   * Retrieves a single expense by ID across active profile, secondary profiles, and cold archive.
    *
    * @param {string} id - Unique expense identifier.
-   * @returns {import('../types').OperationResult & { expense?: import('../types').Expense }}
+   * @returns {import('../types').OperationResult & { expense?: import('../types').Expense, isArchived?: boolean, profileId?: string }}
    */
   getById(id) {
     if (!id) {
@@ -241,16 +372,31 @@ class ExpenseService {
     if (active && Array.isArray(active.data?.expenses)) {
       const exp = active.data.expenses.find(e => e.id === id);
       if (exp) {
-        return { success: true, expense: exp };
+        return { success: true, expense: exp, isArchived: false };
       }
     }
 
-    // 2. Search across all other profiles
+    // 2. Search across all other profiles in active working set
     for (const p of root.profiles || []) {
       if (Array.isArray(p.data?.expenses)) {
         const exp = p.data.expenses.find(e => e.id === id);
         if (exp) {
-          return { success: true, expense: exp };
+          return { success: true, expense: exp, isArchived: false };
+        }
+      }
+    }
+
+    // 3. Search cold archive if not found in active ledger
+    if (typeof this._db.readArchive === 'function') {
+      const archive = this._db.readArchive();
+      if (archive && archive.profiles) {
+        for (const [profId, list] of Object.entries(archive.profiles)) {
+          if (Array.isArray(list)) {
+            const exp = list.find(e => e.id === id);
+            if (exp) {
+              return { success: true, expense: exp, isArchived: true, profileId: profId };
+            }
+          }
         }
       }
     }
@@ -260,13 +406,26 @@ class ExpenseService {
 
   /**
    * Filters active profile expenses by query text, category, tag, and date range.
+   * Automatically streams cold archive records if date range extends older than 90 days
+   * or if keyword search is performed.
    *
    * @param {import('../types').ExpenseFilters} [filters] - Filter parameters.
    * @returns {import('../types').ExpenseQueryResult} Filtered results with totals.
    */
   getFiltered(filters = {}) {
-    const data = this._profiles.getActiveData();
-    let result = data.expenses || [];
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    // Automatically include archive when:
+    // 1. Explicitly requested: filters.includeArchive === true
+    // 2. Date filter reaches into cold storage: filters.startDate && filters.startDate < ninetyDaysAgo
+    // 3. Search query is present: filters.query (user expects search across all historical transactions)
+    const shouldIncludeArchive = Boolean(
+      filters.includeArchive ||
+      (filters.startDate && filters.startDate < ninetyDaysAgo) ||
+      filters.query
+    );
+
+    let result = this.getAll({ includeArchive: shouldIncludeArchive });
 
     if (filters.category && filters.category !== 'All') {
       result = result.filter(e => e.category === filters.category);

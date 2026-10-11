@@ -2,9 +2,9 @@
 
 > **Department**: Quality Assurance & Software Integrity  
 > **QA Lead / Auditor**: Lead Quality Assurance (QA) Tester & Head of Software Quality  
-> **Application**: Ledgerly Desktop (`v0.5.9` Active Build)  
-> **Status**: Active QA Oversight  
-> **Last Updated**: September 24, 2026  
+> **Application**: Ledgerly Desktop (`v0.7.3` Active Build)  
+> **Status**: Milestone v0.7 Certified  
+> **Last Updated**: September 27, 2026  
 
 ---
 
@@ -18,10 +18,10 @@ As the Quality Assurance team, our mandate is twofold:
 
 ---
 
-## 🏆 Featured Milestone Audit: Version 0.5 (Must Read)
+## 🏆 Featured Milestone Audit: Version 0.8 (Phases 0.8.1 – 0.8.4) (Must Read)
 
-👉 **[`MASTER_AUDIT_REPORT_VERSION_5.md`](01_Audit/MASTER_AUDIT_REPORT_VERSION_5.md)**  
-*The canonical, empirical audit report evaluating Version 0.5’s document intelligence models (Tier 1 Fast-Lite, Tier 2 Vision-Pro, Tier 3 Regional). Covers the independent 17-sample ground-truth benchmark results, the "Page 1 of 1" PDF header bug, the over-engineering root cause of Tier 2, and the strategic implementation blueprint for upcoming releases.*
+👉 **[`phase_0.8_subsystem_audit_report.md`](01_Audit/phase_0.8_subsystem_audit_report.md)**  
+*The canonical, empirical subsystem audit report evaluating Milestone v0.8’s Adaptive Receipt Vision & Learning Loop (0.8.1), Exploratory Data Analysis & Rollup Foundation (0.8.2), Smart Statement Reconciliation & Fuzzy Deduplication (0.8.3), and Smart Insights & Behavioral Notifications (0.8.4). Confirms 100% empirical pass rate across all 12 test suites and 21/21 unideal chaos scenarios.*
 
 ---
 
@@ -34,7 +34,10 @@ Quality assurance testing/
 ├── README.md                                      # This QA Hub Index & Status Dashboard
 │
 ├── 01_Audit/                                      # Project Purpose, Vision & Milestone Audits
-│   ├── phase_0.6.4_apk_and_cross_device_audit_report.md # [LATEST] Phase 0.6.4 APK & Cross-Device E2E Audit
+│   ├── phase_0.8_subsystem_audit_report.md        # [LATEST] Phase 0.8 Subsystem Audit & Empirical Sign-Off
+│   ├── phase_0.7_master_audit_report.md           # Milestone v0.7 Master Audit (Partitioned Storage & Mirroring)
+│   ├── phase_0.6.6_milestone_release_audit.md     # Milestone v0.6 Release Audit (iOS & LAN Sync)
+│   ├── phase_0.6.4_apk_and_cross_device_audit_report.md # Phase 0.6.4 APK & Cross-Device E2E Audit
 │   ├── phase_0.6.3_wifi_sync_audit_report.md      # Phase 0.6.3 Wi-Fi Sync & Pairing Audit
 │   ├── MASTER_AUDIT_REPORT_VERSION_5.md           # [CANONICAL] Master Audit Report: Version 0.5 Models
 │   ├── v0.5_model_performance_audit.md            # Benchmark telemetry & detailed sample breakdowns
@@ -44,6 +47,7 @@ Quality assurance testing/
 │
 ├── 02_Defects/                                    # Formal Defect Tickets & Severity Matrix
 │   ├── defect_backlog_and_severity_matrix.md      # Consolidated defect register (P0 - P3)
+│   ├── phase_0.8_observed_hazards_and_remediations.md # [HAZARDS 801-806] Forensic hazard diagnoses & remediations
 │   ├── BUG-001_csv_decimal_stripping_regex.md     # [P0 Blocker] Regex destroys statement decimals
 │   ├── BUG-002_test_db_isolation_and_env_vars.md  # [P1 High] Test harness collides with real user DB
 │   ├── BUG-003_eslint_syntax_and_undeclared_globals.md # [P2 Medium] Lint errors & undefined globals
@@ -76,27 +80,27 @@ Quality assurance testing/
 
 ---
 
-## 🚦 Quality Scorecard Dashboard (v0.5.9 State)
+## 🚦 Quality Scorecard Dashboard (v0.8.4 State)
 
 | Quality Gate | Current Status | Notes / Findings |
 |---|:---:|---|
-| **Syntax & Compile Check** | 🟢 **PASS** | 52/52 JS files cleanly parsed (`npm run check`) |
-| **ESLint Static Analysis** | 🟢 **PASS** | 0 errors, 0 warnings across entire `src/` tree (`npm run lint`) |
-| **Tier 1 Fast-Lite Total Acc** | 🟡 **71.4%** | Fails on cash tender traps and European comma decimals; needs backporting |
-| **Tier 2 Vision-Pro Total Acc** | 🟡 **78.6%** | Avoids tender traps, but breaks on composite bills due to rigid inpainting |
-| **Tier 3 Regional Total Acc** | 🟢 **92.9%** | Dominant engine; handles comma decimals, UPI slips, and statutory IDs |
-| **Negative Control Rejection** | 🟢 **100%** | Zero false financial transactions; Laplacian blur gate rejects in 7ms |
-| **Average Ingestion Latency** | 🟢 **211ms** | Preserves sub-second desktop speed; vector PDFs process in < 15ms |
+| **Syntax & Compile Check** | 🟢 **PASS** | 60/60 JS files cleanly parsed (`npm run check`) |
+| **ESLint Static Analysis** | 🟢 **PASS** | 0 errors, 0 warnings across entire codebase (`npm run lint`) |
+| **Adaptive Vision & Learning (0.8.1)** | 🟢 **100%** | 72/72 tests passing; dynamic alias loop & repeat layout memory verified |
+| **EDA & Rollup Pipeline (0.8.2)** | 🟢 **100%** | 112/112 tests passing; sub-5ms rollups, non-destructive sanitization |
+| **Fuzzy Reconciliation (0.8.3)** | 🟢 **100%** | 17/17 tests passing; multi-signal composite matching, 1-to-1 Coffee Invariant |
+| **Smart Insights & Notifications (0.8.4)**| 🟢 **100%** | 22/22 tests passing; 5 cadences, price hike detection, data-gated What-If |
+| **Unideal Chaos & Failure Modes** | 🟢 **100%** | 21/21 tests passing (`npm run test:phase8-chaos`); NaN/Inf traps & type safety locked |
+| **Master User Journeys (A, B, C, D)** | 🟢 **100%** | 4 human personas + 100% INR ₹ & EUR € accuracy across banking statements & receipts |
+| **Partitioned Storage Invariant** | 🟢 **100%** | Active (<90d) / Cold Archive (>90d) physical separation & continuous mirroring |
 
 ---
 
-## 🎯 Next Release Invariants (v0.6.0 Gates)
+## 🎯 Next Release Invariants (v0.8.5 Gates)
 
-1. **Promote Tier 1 to 90%+ Universal Baseline**:
-   - Backport comma decimals (`parseRegionalMonetary`), Anti-Trap filter, and regional date disambiguation.
-2. **Patch the PDF Header Bug**:
-   - Filter out `--- Page X of Y ---` from `BOILERPLATE_HEADER_PATTERNS` to elevate digital PDF merchant extraction above 85%.
-3. **Eliminate Currency Bleed**:
-   - Ensure explicit document currency signs strictly override active profile default fallbacks.
-4. **Field-Level Confidence Chips in UI**:
-   - Give users visual indicators of mathematical verification on individual fields in the Review Cockpit.
+1. **Ephemeral UDP Pairing Beacon**:
+   - Limit pairing beacon broadcast to active 60-second pairing window with clean socket teardown on close/unpair.
+2. **Wi-Fi Brute-Force Rate Limiting**:
+   - Enforce 15 failed attempt rate limit with 60-second lockout on `/api/v1/pair` using memory-bounded sliding timestamp windows.
+3. **Optical QR Code Ephemeral Secrets**:
+   - Dynamic QR codes must encode cryptographically random ephemeral session secrets (`crypto.randomBytes(16)`), never long-lived credentials.

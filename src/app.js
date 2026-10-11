@@ -683,6 +683,12 @@ if (typeof window !== 'undefined') {
   window.openNoteModalForExpense = (id, title) => notesView?.openForExpense(id, title);
   window.getCrashLogs = maxLines => api?.getCrashLogs?.(maxLines);
   window.undoLastAction = handleGlobalUndo;
+  window.getImportView = () => importView;
+  window.getHouseholdView = () => householdView;
+  window.getBatchView = () => batchView;
+  window.getNotesView = () => notesView;
+  window.getDashboardView = () => dashboardView;
+  window.refreshAppData = loadAppData;
 }
 
 // ============================================================================

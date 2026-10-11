@@ -25,6 +25,7 @@ const fs = require('fs');
 
 const { validateMobileTransaction } = require('../validation/schemaValidator');
 const SyncEngine = require('./SyncEngine');
+const LanBeaconService = require('./LanBeaconService');
 
 const DEFAULT_PORT = 52410;
 const PAIRING_TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -55,6 +56,12 @@ class SyncServer {
 
     // Ephemeral pairing state
     this.activePairingSession = null;
+
+    // Rate limiter (IP -> { failedAttempts: number, lockoutUntil: number })
+    this.ipRateLimitCache = new Map();
+
+    // Beacon service
+    this.lanBeacon = new LanBeaconService({ serverPort: this.preferredPort });
 
     // Receipt deduplication cache (SHA-256 hash -> { filename, absolutePath, timestamp })
     this.receiptHashCache = new Map();
@@ -150,9 +157,10 @@ class SyncServer {
     const port = this.boundPort || this.preferredPort;
     const machineName = os.hostname();
 
-    const maxAttempts = (options && typeof options.maxAttempts === 'number' && options.maxAttempts > 0)
-      ? options.maxAttempts
-      : 15;
+    const hasExplicitMaxAttempts = Boolean(
+      options && typeof options.maxAttempts === 'number' && options.maxAttempts > 0
+    );
+    const maxAttempts = hasExplicitMaxAttempts ? options.maxAttempts : 15;
 
     let targetProfileId = options && options.targetProfileId ? options.targetProfileId : null;
     if (!targetProfileId && this.storage && typeof this.storage.getActiveProfileId === 'function') {
@@ -168,7 +176,8 @@ class SyncServer {
       machineName,
       targetProfileId,
       failedAttempts: 0,
-      maxAttempts
+      maxAttempts,
+      hasExplicitMaxAttempts
     };
 
     const payloadObj = {
@@ -286,6 +295,9 @@ class SyncServer {
         this.isRunning = false;
         this.boundPort = null;
         this.activePairingSession = null;
+        if (this.lanBeacon) {
+          this.lanBeacon.stop();
+        }
         console.log('[SyncServer] Sync Server stopped.');
         resolve();
       });
@@ -313,8 +325,26 @@ class SyncServer {
       port: this.boundPort,
       host: this.host,
       lanIps: this.getLanAddresses(),
-      pairedDevicesCount: paired.length
+      pairedDevicesCount: paired.length,
+      beaconRunning: this.lanBeacon ? this.lanBeacon.isRunning : false
     };
+  }
+
+  startPairingBeacon() {
+    if (this.lanBeacon) {
+      this.lanBeacon.serverPort = this.boundPort || this.preferredPort;
+      this.lanBeacon.start();
+    }
+  }
+
+  stopPairingBeacon() {
+    if (this.lanBeacon) {
+      this.lanBeacon.stop();
+    }
+  }
+
+  resetPairingLockout() {
+    this.ipRateLimitCache.clear();
   }
 
   // ==========================================================================
@@ -644,6 +674,32 @@ class SyncServer {
       });
     }
 
+    const forwardedIp =
+      req.headers && (req.headers['x-forwarded-for'] || req.headers['x-client-ip']);
+    const remoteIp =
+      (forwardedIp ? String(forwardedIp).split(',')[0].trim() : req.socket.remoteAddress) ||
+      'unknown';
+
+    const ipRecord = this.ipRateLimitCache.get(remoteIp) || { failedAttempts: 0, lockoutUntil: 0 };
+
+    if (ipRecord.lockoutUntil > 0) {
+      if (Date.now() < ipRecord.lockoutUntil) {
+        const remainingSec = Math.max(1, Math.ceil((ipRecord.lockoutUntil - Date.now()) / 1000));
+        res.setHeader('Retry-After', String(remainingSec));
+        return this._sendJson(res, 429, {
+          success: false,
+          error: `Too many failed pairing attempts. IP is locked out. Try again in ${remainingSec} seconds.`,
+          code: 'TOO_MANY_ATTEMPTS',
+          remainingAttempts: 0,
+          retryAfter: remainingSec
+        });
+      }
+      // Lockout window elapsed; reset counter for fresh window
+      ipRecord.failedAttempts = 0;
+      ipRecord.lockoutUntil = 0;
+      this.ipRateLimitCache.delete(remoteIp);
+    }
+
     if (!this.activePairingSession) {
       return this._sendJson(res, 403, {
         success: false,
@@ -654,6 +710,7 @@ class SyncServer {
 
     if (Date.now() > this.activePairingSession.expiresAt) {
       this.activePairingSession = null;
+      this.stopPairingBeacon();
       return this._sendJson(res, 403, {
         success: false,
         error: 'Pairing session has expired (5 minute TTL). Please generate a fresh PIN on desktop.',
@@ -661,35 +718,71 @@ class SyncServer {
       });
     }
 
-    // Rate-limiting check: enforce maxAttempts (default: 15)
-    const maxAttempts = this.activePairingSession.maxAttempts || 15;
-    if (this.activePairingSession.failedAttempts >= maxAttempts) {
-      this.activePairingSession = null;
-      return this._sendJson(res, 429, {
-        success: false,
-        error: `Too many failed pairing attempts (${maxAttempts} attempts exceeded). Session locked out. Please generate a fresh PIN on desktop.`,
-        code: 'TOO_MANY_ATTEMPTS',
-        remainingAttempts: 0
-      });
+    // Fetch dynamic security config
+    let maxAttempts = (this.activePairingSession && this.activePairingSession.maxAttempts) || 15;
+    let lockoutSec = 60;
+    try {
+      let secConfig = null;
+      if (
+        this.storage &&
+        this.storage.intelligence &&
+        typeof this.storage.intelligence.getPairingSecurityConfig === 'function'
+      ) {
+        secConfig = this.storage.intelligence.getPairingSecurityConfig();
+      } else {
+        const dbFile =
+          (this.storage && this.storage.filePath) ||
+          (this.storage && this.storage.db && typeof this.storage.db.getFilePath === 'function'
+            ? this.storage.db.getFilePath()
+            : null) ||
+          (this.storage && typeof this.storage.getFilePath === 'function'
+            ? this.storage.getFilePath()
+            : null);
+        const configPath = dbFile
+          ? require('path').join(require('path').dirname(dbFile), 'expenses_config.json')
+          : null;
+        if (configPath && require('fs').existsSync(configPath)) {
+          const config = JSON.parse(require('fs').readFileSync(configPath, 'utf8'));
+          secConfig = config.securityConfig_v1 || null;
+        }
+      }
+
+      if (secConfig) {
+        if (!this.activePairingSession.hasExplicitMaxAttempts) {
+          maxAttempts =
+            secConfig.maxFailedAttempts || secConfig.maxPairingAttempts || maxAttempts;
+        }
+        lockoutSec =
+          secConfig.lockoutDurationSeconds || secConfig.pairingLockoutSeconds || 60;
+      }
+    } catch {
+      // Ignore config read transient
     }
 
     // Timing-safe comparison: matches either 6-digit numeric PIN or 24-byte QR token
-    const pinMatches = pin && this._timingSafeCompare(String(pin).trim(), this.activePairingSession.pin);
-    const tokenMatches = token && this._timingSafeCompare(String(token).trim(), this.activePairingSession.token);
+    const pinMatches =
+      pin && this._timingSafeCompare(String(pin).trim(), this.activePairingSession.pin);
+    const tokenMatches =
+      token && this._timingSafeCompare(String(token).trim(), this.activePairingSession.token);
 
     if (!pinMatches && !tokenMatches) {
-      this.activePairingSession.failedAttempts = (this.activePairingSession.failedAttempts || 0) + 1;
-      const remaining = Math.max(0, maxAttempts - this.activePairingSession.failedAttempts);
+      ipRecord.failedAttempts++;
+      if (ipRecord.failedAttempts >= maxAttempts) {
+        ipRecord.lockoutUntil = Date.now() + lockoutSec * 1000;
+        this.ipRateLimitCache.set(remoteIp, ipRecord);
 
-      if (remaining <= 0) {
-        this.activePairingSession = null;
+        res.setHeader('Retry-After', String(lockoutSec));
         return this._sendJson(res, 429, {
           success: false,
-          error: `Too many failed pairing attempts (${maxAttempts} attempts exceeded). Session locked out. Please generate a fresh PIN on desktop.`,
+          error: `Too many failed pairing attempts. IP locked out. Try again in ${lockoutSec} seconds.`,
           code: 'TOO_MANY_ATTEMPTS',
-          remainingAttempts: 0
+          remainingAttempts: 0,
+          retryAfter: lockoutSec
         });
       }
+
+      this.ipRateLimitCache.set(remoteIp, ipRecord);
+      const remaining = Math.max(0, maxAttempts - ipRecord.failedAttempts);
 
       return this._sendJson(res, 401, {
         success: false,
@@ -698,6 +791,9 @@ class SyncServer {
         remainingAttempts: remaining
       });
     }
+
+    // Success, reset rate limit for this IP
+    this.ipRateLimitCache.delete(remoteIp);
 
     // Success: Generate persistent session token (32 bytes hex)
     const sessionToken = crypto.randomBytes(32).toString('hex');
@@ -716,11 +812,13 @@ class SyncServer {
 
     this.storage.addPairedDevice(pairedRecord);
 
-    // Expire active ephemeral pairing session after successful claim
+    // Expire active ephemeral pairing session and stop UDP beacon after successful claim
     this.activePairingSession = null;
+    this.stopPairingBeacon();
 
     const targetData = this._getProfileData({ targetProfileId });
-    const currency = (targetData && targetData.salaryConfig && targetData.salaryConfig.currencySymbol) || '₹';
+    const currency =
+      (targetData && targetData.salaryConfig && targetData.salaryConfig.currencySymbol) || '₹';
 
     return this._sendJson(res, 200, {
       success: true,

@@ -139,6 +139,78 @@ class DatabaseAuditor {
   }
 
   /**
+   * Identifies transactions in active_ledger.json that have crossed the cutoff age (default 90 days),
+   * moves them to legacy_archive.json, and preserves strict row count invariants.
+   *
+   * @param {import('./JsonDatabase')} db - The database instance.
+   * @param {number} [cutoffDays=90] - Age in days after which expenses are rolled to cold storage.
+   * @returns {{ movedCount: number, affectedProfilesCount: number }}
+   */
+  static rollAgedExpenses(db, cutoffDays = 90) {
+    if (!db || typeof db.read !== 'function' || typeof db.write !== 'function') {
+      return { movedCount: 0, affectedProfilesCount: 0 };
+    }
+
+    if (typeof db.readArchive !== 'function' || typeof db.writeArchive !== 'function') {
+      return { movedCount: 0, affectedProfilesCount: 0 };
+    }
+
+    const cutoffMs = Date.now() - cutoffDays * 24 * 60 * 60 * 1000;
+    const rootData = db.read();
+    const archiveData = db.readArchive();
+
+    if (!archiveData.profiles || typeof archiveData.profiles !== 'object') {
+      archiveData.profiles = {};
+    }
+
+    let movedCount = 0;
+    let affectedProfilesCount = 0;
+
+    if (Array.isArray(rootData.profiles)) {
+      for (const profile of rootData.profiles) {
+        if (!profile || !profile.data || !Array.isArray(profile.data.expenses)) {
+          continue;
+        }
+
+        const remainingActive = [];
+        const agedList = [];
+
+        for (const exp of profile.data.expenses) {
+          const expTime = exp && exp.date ? new Date(exp.date).getTime() : 0;
+          if (!isNaN(expTime) && expTime < cutoffMs) {
+            agedList.push(exp);
+          } else {
+            remainingActive.push(exp);
+          }
+        }
+
+        if (agedList.length > 0) {
+          if (!Array.isArray(archiveData.profiles[profile.id])) {
+            archiveData.profiles[profile.id] = [];
+          }
+          const existingIds = new Set(archiveData.profiles[profile.id].map(e => e && e.id).filter(Boolean));
+          for (const exp of agedList) {
+            if (!existingIds.has(exp.id)) {
+              archiveData.profiles[profile.id].push(exp);
+              existingIds.add(exp.id);
+            }
+          }
+          profile.data.expenses = remainingActive;
+          movedCount += agedList.length;
+          affectedProfilesCount++;
+        }
+      }
+    }
+
+    if (movedCount > 0) {
+      db.writeArchive(archiveData);
+      db.write(rootData);
+    }
+
+    return { movedCount, affectedProfilesCount };
+  }
+
+  /**
    * Executes a self-healing audit pass against a JsonDatabase instance.
    * If corruption or structural issues are detected, snapshots a recovery backup
    * before applying repairs and persisting the clean state.
@@ -156,6 +228,23 @@ class DatabaseAuditor {
     const inspection = DatabaseAuditor.inspect(rootData);
 
     if (inspection.healthy) {
+      try {
+        const rollResult = DatabaseAuditor.rollAgedExpenses(db, 90);
+        if (rollResult.movedCount > 0) {
+          return {
+            healthy: true,
+            issuesFound: [],
+            repairsApplied: [
+              `Archived ${rollResult.movedCount} aged expense(s) across ${rollResult.affectedProfilesCount} profile(s) to cold storage.`
+            ],
+            backupCreated: null,
+            timestamp
+          };
+        }
+      } catch (rollErr) {
+        console.warn('[DatabaseAuditor] Rolling archival notice:', rollErr.message);
+      }
+
       return {
         healthy: true,
         issuesFound: [],
@@ -364,6 +453,18 @@ class DatabaseAuditor {
 
     // Persist repaired state
     db.write(rootData);
+
+    // Perform rolling archival for expenses older than 90 days
+    try {
+      const rollResult = DatabaseAuditor.rollAgedExpenses(db, 90);
+      if (rollResult.movedCount > 0) {
+        repairsApplied.push(
+          `Archived ${rollResult.movedCount} aged expense(s) across ${rollResult.affectedProfilesCount} profile(s) to cold storage.`
+        );
+      }
+    } catch (rollErr) {
+      console.warn('[DatabaseAuditor] Rolling archival notice:', rollErr.message);
+    }
 
     return {
       healthy: false,

@@ -598,7 +598,7 @@ export class DashboardView {
   renderPresets() {
     if (typeof document === 'undefined') return;
 
-    const container = document.getElementById('preset-list');
+    const container = document.getElementById('preset-chips-container') || document.getElementById('preset-list');
     if (!container) return;
 
     const presets = this.state?.get('presets') || [];
@@ -1076,6 +1076,11 @@ export class DashboardView {
     const dailyDropEl = document.getElementById('what-if-daily-drop');
     const badgeEl = document.getElementById('what-if-risk-badge');
     const msgEl = document.getElementById('what-if-message-bar');
+    const runwayBoxEl = document.getElementById('what-if-runway-box');
+    const runwayValEl = document.getElementById('what-if-runway-val');
+    const gateBarEl = document.getElementById('what-if-gate-bar');
+    const gateMsgEl = document.getElementById('what-if-gate-msg');
+    const gatePillEl = document.getElementById('what-if-gate-pill');
 
     if (!slider) return;
 
@@ -1100,9 +1105,35 @@ export class DashboardView {
         if (msgEl) {
           msgEl.textContent = sim.statusMessage;
         }
+
+        // Data-Gate & Runway Forecast UI Handling (Phase 0.8.4)
+        if (gateBarEl) {
+          if (sim.isDataGated) {
+            gateBarEl.style.display = 'flex';
+            if (gateMsgEl && sim.gateMessage) gateMsgEl.textContent = sim.gateMessage;
+            if (gatePillEl) {
+              gatePillEl.textContent = `${sim.activeDays || 0}/${sim.requiredDays || 20} Days`;
+            }
+            if (runwayBoxEl) runwayBoxEl.style.display = 'none';
+          } else {
+            gateBarEl.style.display = 'none';
+            if (runwayBoxEl) {
+              runwayBoxEl.style.display = 'block';
+              if (runwayValEl) {
+                if (sim.currentRunway !== undefined) {
+                  const dropText = sim.runwayDrop > 0 ? ` (-${sim.runwayDrop}d)` : '';
+                  runwayValEl.textContent = `${sim.projectedRunway}d${dropText}`;
+                } else {
+                  runwayValEl.textContent = '—';
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
+
 
   // ==========================================================================
   // EVENT BINDINGS (ZERO INLINE ONCLICK)

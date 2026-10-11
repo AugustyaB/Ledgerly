@@ -4,16 +4,17 @@ This document serves as the persistent registry of long-term ideas, feature pros
 
 ---
 
-## 📌 Current Milestone Status: Version 0.4 (Major Restructuring Cycle)
+## 📌 Current Milestone Status: Version 0.6 (Capacitor Mobile Companion & LAN Sync Completed)
 
 ### Completed Subsections:
-- [x] **v0.4.1 (Phase 1)**: Security Hardening Baseline — CSP baseline, PBKDF2 (210K rounds), formula sanitization, atomic writes.
-- [x] **v0.4.2 (Phase 2)**: Tooling, Type Contracts & Constants — ESLint flat config, Prettier, JSDoc `types.js`, frozen constants.
-- [x] **v0.4.3 (Phase 3)**: Backend Domain Decomposition — Disassembled monolithic `storage.js` into 8 services in `src/services/` with a facade.
-- [x] **v0.4.4 (Phase 4)**: Frontend Modular UI Decomposition — Native ES Modules, `AppState`, `AppRouter`, 8 view modules, 3 components, 0 inline events, CSP `script-src 'self'`, `app.js` reduced from 4,862 to 567 lines (88.3%).
-- [x] **v0.4.5 (Phase 5)**: IPC Runtime Schema Validation & Error Contract Standardization — Zero-dependency native validator engine (`schemaValidator.js`), `wrapIPC` boundary guard (`ipcGuard.js`), standardized `{ success, data, error, code, details }` wire envelopes, dual array/envelope compatibility in `preload.js`, 39 automated tests.
-- [x] **v0.4.6 (Phase 6)**: Global UI Error Boundaries, Crash Traps & Audit Defect Remediation — `ErrorBoundary.js`, section fallback cards, `crashLogger.js` (5MB rotation), uncaughtException/unhandledRejection traps, importer safeguards, resolved BUG-001..004, 11/11 automated resilience tests.
-- [x] **v0.4.7 (Phase 7)**: Enterprise Resilience, Tier 2 Reconciliation UX & Offline Conflict Engines — DatabaseAuditor self-healing integrity, DiagnosticExporter sanitized telemetry, SyncEngine 3-way merge, Ctrl+Z undo stack, fuzzy deduplication, proactive bill due banner, zero-eval calculator (12/12 automated resilience tests). **Concludes Version 0.4 Milestone.**
+- [x] **v0.4 (Phases 1–7)**: Security Hardening, Clean Architecture, Domain Service Decomposition, ES Modules, Standardized IPC, Error Boundaries & Offline Conflict Engine.
+- [x] **v0.6.1 (Phase 1)**: Mobile Base Architecture & Navigation Shell (Capacitor, Theme 3 DLS, bottom dock).
+- [x] **v0.6.2 (Phase 2)**: Mobile Camera Capture & Offline Ingestion Queue (Canvas downscaler, IndexedDB, dynamic currency).
+- [x] **v0.6.3 (Phase 3)**: Local Wi-Fi Pairing Protocol & LAN Sync Engine (6-digit PIN handshake, Bearer token, LWW merge, immediate photo purge).
+- [x] **v0.6.4 (Phase 4)**: Mobile APK Packaging & Cross-Device E2E Audit (Android debug APK, cross-device sync verification).
+- [x] **v0.6.5 (Phase 5)**: Apple iOS Companion Container, ATS Local LAN & WebKit Polish (iOS shell, Info.plist ATS exceptions, notch safe-areas).
+- [x] **v0.6.6 (Phase 6)**: iOS macOS CI/CD Build Pipeline, Deep Error Handling & Unified Milestone Audit (9/9 test suites, master audit).
+- [x] **User Journeys & Accuracy Certification**: Simulated 4 human personas (Arjun, Priya & Rohan, Meera, Kabir) + Multi-Currency Evaluator (INR/EUR bank statements & grocery bills) passing 100%.
 
 ---
 
@@ -38,11 +39,21 @@ This document serves as the persistent registry of long-term ideas, feature pros
 - [x] **Self-Diagnostic Export Bundle**: Hermetic diagnostic exporter (`DiagnosticExporter.js`) bundling system specs, schema stats, and sanitized `crash.log` with path/credential masking.
 - [x] **Offline Replication Foundation**: Deterministic sync engine (`SyncEngine.js`) implementing vector clocks, LWW tie-breaking, and deterministic 3-way merge resolution.
 
----
+## 🎯 Subsequent Feature Milestones (Post-v0.6)
 
-## 🎯 Subsequent Feature Milestones (Post-v0.4)
+### Version 0.7.0: International Currency & European Receipt Parsing Polish (from Phase 0.6 QA Audit) — [COMPLETED]
+- [x] **Trailing Currency Placement Support**:
+  - Update `ReceiptTier1Engine.js` and `nlpParser.js` regex to support trailing currency symbols and ISO codes (`17,39 €`, `1.14 EUR`, `\d+[.,]\d{2}\s*(?:€|EUR)`) standard across European supermarket, retail, and hospitality receipts.
+- [x] **DACH Region Tax & VAT Lexicon Expansion**:
+  - Expand receipt tax detection regex dictionary with German, Austrian, and Swiss tax keywords (`MwSt`, `USt`, `Mehrwertsteuer`, `Umsatzsteuer`, `MwSt-Satz`, `MWST/TVA/IVA`) to accurately extract tax rate breakdowns and calculate subtotal/gross values alongside Indian GST/CGST/SGST.
+- [x] **Word Boundary Token Isolation for Category Matcher**:
+  - Enforce strict word boundaries (`\b...\b`) across carrier, utility, and merchant dictionaries in `src/categoryMatcher.js` (e.g. `\bvi\b` instead of raw `vi`) to prevent substring false-positive collisions with common international receipt vocabulary (such as `"VIELEN DANK"` on German receipts false-triggering Indian telecom "Vodafone Idea / Vi").
+- [x] **European Number & Comma Decimal Separator Parsing**:
+  - Add locale-aware decimal/thousands normalization (`1.250,50` vs `1,250.50`) in `nlpParser.js`, `BatchView.js`, and `fileImporter.js` to ensure continental European notation parses decimals reliably without user input friction.
+- [x] **Semicolon-Delimited CSV Statement Normalization**:
+  - Enhance `fileImporter.js` delimiter sniffing to automatically detect semicolon (`;`), tab (`\t`), and pipe (`|`) delimiters common in German, French, and Swiss banking exports where commas are reserved for decimal separators.
 
-### Version 0.5+: Mobile Web Companion & Local LAN Peer Sync (Audit Tier 3)
+### Version 0.5+ / v0.6 Mobile Extensions: Companion & Local LAN Peer Sync (Audit Tier 3)
 - [x] **Local LAN Peer Sync (Zero Cloud)**: Embedded HTTP server in Electron (`SyncServer.js`) allowing smartphones on local Wi-Fi to pair via 6-digit PIN / session Bearer token and push/pull transactions directly to desktop database with LWW conflict resolution.
 - [x] **Mobile Companion & Ingestion Queue**: Capacitor mobile companion app with offline IndexedDB queueing, Canvas downscaling, and immediate photo purge upon desktop receipt persistence.
 - [ ] **Configurable Wi-Fi Pairing Rate Limiting & General Security Controls**: Introduce an attempt-limiting security guard on `POST /api/v1/pair` defaulting to 15 failed attempts before enforcing a 60-second cooldown and session invalidation to mitigate local network brute-force vectors. Expose this as a general security preference in the desktop Settings panel so users can tune pairing attempt tolerances and cooldown policies.
@@ -112,8 +123,9 @@ This document serves as the persistent registry of long-term ideas, feature pros
 - [ ] **Feature Highlights Shelf**: Re-introduce dynamic, curated feature cards on the login showcase panel once future major financial modules go live.
 
 ### 9. 📥 Import & Data Ingestion Pipeline
-- [ ] **Enhanced PDF & Statement Parsing**: Expand the local file importer with automated bank statement recognition (SBI, HDFC, ICICI, etc.).
+- [ ] **Enhanced PDF & Statement Parsing**: Expand the local file importer with automated bank statement recognition (SBI, HDFC, ICICI, Deutsche Bank, N26, etc.).
 - [ ] **Receipt OCR Engine**: Add offline local OCR for physical bill and receipt scanning.
+- [ ] **International Format Sniffing**: Integrate trailing currency (`17,39 €`), DACH VAT (`MwSt`/`USt`), comma decimal separators, and semicolon (`;`) CSV delimitation (see Milestone v0.7.0).
 
 ### 10. 📦 Multi-Purpose Windows Installer & Maintenance Suite
 - [ ] **Interactive Multi-Mode Setup Wizard (Install, Repair, Uninstall)**:

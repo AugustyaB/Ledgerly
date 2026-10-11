@@ -476,5 +476,324 @@
  * @property {MobileReceiptQueueItem[]} [pendingReceipts] - Accompanying receipt metadata.
  */
 
-module.exports = {};
+// ============================================================================
+// 11. Adaptive Receipt Intelligence & Learning Loop Contracts (Phase 0.8.1)
+// ============================================================================
 
+/**
+ * Field-level confidence ratings computed for core extraction fields (0.0 to 1.0).
+ *
+ * @typedef {Object} FieldConfidenceMap
+ * @property {number} merchant - Confidence rating for merchant name (0.0 - 1.0).
+ * @property {number} date - Confidence rating for transaction date (0.0 - 1.0).
+ * @property {number} total - Confidence rating for grand total (0.0 - 1.0).
+ * @property {number} tax - Confidence rating for tax and statutory breakdown (0.0 - 1.0).
+ */
+
+/**
+ * Learned repeat merchant layout structural memory.
+ *
+ * @typedef {Object} MerchantLayoutRecord
+ * @property {number} hitCount - Cumulative count of receipts parsed from this vendor.
+ * @property {string} firstSeenAt - ISO 8601 timestamp when vendor layout was first observed.
+ * @property {string} lastSeenAt - ISO 8601 timestamp of most recent match.
+ * @property {string|null} [totalAnchor] - Specific total keyword anchor (e.g. 'NET PAYABLE').
+ * @property {string|null} [datePattern] - Preferred date formatting pattern (e.g. 'DD/MM/YYYY').
+ * @property {'GST'|'VAT'|'SALES_TAX'|null} [taxType] - Structural tax category identifier.
+ */
+
+// ============================================================================
+// 12. EDA & Data Foundation Contracts (Phase 0.8.2)
+// ============================================================================
+
+/**
+ * Diagnostic issue identified during ledger data quality audits.
+ *
+ * @typedef {Object} DataQualityIssue
+ * @property {number} index - Index of the expense in the evaluated array.
+ * @property {string} id - Transaction identifier.
+ * @property {string} field - Affected record attribute.
+ * @property {'fatal'|'warning'|'info'} severity - Defect severity rating.
+ * @property {string} reason - Human-readable explanation of defect.
+ * @property {any} originalValue - Offending value prior to sanitization.
+ */
+
+/**
+ * Comprehensive diagnostic report returned by the Data Quality Auditor.
+ *
+ * @typedef {Object} DataQualityAuditResult
+ * @property {number} totalScanned - Total count of inspected transactions.
+ * @property {number} cleanCount - Count of fully valid, defect-free transactions.
+ * @property {number} defectCount - Count of transactions containing one or more issues.
+ * @property {number} qualityScore - Overall data integrity score (0.0 to 100.0%).
+ * @property {Record<string, number>} summary - Defect breakdown by category.
+ * @property {DataQualityIssue[]} issues - Detailed list of recorded issues.
+ */
+
+/**
+ * Result returned after non-destructive data quality sanitization.
+ *
+ * @typedef {Object} DataQualitySanitizationResult
+ * @property {number} totalScanned - Total count of processed transactions.
+ * @property {number} repairedCount - Count of transactions repaired.
+ * @property {number} unmodifiedCount - Count of transactions requiring no repair.
+ * @property {Expense[]} sanitizedExpenses - Cleaned copies of expense records.
+ * @property {Array<{ id: string, field: string, originalValue: any, sanitizedValue: any, reason: string }>} changes - Detailed changelog.
+ */
+
+/**
+ * Aggregated metrics for a single calendar day.
+ *
+ * @typedef {Object} DailyRollupItem
+ * @property {string} date - Calendar date (YYYY-MM-DD).
+ * @property {number} total - Grand sum of expenditures on this date.
+ * @property {number} count - Count of transactions.
+ * @property {Record<string, number>} categoryBreakdown - Category spending totals.
+ * @property {Record<string, number>} paymentBreakdown - Payment method breakdown.
+ */
+
+/**
+ * Aggregated metrics for a calendar month.
+ *
+ * @typedef {Object} MonthlyRollupItem
+ * @property {string} month - Year and month key (YYYY-MM).
+ * @property {number} total - Grand sum of expenditures in this month.
+ * @property {number} count - Transaction count.
+ * @property {number} averagePerDay - Mean daily expenditure across calendar days in month.
+ * @property {Record<string, number>} categoryBreakdown - Category spending totals.
+ */
+
+/**
+ * Category-level statistical and aggregation rollup metrics.
+ *
+ * @typedef {Object} CategoryRollupItem
+ * @property {string} category - Category label.
+ * @property {number} total - Total amount spent in this category.
+ * @property {number} count - Number of transactions.
+ * @property {number} percentage - Percentage of total ledger expenditure (0 - 100).
+ * @property {number} averageTransaction - Mean amount per transaction.
+ * @property {number} minTransaction - Smallest transaction amount.
+ * @property {number} maxTransaction - Largest transaction amount.
+ */
+
+/**
+ * Sliding window spending velocity and pacing metrics.
+ *
+ * @typedef {Object} VelocityMetrics
+ * @property {number} velocity7d - 7-day average daily spend.
+ * @property {number} velocity30d - 30-day average daily spend.
+ * @property {number} dailyAverage - Overall mean daily expenditure.
+ * @property {number} dailyStdDev - Standard deviation of daily spending totals.
+ * @property {number} activeDays - Days with at least one transaction.
+ * @property {number} totalDays - Total calendar span in days.
+ */
+
+/**
+ * Proactive safe-to-spend allowance forecast.
+ *
+ * @typedef {Object} SafeToSpendForecast
+ * @property {string} targetDate - Target calculation date (YYYY-MM-DD).
+ * @property {number} safeDailyAllowance - Safe expenditure target for today.
+ * @property {number} remainingDiscretionary - Available discretionary pool in current cycle.
+ * @property {number} daysRemaining - Days remaining in cycle.
+ * @property {number} velocityAdjustment - Multiplier applied based on 7-day spending trends.
+ * @property {'healthy'|'caution'|'critical'} pacingStatus - Overall pacing health status.
+ * @property {string} currencySymbol - Active currency symbol.
+ */
+
+/**
+ * Statistical spending anomaly detection entry.
+ *
+ * @typedef {Object} SpendingAnomaly
+ * @property {string} expenseId - Anomaly transaction ID.
+ * @property {string} title - Transaction title or payee.
+ * @property {number} amount - Transaction monetary value.
+ * @property {string} date - Transaction date (YYYY-MM-DD).
+ * @property {string} category - Assigned category.
+ * @property {number} zScore - Statistical Z-score outlier metric.
+ * @property {number} categoryMean - Category baseline mean amount.
+ * @property {'moderate'|'high'|'extreme'} severity - Anomaly severity classification.
+ * @property {string} explanation - Human-readable explanation.
+ */
+
+// ============================================================================
+// Section 13: Statement Reconciliation & Multi-Signal Deduplication Types
+// ============================================================================
+
+/**
+ * Breakdown of individual signal confidence scores for a match candidate.
+ *
+ * @typedef {Object} ReconciliationSignalScores
+ * @property {number} amount - Amount proximity score (0.0 to 1.0).
+ * @property {number} date - Date proximity score (0.0 to 1.0).
+ * @property {number} merchant - Merchant string similarity score (0.0 to 1.0).
+ * @property {number} merchantLevenshtein - Normalized Levenshtein ratio (0.0 to 1.0).
+ * @property {number} merchantJaccard - Token Jaccard index (0.0 to 1.0).
+ * @property {boolean} isExact - Whether amount and date are an exact match.
+ */
+
+/**
+ * Candidate ledger expense record matched against an imported statement row.
+ *
+ * @typedef {Object} ReconciliationCandidate
+ * @property {Expense} expense - Matched ledger expense record.
+ * @property {number} score - Overall composite confidence score (0.0 to 1.0).
+ * @property {ReconciliationSignalScores} signals - Component signal score breakdown.
+ * @property {string} explanation - Human-readable rationale for matching.
+ */
+
+/**
+ * Tri-state reconciliation result for an individual imported statement transaction.
+ *
+ * @typedef {Object} ReconciliationItemResult
+ * @property {string} id - Identifier of the incoming statement transaction.
+ * @property {Object} incoming - Raw or normalized incoming statement transaction.
+ * @property {'matched_merged'|'net_new'|'conflict'} status - Tri-state classification.
+ * @property {ReconciliationCandidate|null} match - Best-matched candidate if matched.
+ * @property {ReconciliationCandidate[]} candidates - Top ranked matching candidates.
+ * @property {string} reason - Human-readable explanation of classification.
+ */
+
+/**
+ * Batch reconciliation response payload.
+ *
+ * @typedef {Object} ReconciliationBatchResult
+ * @property {ReconciliationItemResult[]} results - Per-item reconciliation results.
+ * @property {Object} stats - Aggregate reconciliation statistics.
+ * @property {number} stats.total - Total transactions evaluated.
+ * @property {number} stats.matched - Count of confident matches.
+ * @property {number} stats.netNew - Count of net-new transactions.
+ * @property {number} stats.conflicts - Count of ambiguous/conflicting matches.
+ * @property {number} executionTimeMs - Milliseconds elapsed during reconciliation.
+ * @property {boolean} timedOut - Whether execution exceeded timeout threshold.
+ * @property {string} strategy - 'multi_signal_fuzzy' or 'exact_fallback'.
+ */
+
+/**
+ * Human resolution instruction for an individual reconciliation item.
+ *
+ * @typedef {Object} ReconciliationResolution
+ * @property {string} incomingId - ID of the incoming statement transaction.
+ * @property {'merge'|'import'|'skip'} action - User resolution action.
+ * @property {string} [matchedExpenseId] - Target ledger expense ID if action is 'merge'.
+ * @property {Partial<Expense>} [expenseData] - Transaction data if action is 'import'.
+ */
+
+/**
+ * Execution outcome summary after applying reconciliation resolutions.
+ *
+ * @typedef {Object} ReconciliationApplyResult
+ * @property {boolean} success - Whether resolutions applied without fatal errors.
+ * @property {number} mergedCount - Number of transactions merged into existing ledger.
+ * @property {number} importedCount - Number of net-new transactions inserted.
+ * @property {number} skippedCount - Number of transactions ignored.
+ * @property {string[]} errors - Any non-fatal error messages encountered.
+ */
+
+// ============================================================================
+// Section 14: Smart Insights, Behavioral Notifications & Subscription Hunter Types
+// ============================================================================
+
+/**
+ * Recognized recurring subscription frequency cadence.
+ *
+ * @typedef {'weekly'|'bi-weekly'|'monthly'|'quarterly'|'annual'} SubscriptionCadence
+ */
+
+/**
+ * Diagnostic details regarding a detected subscription price increase.
+ *
+ * @typedef {Object} PriceHikeDetails
+ * @property {boolean} hasPriceHike - Whether a price hike was detected.
+ * @property {number} previousAmount - Historical baseline charge amount.
+ * @property {number} currentAmount - Most recent charge amount.
+ * @property {number} hikePercent - Percentage increase relative to baseline.
+ * @property {number} hikeDifference - Absolute currency increase per billing cycle.
+ * @property {number} annualHikeImpact - Projected annualized additional expenditure.
+ */
+
+/**
+ * Detected recurring subscription or repeating vendor commitment.
+ *
+ * @typedef {Object} SubscriptionItem
+ * @property {string} id - Deterministic unique identifier (e.g., "sub-netflix-monthly").
+ * @property {string} merchant - Cleaned and normalized vendor/merchant name.
+ * @property {SubscriptionCadence} cadence - Detected recurrence interval.
+ * @property {number} occurrencesCount - Total count of detected recurring charges.
+ * @property {number} averageAmount - Mean transaction amount across occurrences.
+ * @property {number} lastAmount - Most recent transaction amount.
+ * @property {string} lastDate - Date of latest charge (YYYY-MM-DD).
+ * @property {string} nextExpectedDate - Projected next billing date (YYYY-MM-DD).
+ * @property {number} annualCost - Projected total expenditure over 12 months.
+ * @property {number} monthlyCost - Normalized monthly expenditure burden.
+ * @property {number} confidence - Statistical regular-interval confidence score (0.0 to 1.0).
+ * @property {boolean} hasPriceHike - Whether an unannounced price hike was flagged.
+ * @property {PriceHikeDetails|null} priceHikeDetails - Price hike breakdown if flagged.
+ * @property {boolean} isZombie - Whether flagged as dormant/forgotten recurring charge.
+ * @property {string|null} zombieReason - Diagnostic rationale for zombie status.
+ * @property {string[]} expenseIds - Array of linked transaction IDs.
+ */
+
+/**
+ * Aggregate summary across all detected subscriptions.
+ *
+ * @typedef {Object} SubscriptionSummary
+ * @property {number} totalSubscriptions - Total active subscriptions identified.
+ * @property {number} totalMonthlyCommitment - Aggregate monthly commitment burden.
+ * @property {number} totalAnnualCommitment - Aggregate annual recurring expenditure.
+ * @property {number} priceHikesDetected - Count of active subscriptions with recent hikes.
+ * @property {number} zombieCount - Count of subscriptions flagged as dormant/zombie.
+ */
+
+/**
+ * Encapsulated subscription detection result payload.
+ *
+ * @typedef {Object} SubscriptionDetectionResult
+ * @property {SubscriptionItem[]} subscriptions - Array of detected recurring subscriptions.
+ * @property {SubscriptionSummary} summary - Aggregated metrics and commitments.
+ */
+
+/**
+ * Extended "What-If" simulation output with statistical burn rate & runway forecasting.
+ *
+ * @typedef {Object} ForesightBurnRateResult
+ * @property {number} testAmount - Simulated purchase amount.
+ * @property {number} discretionaryPool - Monthly discretionary pool.
+ * @property {number} spentMTD - Month-to-date expenditure.
+ * @property {number} remainingDiscretionary - Remaining discretionary budget.
+ * @property {number} daysRemaining - Days remaining in active cycle.
+ * @property {number} subsequentDays - Days remaining after simulation date.
+ * @property {number} currentPace - Daily discretionary pace without purchase.
+ * @property {number} projectedPace - Projected daily pace with purchase.
+ * @property {number} dailyDrop - Reduction in daily breathing room.
+ * @property {number} dropPercentage - Percentage reduction in daily pace.
+ * @property {'SAFE'|'CAUTION'|'CRITICAL'} riskLevel - Qualitative risk tier.
+ * @property {string} statusHeadline - Short human-readable headline.
+ * @property {string} statusMessage - Detailed explanatory guidance.
+ * @property {boolean} isDataGated - Whether burn rate forecasting is locked due to insufficient data.
+ * @property {number} activeDays - Distinct calendar days logged in ledger.
+ * @property {number} requiredDays - Minimum logged days required to unlock (20).
+ * @property {number} daysRemainingToUnlock - Days needed until forecast unlocks.
+ * @property {number} unlockProgressPct - Percentage progress towards unlocking (0-100).
+ * @property {string} [gateMessage] - Informational message explaining data-lock status.
+ * @property {number} [burnRate] - Weighted statistical daily burn rate (₹/day).
+ * @property {number} [burnRate7d] - Rolling 7-day average daily burn rate.
+ * @property {number} [burnRate30d] - Rolling 30-day average daily burn rate.
+ * @property {number} [currentRunway] - Days until zero balance under current burn rate.
+ * @property {number} [projectedRunway] - Projected days until zero after simulated purchase.
+ * @property {number} [runwayDrop] - Days of cash runway shortened by purchase.
+ */
+
+/**
+ * Gamified daily pacing and velocity encouragement insight.
+ *
+ * @typedef {Object} PacingInsightResult
+ * @property {string} title - Insight title.
+ * @property {string} message - Human-readable encouragement message.
+ * @property {number} safeDailyAllowance - Current safe daily allowance.
+ * @property {number} daysRemaining - Days remaining in active cycle.
+ * @property {'on_track'|'caution'|'behind'} pacingStatus - Categorical pacing status.
+ * @property {string} currencySymbol - Active currency symbol.
+ */
+
+module.exports = {};

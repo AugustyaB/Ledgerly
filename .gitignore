@@ -23,6 +23,8 @@ scratch/
 *.traineddata
 models/
 /android
+/expenses_config.json
+/expenses_db.json
 
 # Build and distribution outputs
 dist/

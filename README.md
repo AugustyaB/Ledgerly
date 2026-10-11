@@ -1,9 +1,20 @@
 # 💳 Ledgerly
 
 > **A friction-free, 100% offline desktop application for daily budget tracking and shared household spending.**  
-> **Current Version**: `v0.6.6` (Version 0.6 Milestone Completed) — *Capacitor Mobile Companion, Zero-Cloud Local LAN Sync & iOS CI/CD* (succeeding `v0.5.9`)
+> **Current Version**: `v0.8.5` (Version 0.8 Milestone Completed) — *Intelligent Financial Automation, Fuzzy Statement Reconciliation, Subscription Hunter & Zero-Config LAN QR Sync* (succeeding `v0.7.0` & `v0.6.6`)
 
 Built to eliminate the "data entry chore" of traditional finance apps. No cloud accounts, no complex setup, no internet required. Open the app, log your expense, close it — done in under 5 seconds.
+
+---
+
+## 🧠 Version 0.8 & 0.7: Intelligent Financial Automation, Mirror Vault & Zero-Config QR Sync
+
+- **📡 Zero-Config LAN UDP Discovery & Optical QR Pairing (`v0.8.5`)**: Ephemeral UDP broadcast beacon (`LanBeaconService.js`), pure-JS SVG QR code pairing matrix (`qrCodeGenerator.js`), mobile optical QR camera scanner (`SyncView.js`), and per-IP 15-attempt PIN lockout protection.
+- **🔄 Smart Statement Reconciliation & "Coffee Invariant" (`v0.8.3`)**: Fuzzy multi-signal statement matching (`StatementReconciliationService.js` — ±5% amount, ±48h window, Levenshtein distance) with 1-to-1 bijection guards and a Tri-State Reconciliation Cockpit (`ImportView.js`).
+- **🕵️ Zombie Subscription Hunter & Burn-Rate Foresight (`v0.8.4`)**: Automated recurring charge & price-hike detector (`SubscriptionHunterService.js`), safe-to-spend pacing notifications, and 20-day data-gated What-If burn-rate simulator (`foresightEngine.js`).
+- **👁️ Adaptive Receipt Vision & 10k-Row EDA Rollups (`v0.8.1 – v0.8.2`)**: Canvas pre-processing, field-level confidence badges, merchant alias learning (`ReceiptLearningService.js`), and sub-5ms 4-way aggregation rollups (`AggregationRollupService.js`).
+- **🛡️ Smart Mirror Vault & Alert Rules Engine (`v0.7.0`)**: Multi-folder SHA-256 mirrored backup rotation (`BackupMirrorService.js`) with startup self-healing, plus per-category budget alert thresholds and quiet hours.
+- **🏛️ 5-Layer × 6-Section Boundary Enforcement**: Automated AST architecture verifier (`scripts/check-architecture-layers.js`) enforcing clean `L1–L5B` separation across all 75 JS modules.
 
 ---
 

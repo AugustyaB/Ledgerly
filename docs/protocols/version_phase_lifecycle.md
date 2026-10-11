@@ -12,6 +12,11 @@ Every project version (e.g., `v0.4.0`, `v0.5.0`) governs a major milestone or th
 1. **Idea & Scope Formulation**:
    - Define the overarching theme, problem statement, core value proposition, and user experience goals.
    - Classify the release level (e.g., `0.x.x` signifies Alpha Build phase; `1.0.0+` signifies approved production deployment).
+   - **Depth vs. Breadth (DFS vs. BFS) Evaluation Gate** (ADR-009): Evaluate proposed capabilities across the 4-axis matrix:
+     1. *Depth (DFS)*: Vertical domain mastery, edge-case resilience, and adaptive learning loops.
+     2. *Breadth (BFS)*: Horizontal UI presence and touchpoints without sprawling into redundant cards.
+     3. *Complexity Budget*: Bounded cognitive load, clean data schema extensions, and maintainability.
+     4. *Performance Impact*: Sub-second offline execution, bounded memory, and non-blocking I/O.
 2. **Phases Breakdown & Planning**:
    - Decompose the version into structured, sequential phase subsections (`<major>.<minor>.<phase>`, e.g., `v0.4.1`, `v0.4.2`, ..., `v0.4.7`).
    - Define clear boundaries, domain responsibilities, and completion criteria for each constituent phase.
@@ -82,6 +87,12 @@ Each phase is an incremental subsection of the active version. Every phase MUST 
   - <Documentation>: Synced CHANGELOG, README, FLOW, DECISIONS, package.json
   ```
 - **Push to Active Release Branch**: Push the phase commit to `origin/release/v<major>.<minor>` to maintain immediate cloud backup without affecting `main`.
+
+### Stage 6: Halt & Human Handoff (Zero Autonomous Chaining)
+- Append the completion pulse to `.gsd/PULSE.md` adhering to ADR-006, ADR-007, and ADR-010.
+- Provide the copy-pasteable handoff prompt to the user in the final chat response.
+- **MANDATORY HARD STOP:** The agent MUST immediately cease calling tools and **HALT**.
+- The agent is **categorically forbidden** from beginning the next phase, executing its own handoff prompt, or self-delegating. Only a direct, explicit user command in a new turn can initiate the next phase.
 
 ---
 

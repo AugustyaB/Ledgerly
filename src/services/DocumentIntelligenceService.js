@@ -29,6 +29,7 @@ const { CategoryMatcher } = require('../categoryMatcher');
 const ReceiptTier1Engine = require('./ReceiptTier1Engine');
 const ReceiptTier2VisionEngine = require('./ReceiptTier2VisionEngine');
 const ReceiptTier3RegionalEngine = require('./ReceiptTier3RegionalEngine');
+const ReceiptLearningService = require('./ReceiptLearningService');
 const ModelManager = require('./ModelManager');
 const smartDocumentAnalyzer = require('./SmartDocumentAnalyzer');
 const { ErrorCode } = require('../constants');
@@ -39,6 +40,7 @@ class DocumentIntelligenceService {
    * @param {DocumentNormalizer} [options.normalizer]
    * @param {CategoryMatcher} [options.categoryMatcher]
    * @param {ModelManager} [options.modelManager]
+   * @param {ReceiptLearningService} [options.receiptLearning]
    * @param {ReceiptTier1Engine} [options.tier1Engine]
    * @param {ReceiptTier2VisionEngine} [options.tier2Engine]
    * @param {ReceiptTier3RegionalEngine} [options.tier3Engine]
@@ -49,12 +51,17 @@ class DocumentIntelligenceService {
     this.categoryMatcher = options.categoryMatcher || new CategoryMatcher();
     this.modelManager = options.modelManager || new ModelManager();
     this.smartDocumentAnalyzer = options.smartDocumentAnalyzer || smartDocumentAnalyzer;
+    this.receiptLearning =
+      options.receiptLearning ||
+      (options.tier1Engine && options.tier1Engine.receiptLearning) ||
+      new ReceiptLearningService();
 
     this.tier1Engine =
       options.tier1Engine ||
       new ReceiptTier1Engine({
         normalizer: this.normalizer,
-        categoryMatcher: this.categoryMatcher
+        categoryMatcher: this.categoryMatcher,
+        receiptLearning: this.receiptLearning
       });
 
     this.tier2Engine =
@@ -314,6 +321,34 @@ class DocumentIntelligenceService {
       };
     }
     data.metadata.smartAnalysis = data.smartAnalysis;
+
+    // Ensure field-level confidence ratings are populated for all engine tiers
+    if (!data.fieldConfidence) {
+      const merchantConf = data.merchant && data.merchant !== 'Unknown Merchant' ? 0.88 : 0.0;
+      const totalConf = data.total !== null && data.total !== undefined ? 0.92 : 0.0;
+      const dateConf = data.date ? 0.90 : 0.20;
+      const taxConf = data.tax !== null && data.tax !== undefined ? 0.90 : 0.80;
+      data.fieldConfidence = {
+        merchant: merchantConf,
+        date: dateConf,
+        total: totalConf,
+        tax: taxConf
+      };
+      data.lowConfidenceFields = Object.keys(data.fieldConfidence).filter(
+        k => data.fieldConfidence[k] < 0.75
+      );
+      data.overallConfidence =
+        Math.round(
+          (data.fieldConfidence.total * 0.40 +
+            data.fieldConfidence.merchant * 0.30 +
+            data.fieldConfidence.date * 0.20 +
+            data.fieldConfidence.tax * 0.10) *
+            100
+        ) / 100;
+      if (data.confidence === undefined) {
+        data.confidence = data.overallConfidence;
+      }
+    }
 
     return {
       success: true,

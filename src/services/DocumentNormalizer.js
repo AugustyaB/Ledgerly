@@ -294,6 +294,33 @@ class DocumentNormalizer {
     return meta;
   }
 
+  /**
+   * Resolves rotation degrees and flip hints from EXIF orientation.
+   *
+   * @param {number} orientation - EXIF orientation tag (1-8).
+   * @returns {{ rotateDegrees: number, flipHorizontal: boolean }}
+   */
+  getRotationCorrection(orientation) {
+    switch (orientation) {
+      case 3:
+        return { rotateDegrees: 180, flipHorizontal: false };
+      case 6:
+        return { rotateDegrees: 90, flipHorizontal: false };
+      case 8:
+        return { rotateDegrees: 270, flipHorizontal: false };
+      case 2:
+        return { rotateDegrees: 0, flipHorizontal: true };
+      case 4:
+        return { rotateDegrees: 180, flipHorizontal: true };
+      case 5:
+        return { rotateDegrees: 90, flipHorizontal: true };
+      case 7:
+        return { rotateDegrees: 270, flipHorizontal: true };
+      default:
+        return { rotateDegrees: 0, flipHorizontal: false };
+    }
+  }
+
   // ==========================================================================
   // 3. Blur Detection & Legibility Density Assessment
   // ==========================================================================
@@ -1023,6 +1050,7 @@ class DocumentNormalizer {
             contrastEnhanced: false,
             orientation: 1,
             orientationCorrected: false,
+            rotationHint: { rotateDegrees: 0, flipHorizontal: false },
             documentBuffer: buffer
           },
           error: null,
@@ -1096,6 +1124,7 @@ class DocumentNormalizer {
           maxCeiling: scaled.maxCeiling,
           orientation: meta.orientation,
           orientationCorrected,
+          rotationHint: this.getRotationCorrection(meta.orientation),
           isBlurry: blurResult.isBlurry,
           legibilityScore: blurResult.legibilityScore,
           detailTier: blurResult.detailTier,
@@ -1203,6 +1232,7 @@ class DocumentNormalizer {
             contrastEnhanced: false,
             orientation: 1,
             orientationCorrected: false,
+            rotationHint: { rotateDegrees: 0, flipHorizontal: false },
             documentBuffer: buffer
           },
           error: null,
@@ -1247,6 +1277,7 @@ class DocumentNormalizer {
           maxCeiling: scaled.maxCeiling,
           orientation: meta.orientation,
           orientationCorrected: false,
+          rotationHint: this.getRotationCorrection(meta.orientation),
           isBlurry: blurResult.isBlurry,
           legibilityScore: blurResult.legibilityScore,
           detailTier: blurResult.detailTier,

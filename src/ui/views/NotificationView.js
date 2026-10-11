@@ -69,13 +69,13 @@ export class NotificationView {
     this.#bindDropdownControls();
     this.#bindFilterChips();
     this.#bindHeaderActions();
-    this.render();
+    this.render(true);
 
     // Start 15-minute background evaluation interval
     if (typeof setInterval !== 'undefined') {
       this.#pollIntervalId = setInterval(
         async () => {
-          await this.render();
+          await this.render(true);
         },
         15 * 60 * 1000
       );
@@ -83,18 +83,19 @@ export class NotificationView {
   }
 
   /**
-   * Evaluates fresh alerts from the backend and updates the bell badge
-   * and notification list DOM.
+   * Fetches alerts from the backend and updates the bell badge
+   * and notification list DOM. Only evaluates trigger rules if shouldEvaluate is true.
    *
+   * @param {boolean} [shouldEvaluate=false] - Whether to evaluate rule triggers or just fetch existing list.
    * @returns {Promise<void>}
    */
-  async render() {
+  async render(shouldEvaluate = false) {
     if (!this.#api?.getNotifications) return;
 
     // 1. Fetch latest alerts from backend
     let notifications;
     try {
-      if (typeof this.#api.evaluateNotifications === 'function') {
+      if (shouldEvaluate && typeof this.#api.evaluateNotifications === 'function') {
         const res = await this.#api.evaluateNotifications();
         notifications = Array.isArray(res) ? res : res?.notifications || (await this.#api.getNotifications()) || [];
       } else {

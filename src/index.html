@@ -669,6 +669,10 @@
                 <span class="what-if-stat-label">Subsequent Daily Drop</span>
                 <span class="what-if-stat-val highlight-rose" id="what-if-daily-drop">-₹0.00/day</span>
               </div>
+              <div class="what-if-stat-box" id="what-if-runway-box" style="display: none;">
+                <span class="what-if-stat-label">Cash Runway (Days to Zero)</span>
+                <span class="what-if-stat-val highlight-amber" id="what-if-runway-val">—</span>
+              </div>
               <div class="what-if-stat-box stat-forecast">
                 <span class="what-if-stat-label">Trajectory Health</span>
                 <span class="what-if-badge badge-emerald" id="what-if-risk-badge"
@@ -676,10 +680,21 @@
                 >
               </div>
             </div>
+
+            <!-- Data-Gated Statistical Burn Rate & Runway Progress (Phase 0.8.4) -->
+            <div class="what-if-gate-bar" id="what-if-gate-bar" style="display: none; margin: 10px 0; padding: 8px 12px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; font-size: 12px; color: var(--text-secondary); align-items: center; justify-content: space-between;">
+              <span id="what-if-gate-text" style="display: inline-flex; align-items: center; gap: 6px;">
+                <i data-icon="lock" data-icon-size="12" style="color: var(--amber-400, #f59e0b);"></i>
+                <span id="what-if-gate-msg">Burn rate forecasting unlocks after 20 days of expense logging</span>
+              </span>
+              <span id="what-if-gate-pill" style="font-weight: 600; font-size: 11px; padding: 2px 8px; border-radius: 9999px; background: rgba(245, 158, 11, 0.15); color: #f59e0b;">0/20 Days</span>
+            </div>
+
             <div class="what-if-message-bar" id="what-if-message-bar">
               Your daily budget adjusts smoothly to the remaining days of the month.
             </div>
           </section>
+
 
           <!-- Rapid Express Entry Bar ("1-Box Magic") -->
           <section class="express-bar-card">
@@ -1644,6 +1659,75 @@
                       </button>
                       <button type="button" class="btn btn-secondary" id="btn-settings-export-json">
                         <i data-icon="download" data-icon-size="14"></i> Full JSON Backup
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Continuous Mirroring & Local Backup Vault (Phase 0.7.3) -->
+                  <div
+                    id="settings-mirror-vault-card"
+                    style="
+                      max-width: 650px;
+                      background: var(--bg-surface-elevated);
+                      padding: 20px;
+                      border-radius: var(--radius-md);
+                      border: 1px solid var(--border-color);
+                      margin-top: 18px;
+                    "
+                  >
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px">
+                      <h3
+                        style="
+                          font-size: 15px;
+                          font-weight: 700;
+                          display: flex;
+                          align-items: center;
+                          gap: 8px;
+                          margin: 0;
+                        "
+                      >
+                        <i data-icon="hard-drive" data-icon-size="16" style="color: var(--accent-cyan)"></i> Continuous Mirroring & Backup Vault
+                      </h3>
+                      <span id="mirror-status-badge" class="badge" style="font-size: 11px; padding: 3px 8px; border-radius: 12px; background: rgba(148, 163, 184, 0.15); color: var(--text-muted);">
+                        Not Configured
+                      </span>
+                    </div>
+                    <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5">
+                      Automatically mirror your partitioned ledger, legacy archives, and configs to an external drive, USB vault, or local sync folder in real-time with cryptographic SHA-256 integrity verification.
+                    </p>
+
+                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 14px">
+                      <input
+                        type="text"
+                        id="mirror-target-dir-input"
+                        readonly
+                        placeholder="No vault folder configured..."
+                        style="flex: 1; font-size: 12px; padding: 7px 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); text-overflow: ellipsis;"
+                      />
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-mirror-select-folder" style="white-space: nowrap">
+                        <i data-icon="hard-drive" data-icon-size="13"></i> Choose Folder...
+                      </button>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px">
+                      <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer;">
+                        <input type="checkbox" id="mirror-enabled-toggle" style="accent-color: var(--accent-primary);" />
+                        <span>Enable Real-Time Continuous Mirroring (2s debounce)</span>
+                      </label>
+                    </div>
+
+                    <div id="mirror-status-details" style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.6; display: none;">
+                    </div>
+
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-mirror-sync-now" style="font-size: 12px">
+                        <i data-icon="refresh-cw" data-icon-size="13"></i> Backup Now
+                      </button>
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-mirror-verify" style="font-size: 12px">
+                        <i data-icon="shield-check" data-icon-size="13"></i> Verify Vault
+                      </button>
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-mirror-restore" style="font-size: 12px; color: #fb7185; border-color: rgba(251, 113, 133, 0.3)">
+                        <i data-icon="download" data-icon-size="13"></i> Restore from Vault
                       </button>
                     </div>
                   </div>
