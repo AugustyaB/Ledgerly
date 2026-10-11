@@ -31,15 +31,14 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          ln -sfn "$GITHUB_WORKSPACE/node_modules" "$GITHUB_WORKSPACE/mobile/node_modules"
 
       - name: Run code syntax and lint validation
         run: |
           npm run check
           npm run lint
-
-      - name: Run iOS container & WebKit integrity test
-        run: npm run test:ios-integrity
 
       - name: Build mobile web bundle (Vite)
         run: npm run mobile:build
@@ -47,6 +46,9 @@ jobs:
       - name: Sync Capacitor iOS container
         run: npx cap sync ios
         working-directory: mobile
+
+      - name: Run iOS container & WebKit integrity test
+        run: npm run test:ios-integrity
 
       - name: Install CocoaPods dependencies
         run: |

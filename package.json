@@ -30,7 +30,7 @@
     "test:mobile-phase2": "node scratch/test_phase6_2_mobile_camera_queue.js && node scratch/test_phase6_2_mobile_e2e.js",
     "test:sync-server": "node scratch/test_phase6_3_sync_server.js",
     "test:cross-device": "node scratch/test_phase6_4_cross_device_sync.js",
-    "test:ios-integrity": "node scratch/test_phase6_5_ios_webkit_integrity.js",
+    "test:ios-integrity": "node scripts/check-ios-integrity.js",
     "test:ci-workflow": "node scripts/check-ci-workflow.js",
     "test:resilience-audit": "node scratch/test_phase6_6_resilience_and_fallbacks.js",
     "test:v0.6-unified": "node scripts/run-all-v0.6-tests.js",
