@@ -36,10 +36,23 @@
 
 !macro customInit
   ${IfNot} ${Silent}
-    ${If} $hasPerUserInstallation == "1"
-    ${OrIf} $hasPerMachineInstallation == "1"
+    # Direct detection: check registry and standard install path since $hasPerUserInstallation
+    # is only initialized by electron-builder AFTER customInit finishes.
+    ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_GUID}" "InstallLocation"
+    ${If} $0 == ""
+      ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_GUID}" "InstallLocation"
+    ${EndIf}
+    ${If} $0 == ""
+      ${If} ${FileExists} "$LOCALAPPDATA\Programs\Ledgerly\Ledgerly.exe"
+        StrCpy $0 "$LOCALAPPDATA\Programs\Ledgerly"
+      ${ElseIf} ${FileExists} "$PROGRAMFILES\Ledgerly\Ledgerly.exe"
+        StrCpy $0 "$PROGRAMFILES\Ledgerly"
+      ${EndIf}
+    ${EndIf}
+
+    ${If} $0 != ""
       MessageBox MB_OKCANCEL|MB_ICONINFORMATION \
-        "An existing Ledgerly installation was detected on this computer.$\r$\n$\r$\nClick OK to perform an In-Place Repair / Upgrade. Application binaries will be refreshed while your offline financial ledger and receipts in %APPDATA%\Ledgerly remain 100% intact." \
+        "An existing Ledgerly installation was detected on this computer at:$\r$\n$0$\r$\n$\r$\nClick OK to perform an In-Place Repair / Upgrade. Application binaries will be refreshed while your offline financial data in %APPDATA%\Ledgerly remains 100% intact." \
         IDOK +2
       Quit
     ${EndIf}
