@@ -32,7 +32,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm ci
+          npm install
           ln -sfn "$GITHUB_WORKSPACE/node_modules" "$GITHUB_WORKSPACE/mobile/node_modules"
 
       - name: Run code syntax and lint validation
