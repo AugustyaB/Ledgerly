@@ -91,11 +91,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Verify Installation & Launch (.deb & .AppImage)
         run: |
-          sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnotify-dev libnss3 libasound2
+          sudo apt-get update && sudo apt-get install -y xvfb
           echo "=== Testing .deb installation ==="
           sudo dpkg -i dist/*.deb || sudo apt-get install -f -y
           echo "=== Launching installed Ledgerly via xvfb ==="
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" ledgerly --no-sandbox &
+          BIN_PATH=$(which ledgerly 2>/dev/null || find /opt -name "*ledgerly*" -type f -perm /111 2>/dev/null | head -n 1)
+          echo "Resolved binary path: $BIN_PATH"
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" "$BIN_PATH" --no-sandbox &
           DEB_PID=$!
           sleep 6
           if kill -0 $DEB_PID 2>/dev/null; then
