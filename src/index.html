@@ -93,14 +93,25 @@
 
             <div class="auth-input-group">
               <label for="auth-input-password">Your Password</label>
-              <input
-                type="password"
-                id="auth-input-password"
-                placeholder="••••••••"
-                required
-                autocomplete="current-password"
-                class="auth-custom-input"
-              />
+              <div class="auth-password-wrapper">
+                <input
+                  type="password"
+                  id="auth-input-password"
+                  placeholder="••••••••"
+                  required
+                  autocomplete="current-password"
+                  class="auth-custom-input"
+                />
+                <button
+                  type="button"
+                  class="auth-password-toggle-btn"
+                  id="auth-pwd-toggle"
+                  title="Show password"
+                  aria-label="Show password"
+                >
+                  <i data-icon="eye" data-icon-size="16"></i>
+                </button>
+              </div>
             </div>
 
             <div class="auth-meta-row">
@@ -201,10 +212,6 @@
           <div class="nav-item" data-tab="expenses" id="nav-item-expenses" title="Expense Feed">
             <span class="nav-icon" id="nav-icon-expenses"><i data-icon="banknote" data-icon-size="20"></i></span>
             <span class="nav-label">Expense Feed</span>
-          </div>
-          <div class="nav-item" data-tab="notes" id="nav-item-notes" title="Contextual Notes">
-            <span class="nav-icon" id="nav-icon-notes"><i data-icon="file-text" data-icon-size="20"></i></span>
-            <span class="nav-label">Contextual Notes</span>
           </div>
           <div
             class="nav-item"
@@ -524,11 +531,23 @@
                 <span>Daily Pace</span>
                 <div class="metric-icon-box icon-blue"><i data-icon="calendar" data-icon-size="16"></i></div>
               </div>
-              <div class="metric-value" id="daily-pace-metric-val">
-                ₹0.00<span style="font-size: 13px; font-weight: 500; color: var(--text-muted)">/day</span>
-              </div>
-              <div class="metric-footer" id="daily-pace-metric-subtitle">
-                <span class="pace-badge badge-emerald" id="daily-pace-badge">On Track</span>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div>
+                  <div class="metric-value" id="daily-pace-metric-val">
+                    ₹0.00<span style="font-size: 13px; font-weight: 500; color: var(--text-muted)">/day</span>
+                  </div>
+                  <div class="metric-footer" id="daily-pace-metric-subtitle">
+                    <span class="pace-badge badge-emerald" id="daily-pace-badge">On Track</span>
+                  </div>
+                </div>
+                <!-- Dynamic Circular Pace Ring -->
+                <div class="pace-ring-wrapper" id="pace-indicator-ring" title="Daily Pace: Today's Spend vs Safe Daily Limit">
+                  <svg class="pace-ring-svg" width="46" height="46" viewBox="0 0 46 46">
+                    <circle class="pace-ring-bg" cx="23" cy="23" r="18" stroke-width="4"></circle>
+                    <circle class="pace-ring-progress" id="pace-ring-progress-circle" cx="23" cy="23" r="18" stroke-width="4"></circle>
+                  </svg>
+                  <span class="pace-ring-text" id="pace-ring-percentage">0%</span>
+                </div>
               </div>
               <!-- Interactive Rollover Calculation Explainer Tooltip -->
               <div class="rollover-tooltip-box" id="rollover-tooltip-box">
@@ -609,93 +628,6 @@
             </div>
           </section>
 
-          <!-- Collapsible "What-If" Spending Simulator Toggle & Card -->
-          <div class="what-if-toggle-bar" id="what-if-toggle-bar">
-            <button type="button" class="btn-what-if-toggle" id="btn-toggle-what-if" title="Toggle What-If Simulator">
-              <span style="display: inline-flex; align-items: center; gap: 8px">
-                <i data-icon="activity" data-icon-size="14" style="color: var(--accent-primary)"></i>
-                <strong style="font-size: 13px">What-If Simulator</strong>
-              </span>
-              <span class="what-if-toggle-caret" id="what-if-toggle-caret"
-                ><i data-icon="chevron-down" data-icon-size="14"></i
-              ></span>
-            </button>
-          </div>
-
-          <!-- Interactive "What-If" Spending Impact Simulator & Burnout Forecast (Phase 5) -->
-          <section class="what-if-simulator-card collapsed" id="what-if-simulator-card">
-            <div class="what-if-header">
-              <div class="what-if-title-group">
-                <div style="display: flex; align-items: center; gap: 8px">
-                  <span class="what-if-icon"><i data-icon="activity" data-icon-size="16"></i></span>
-                  <span class="what-if-title">Purchase Impact Forecaster</span>
-                </div>
-              </div>
-              <div class="what-if-amount-badge">
-                <span style="font-size: 11.5px; color: var(--text-muted)">Simulating:</span>
-                <strong id="what-if-slider-display">₹500</strong>
-              </div>
-            </div>
-
-            <div class="what-if-slider-wrap">
-              <input
-                type="range"
-                min="0"
-                max="10000"
-                step="50"
-                value="500"
-                class="what-if-range-slider"
-                id="what-if-range-slider"
-              />
-              <div class="what-if-slider-scale">
-                <span>₹0</span>
-                <span>₹2,500</span>
-                <span>₹5,000</span>
-                <span>₹7,500</span>
-                <span>₹10,000</span>
-              </div>
-            </div>
-
-            <div class="what-if-results-grid">
-              <div class="what-if-stat-box">
-                <span class="what-if-stat-label">Current Safe Daily Pace</span>
-                <span class="what-if-stat-val" id="what-if-curr-pace">₹0.00/day</span>
-              </div>
-              <div class="what-if-stat-box">
-                <span class="what-if-stat-label">Projected Daily Pace</span>
-                <span class="what-if-stat-val highlight-amber" id="what-if-proj-pace">₹0.00/day</span>
-              </div>
-              <div class="what-if-stat-box">
-                <span class="what-if-stat-label">Subsequent Daily Drop</span>
-                <span class="what-if-stat-val highlight-rose" id="what-if-daily-drop">-₹0.00/day</span>
-              </div>
-              <div class="what-if-stat-box" id="what-if-runway-box" style="display: none;">
-                <span class="what-if-stat-label">Cash Runway (Days to Zero)</span>
-                <span class="what-if-stat-val highlight-amber" id="what-if-runway-val">—</span>
-              </div>
-              <div class="what-if-stat-box stat-forecast">
-                <span class="what-if-stat-label">Trajectory Health</span>
-                <span class="what-if-badge badge-emerald" id="what-if-risk-badge"
-                  ><i data-icon="leaf" data-icon-size="12"></i> Sustainable</span
-                >
-              </div>
-            </div>
-
-            <!-- Data-Gated Statistical Burn Rate & Runway Progress (Phase 0.8.4) -->
-            <div class="what-if-gate-bar" id="what-if-gate-bar" style="display: none; margin: 10px 0; padding: 8px 12px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; font-size: 12px; color: var(--text-secondary); align-items: center; justify-content: space-between;">
-              <span id="what-if-gate-text" style="display: inline-flex; align-items: center; gap: 6px;">
-                <i data-icon="lock" data-icon-size="12" style="color: var(--amber-400, #f59e0b);"></i>
-                <span id="what-if-gate-msg">Burn rate forecasting unlocks after 20 days of expense logging</span>
-              </span>
-              <span id="what-if-gate-pill" style="font-weight: 600; font-size: 11px; padding: 2px 8px; border-radius: 9999px; background: rgba(245, 158, 11, 0.15); color: #f59e0b;">0/20 Days</span>
-            </div>
-
-            <div class="what-if-message-bar" id="what-if-message-bar">
-              Your daily budget adjusts smoothly to the remaining days of the month.
-            </div>
-          </section>
-
-
           <!-- Rapid Express Entry Bar ("1-Box Magic") -->
           <section class="express-bar-card">
             <div class="express-bar-header">
@@ -734,6 +666,7 @@
               <!-- Reactive Token Preview Strip -->
               <div class="nlp-token-preview-bar" id="nlp-preview-bar">
                 <span class="token-pill pill-amt" id="pill-amt">₹0.00</span>
+                <span class="token-pill pill-impact hidden" id="express-impact-pill"><i data-icon="activity" data-icon-size="12"></i> Daily Impact: --</span>
                 <span class="token-pill pill-title" id="pill-title">Title</span>
                 <span class="token-pill pill-cat" id="pill-cat">Food & Dining</span>
                 <span class="token-pill pill-split" id="pill-split"
@@ -755,6 +688,31 @@
             </div>
             <div class="presets-list" id="preset-chips-container">
               <!-- Dynamically populated -->
+            </div>
+          </section>
+
+          <!-- Row 1.5: Recurring Subscriptions & Active Commitments Deck -->
+          <section class="subscriptions-deck-card" id="dashboard-subscriptions-deck">
+            <div class="subscriptions-deck-header">
+              <div class="subscriptions-deck-title-group">
+                <span class="subscriptions-deck-title">
+                  <i data-icon="repeat" data-icon-size="15" style="color: var(--accent-primary)"></i>
+                  Active Recurring Subscriptions & Fixed Commitments
+                </span>
+                <span class="subscriptions-annual-badge" id="sub-deck-annual-total">
+                  Annualized: ₹0/yr
+                </span>
+              </div>
+              <div class="subscriptions-deck-stats" id="sub-deck-meta-stats">
+                <span id="sub-deck-cadence-count">0 Active Cadences</span>
+                <span class="sub-deck-divider">•</span>
+                <span id="sub-deck-monthly-total">₹0/mo</span>
+              </div>
+            </div>
+            <div class="subscriptions-deck-body" id="sub-deck-items-container">
+              <div class="subscriptions-empty-placeholder" id="sub-deck-empty">
+                No recurring cadences detected yet. Log 2+ recurring bills (e.g. Netflix, Spotify, Broadband) to surface automated renewal tracking.
+              </div>
             </div>
           </section>
 
@@ -1145,56 +1103,6 @@
           </section>
         </div>
 
-        <!-- Contextual Notes Workspace View (Phase 4) -->
-        <div id="view-notes" class="workspace-view hidden">
-          <section class="table-card">
-            <div class="table-toolbar" style="justify-content: space-between; flex-wrap: wrap; gap: 12px">
-              <div>
-                <h2 style="font-size: 18px; margin: 0; color: var(--text-main)">
-                  Contextual Financial Notes & Reflections
-                </h2>
-                <p style="font-size: 13px; color: var(--text-muted); margin: 4px 0 0 0">
-                  Attach memos, reflections, and insights linked to transactions, days, weeks, or months.
-                </p>
-              </div>
-              <div style="display: flex; gap: 10px; align-items: center">
-                <div class="search-box" style="min-width: 180px">
-                  <span class="search-icon"><i data-icon="search" data-icon-size="14"></i></span>
-                  <input type="text" id="notes-search-input" placeholder="Search notes..." />
-                </div>
-                <button class="btn btn-primary" id="btn-open-add-note-modal">
-                  <i data-icon="plus" data-icon-size="14"></i> New Note
-                </button>
-              </div>
-            </div>
-
-            <!-- Relation Filter Pills -->
-            <div class="notes-filter-pills-bar">
-              <button type="button" class="notes-filter-pill active" data-relation="ALL">
-                All Notes (<span id="notes-count-all">0</span>)
-              </button>
-              <button type="button" class="notes-filter-pill" data-relation="transaction">
-                <i data-icon="banknote" data-icon-size="13"></i> Linked to Expenses (<span id="notes-count-transaction"
-                  >0</span
-                >)
-              </button>
-              <button type="button" class="notes-filter-pill" data-relation="day">
-                <i data-icon="calendar" data-icon-size="13"></i> Daily Reflections (<span id="notes-count-day">0</span>)
-              </button>
-              <button type="button" class="notes-filter-pill" data-relation="week">
-                <i data-icon="bar-chart-2" data-icon-size="13"></i> Weekly Reviews (<span id="notes-count-week">0</span
-                >)
-              </button>
-              <button type="button" class="notes-filter-pill" data-relation="month">
-                <i data-icon="target" data-icon-size="13"></i> Monthly Goals (<span id="notes-count-month">0</span>)
-              </button>
-            </div>
-
-            <div id="notes-list-container" class="notes-masonry-grid">
-              <!-- Rendered dynamically -->
-            </div>
-          </section>
-        </div>
 
         <!-- Screen: General Settings Workspace (v0.2 Phase 2) -->
         <div id="view-settings" class="workspace-view hidden">
@@ -1250,13 +1158,17 @@
                   <i data-icon="tag" data-icon-size="16"></i>
                   <span>Categories & Keywords</span>
                 </div>
+                <div class="settings-nav-item" data-settings-target="settings-security-pane">
+                  <i data-icon="shield-check" data-icon-size="16"></i>
+                  <span>Security & Vault</span>
+                </div>
                 <div class="settings-nav-item" data-settings-target="settings-data-pane">
                   <i data-icon="database" data-icon-size="16"></i>
                   <span>Data & Storage</span>
                 </div>
                 <div class="settings-nav-item" data-settings-target="settings-models-pane">
                   <i data-icon="cpu" data-icon-size="16"></i>
-                  <span>AI Models & Engines</span>
+                  <span>Regional Intelligence</span>
                 </div>
                 <div class="settings-nav-item" data-settings-target="settings-notif-pane">
                   <i data-icon="bell" data-icon-size="16"></i>
@@ -1271,7 +1183,7 @@
               <!-- RIGHT: Content Panel -->
               <div class="settings-content-panel" id="settings-content-panel">
                 <!-- Section 1: Salary & Payday Cycle -->
-                <section id="settings-salary-pane" class="settings-pane settings-section">
+                <section id="settings-salary-pane" class="settings-pane settings-section active">
                   <form id="settings-salary-form">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px">
                       <!-- Left Column: Core Financial Allocations -->
@@ -1507,6 +1419,18 @@
                         <i data-icon="save" data-icon-size="14"></i> Save Preferences
                       </button>
                     </div>
+
+                    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border-color);">
+                      <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                        <i data-icon="compass" data-icon-size="15" style="color: var(--accent-primary)"></i> Interactive Walkthrough & Guide
+                      </h4>
+                      <p style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px; line-height: 1.45;">
+                        Explore Ledgerly's 7 core features anytime — including 5-second Express logging, Safe-to-Spend pacing, Command Palette (Ctrl+K), Stealth Privacy Mode (P), and AES-256-GCM Vault security.
+                      </p>
+                      <button type="button" class="btn btn-secondary" id="btn-replay-walkthrough" style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px;">
+                        <i data-icon="rocket" data-icon-size="14"></i> Replay Walkthrough Guide
+                      </button>
+                    </div>
                   </div>
                 </section>
 
@@ -1621,7 +1545,225 @@
 
                 <div class="settings-section-divider"></div>
 
-                <!-- Section 4: Data & Storage -->
+                <!-- Section 4: Security & Vault (Phase 0.9.1 Sec 6) -->
+                <section id="settings-security-pane" class="settings-pane settings-section">
+                  <!-- Master Password / PIN Change Form -->
+                  <div
+                    style="
+                      max-width: 650px;
+                      background: var(--bg-surface-elevated);
+                      padding: 20px;
+                      border-radius: var(--radius-md);
+                      border: 1px solid var(--border-color);
+                      margin-bottom: 20px;
+                    "
+                  >
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px">
+                      <div>
+                        <h3
+                          style="
+                            font-size: 15px;
+                            font-weight: 700;
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            margin: 0 0 4px 0;
+                          "
+                        >
+                          <i data-icon="shield-check" data-icon-size="16" style="color: var(--accent-primary)"></i>
+                          Master Password &amp; PIN
+                        </h3>
+                        <p style="font-size: 12.5px; color: var(--text-muted); margin: 0">
+                          Change the master credentials used to unlock your AES-256-GCM hardware-grade vault envelope.
+                        </p>
+                      </div>
+                      <span
+                        class="badge"
+                        style="
+                          background: rgba(16, 185, 129, 0.15);
+                          color: #34d399;
+                          font-size: 11px;
+                          padding: 3px 8px;
+                          border: 1px solid rgba(16, 185, 129, 0.3);
+                          border-radius: 12px;
+                          font-weight: 600;
+                        "
+                      >
+                        AES-256-GCM Active
+                      </span>
+                    </div>
+
+                    <form id="settings-security-form">
+                      <div class="form-group" style="margin-bottom: 12px">
+                        <label for="settings-current-pin">Current Master Password / PIN *</label>
+                        <input
+                          type="password"
+                          id="settings-current-pin"
+                          placeholder="Enter current password or PIN"
+                          autocomplete="current-password"
+                          required
+                          style="font-size: 13px"
+                        />
+                      </div>
+
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px">
+                        <div class="form-group">
+                          <label for="settings-new-pin">New Password / PIN *</label>
+                          <input
+                            type="password"
+                            id="settings-new-pin"
+                            placeholder="At least 4 characters"
+                            autocomplete="new-password"
+                            required
+                            style="font-size: 13px"
+                          />
+                        </div>
+                        <div class="form-group">
+                          <label for="settings-confirm-pin">Confirm New Password / PIN *</label>
+                          <input
+                            type="password"
+                            id="settings-confirm-pin"
+                            placeholder="Re-enter new password"
+                            autocomplete="new-password"
+                            required
+                            style="font-size: 13px"
+                          />
+                        </div>
+                      </div>
+
+                      <div style="display: flex; justify-content: flex-end">
+                        <button type="submit" class="btn btn-primary" id="settings-btn-change-pin">
+                          <i data-icon="key" data-icon-size="14"></i> Update Master Password
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <!-- Session Inactivity Auto-Lock Slider -->
+                  <div
+                    style="
+                      max-width: 650px;
+                      background: var(--bg-surface-elevated);
+                      padding: 20px;
+                      border-radius: var(--radius-md);
+                      border: 1px solid var(--border-color);
+                      margin-bottom: 20px;
+                    "
+                  >
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
+                      <h3
+                        style="
+                          font-size: 15px;
+                          font-weight: 700;
+                          display: flex;
+                          align-items: center;
+                          gap: 8px;
+                          margin: 0;
+                        "
+                      >
+                        <i data-icon="clock" data-icon-size="16" style="color: var(--accent-primary)"></i> Session
+                        Inactivity Timeout
+                      </h3>
+                      <span
+                        id="settings-timeout-display-badge"
+                        class="badge"
+                        style="
+                          background: rgba(217, 130, 43, 0.15);
+                          color: var(--accent-primary);
+                          border: 1px solid rgba(217, 130, 43, 0.3);
+                          font-size: 11px;
+                          padding: 3px 8px;
+                          border-radius: 12px;
+                          font-weight: 600;
+                        "
+                      >
+                        Auto-lock: 5 Minutes
+                      </span>
+                    </div>
+
+                    <p style="font-size: 12.5px; color: var(--text-muted); margin: 0 0 16px 0; line-height: 1.5">
+                      Automatically lock Ledgerly and zeroize encryption keys in RAM after a period of user inactivity.
+                    </p>
+
+                    <div style="margin-bottom: 8px">
+                      <input
+                        type="range"
+                        id="settings-session-timeout-slider"
+                        min="0"
+                        max="3"
+                        step="1"
+                        value="1"
+                        style="width: 100%; accent-color: var(--accent-primary); cursor: pointer"
+                      />
+                      <div class="settings-timeout-scale">
+                        <span>1 min</span>
+                        <span>5 min (Default)</span>
+                        <span>15 min</span>
+                        <span>Never</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Emergency Recovery Key Status & Export Card -->
+                  <div
+                    id="settings-emergency-key-card"
+                    style="
+                      max-width: 650px;
+                      background: var(--bg-surface-elevated);
+                      padding: 20px;
+                      border-radius: var(--radius-md);
+                      border: 1px solid var(--border-color);
+                      margin-bottom: 20px;
+                    "
+                  >
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px">
+                      <div>
+                        <h3
+                          style="
+                            font-size: 15px;
+                            font-weight: 700;
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            margin: 0 0 4px 0;
+                          "
+                        >
+                          <i data-icon="shield-alert" data-icon-size="16" style="color: var(--accent-primary)"></i>
+                          Emergency Recovery Kit
+                        </h3>
+                        <p style="font-size: 12.5px; color: var(--text-muted); margin: 0">
+                          Your 16-character Emergency Recovery Key (<code>LEDG-XXXX-...</code>) unlocks Slot 2 in case
+                          you forget your master password.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      style="
+                        padding: 12px 14px;
+                        background: rgba(0, 0, 0, 0.2);
+                        border: 1px dashed var(--border-color);
+                        border-radius: var(--radius-sm);
+                        margin-bottom: 14px;
+                        font-size: 12px;
+                        color: var(--text-muted);
+                      "
+                    >
+                      Ledgerly operates 100% offline with zero cloud backdoors. Keep your Emergency Recovery Kit backed
+                      up in a secure offline vault or password manager.
+                    </div>
+
+                    <div style="display: flex; gap: 10px">
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-settings-view-recovery-key">
+                        <i data-icon="key" data-icon-size="14"></i> View Emergency Recovery Key
+                      </button>
+                    </div>
+                  </div>
+                </section>
+
+                <div class="settings-section-divider"></div>
+
+                <!-- Section 5: Data & Storage -->
                 <section id="settings-data-pane" class="settings-pane settings-section">
                   <div
                     style="
@@ -1643,7 +1785,7 @@
                       "
                     >
                       <i data-icon="database" data-icon-size="16" style="color: var(--accent-primary)"></i> Data Backups
-                      & Exports
+                      &amp; Exports
                     </h3>
                     <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 16px">
                       Ledgerly stores all records locally on your desktop. Export full backups anytime for peace of
@@ -1675,7 +1817,16 @@
                       margin-top: 18px;
                     "
                   >
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px">
+                    <div
+                      style="
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        margin-bottom: 12px;
+                        flex-wrap: wrap;
+                        gap: 8px;
+                      "
+                    >
                       <h3
                         style="
                           font-size: 15px;
@@ -1686,14 +1837,36 @@
                           margin: 0;
                         "
                       >
-                        <i data-icon="hard-drive" data-icon-size="16" style="color: var(--accent-cyan)"></i> Continuous Mirroring & Backup Vault
+                        <i data-icon="hard-drive" data-icon-size="16" style="color: var(--accent-cyan)"></i> Continuous
+                        Mirroring &amp; Backup Vault
                       </h3>
-                      <span id="mirror-status-badge" class="badge" style="font-size: 11px; padding: 3px 8px; border-radius: 12px; background: rgba(148, 163, 184, 0.15); color: var(--text-muted);">
-                        Not Configured
-                      </span>
+                      <div style="display: flex; align-items: center; gap: 6px">
+                        <span
+                          id="mirror-manifest-badge"
+                          class="manifest-verified-badge"
+                          style="display: none"
+                          title="SHA-256 Cryptographic Hash Manifest Verified"
+                        >
+                          <i data-icon="shield-check" data-icon-size="12"></i> SHA-256 Verified
+                        </span>
+                        <span
+                          id="mirror-status-badge"
+                          class="badge"
+                          style="
+                            font-size: 11px;
+                            padding: 3px 8px;
+                            border-radius: 12px;
+                            background: rgba(148, 163, 184, 0.15);
+                            color: var(--text-muted);
+                          "
+                        >
+                          Not Configured
+                        </span>
+                      </div>
                     </div>
                     <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5">
-                      Automatically mirror your partitioned ledger, legacy archives, and configs to an external drive, USB vault, or local sync folder in real-time with cryptographic SHA-256 integrity verification.
+                      Automatically mirror your partitioned ledger, legacy archives, and configs to an external drive,
+                      USB vault, or local sync folder in real-time with cryptographic SHA-256 integrity verification.
                     </p>
 
                     <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 14px">
@@ -1702,31 +1875,87 @@
                         id="mirror-target-dir-input"
                         readonly
                         placeholder="No vault folder configured..."
-                        style="flex: 1; font-size: 12px; padding: 7px 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); text-overflow: ellipsis;"
+                        style="
+                          flex: 1;
+                          font-size: 12px;
+                          padding: 7px 10px;
+                          background: var(--bg-surface);
+                          border: 1px solid var(--border-color);
+                          border-radius: var(--radius-sm);
+                          color: var(--text-primary);
+                          text-overflow: ellipsis;
+                        "
                       />
-                      <button type="button" class="btn btn-secondary btn-sm" id="btn-mirror-select-folder" style="white-space: nowrap">
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        id="btn-mirror-select-folder"
+                        style="white-space: nowrap"
+                      >
                         <i data-icon="hard-drive" data-icon-size="13"></i> Choose Folder...
                       </button>
                     </div>
 
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px">
-                      <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer;">
-                        <input type="checkbox" id="mirror-enabled-toggle" style="accent-color: var(--accent-primary);" />
+                      <label
+                        style="display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer"
+                      >
+                        <input type="checkbox" id="mirror-enabled-toggle" style="accent-color: var(--accent-primary)" />
                         <span>Enable Real-Time Continuous Mirroring (2s debounce)</span>
                       </label>
                     </div>
 
-                    <div id="mirror-status-details" style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.6; display: none;">
+                    <div
+                      id="mirror-status-details"
+                      style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.6; display: none"
+                    ></div>
+
+                    <!-- Safe Pre-Restore Snapshot Guarantee Callout -->
+                    <div
+                      id="mirror-pre-restore-warning"
+                      style="
+                        padding: 10px 14px;
+                        background: rgba(245, 158, 11, 0.08);
+                        border: 1px solid rgba(245, 158, 11, 0.25);
+                        border-radius: var(--radius-sm);
+                        margin-bottom: 14px;
+                        font-size: 11.5px;
+                        color: var(--text-muted);
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                      "
+                    >
+                      <i data-icon="shield-alert" data-icon-size="14" style="color: #f59e0b; flex-shrink: 0"></i>
+                      <span
+                        ><strong>Safety Guarantee:</strong> An automatic <code>.pre-restore.bak</code> snapshot is
+                        created prior to restoring data from this backup vault.</span
+                      >
                     </div>
 
                     <div style="display: flex; flex-wrap: wrap; gap: 8px">
-                      <button type="button" class="btn btn-secondary btn-sm" id="btn-mirror-sync-now" style="font-size: 12px">
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        id="btn-mirror-sync-now"
+                        style="font-size: 12px"
+                      >
                         <i data-icon="refresh-cw" data-icon-size="13"></i> Backup Now
                       </button>
-                      <button type="button" class="btn btn-secondary btn-sm" id="btn-mirror-verify" style="font-size: 12px">
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        id="btn-mirror-verify"
+                        style="font-size: 12px"
+                      >
                         <i data-icon="shield-check" data-icon-size="13"></i> Verify Vault
                       </button>
-                      <button type="button" class="btn btn-secondary btn-sm" id="btn-mirror-restore" style="font-size: 12px; color: #fb7185; border-color: rgba(251, 113, 133, 0.3)">
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        id="btn-mirror-restore"
+                        style="font-size: 12px; color: #fb7185; border-color: rgba(251, 113, 133, 0.3)"
+                      >
                         <i data-icon="download" data-icon-size="13"></i> Restore from Vault
                       </button>
                     </div>
@@ -1753,8 +1982,37 @@
                       "
                     >
                       <i data-icon="hard-drive" data-icon-size="16" style="color: var(--accent-cyan)"></i> Storage
-                      Diagnostics
+                      Diagnostics &amp; Health
                     </h3>
+
+                    <!-- Health Score Card -->
+                    <div
+                      id="diagnostics-health-score-card"
+                      style="
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 12px 16px;
+                        background: rgba(16, 185, 129, 0.08);
+                        border: 1px solid rgba(16, 185, 129, 0.25);
+                        border-radius: var(--radius-sm);
+                        margin-bottom: 14px;
+                      "
+                    >
+                      <div style="display: flex; align-items: center; gap: 10px">
+                        <i data-icon="shield-check" data-icon-size="20" style="color: #10b981"></i>
+                        <div>
+                          <strong style="font-size: 13px; color: #10b981; display: block" id="diagnostics-health-title"
+                            >Database Health: 100% Optimal</strong
+                          >
+                          <span style="font-size: 11.5px; color: var(--text-muted)" id="diagnostics-health-subtitle"
+                            >Partitioned ledger active • Zero corrupt records detected</span
+                          >
+                        </div>
+                      </div>
+                      <span class="health-score-badge" id="diagnostics-health-badge">✓ Verified</span>
+                    </div>
+
                     <div
                       id="settings-storage-diagnostics"
                       style="font-size: 12.5px; color: var(--text-muted); line-height: 2"
@@ -1828,12 +2086,12 @@
 
                 <div class="settings-section-divider"></div>
 
-                <!-- Section: On-Device AI Models & Intelligence (Phase 0.5.4) -->
+                <!-- Section: Regional Intelligence (Built-in Omni-Regional Perception Engine) -->
                 <section id="settings-models-pane" class="settings-pane settings-section">
                   <div
                     style="
                       background: var(--bg-surface-elevated);
-                      padding: 20px 24px;
+                      padding: 24px;
                       border-radius: var(--radius-md);
                       border: 1px solid var(--border-color);
                       margin-bottom: 20px;
@@ -1852,187 +2110,82 @@
                       <div>
                         <h3
                           style="
-                            font-size: 15px;
+                            font-size: 16px;
                             font-weight: 700;
                             display: flex;
                             align-items: center;
                             gap: 8px;
-                            margin: 0 0 4px 0;
+                            margin: 0 0 6px 0;
                           "
                         >
-                          <i data-icon="cpu" data-icon-size="16" style="color: var(--accent-primary)"></i> On-Device AI
-                          Models & Document Intelligence
+                          <i data-icon="cpu" data-icon-size="18" style="color: var(--accent-primary)"></i> Regional Intelligence
                         </h3>
-                        <p style="font-size: 12.5px; color: var(--text-muted); margin: 0">
-                          Manage local document intelligence engines for receipt autofill and statement parsing. 100%
-                          private, zero cloud transmission.
+                        <p style="font-size: 13px; color: var(--text-muted); margin: 0">
+                          Built-in Omni-Regional Perception Engine (Auto-sensing: India, US, EU, Japan).
                         </p>
-                      </div>
-                      <div style="display: flex; align-items: center; gap: 10px">
-                        <span
-                          id="models-storage-pill"
-                          class="badge"
-                          style="
-                            background: rgba(217, 130, 43, 0.15);
-                            color: var(--accent-primary);
-                            border: 1px solid rgba(217, 130, 43, 0.3);
-                            padding: 5px 12px;
-                            border-radius: 20px;
-                            font-size: 12px;
-                            font-weight: 600;
-                          "
-                        >
-                          Storage: Loading...
-                        </span>
-                        <button
-                          type="button"
-                          class="btn btn-secondary btn-sm"
-                          id="btn-refresh-models"
-                          title="Refresh Models Catalog"
-                        >
-                          <i data-icon="refresh-cw" data-icon-size="13"></i> Refresh
-                        </button>
-                      </div>
-                    </div>
-
-                    <!-- Active Engine Info Callout -->
-                    <div
-                      id="models-active-banner"
-                      style="
-                        background: rgba(16, 185, 129, 0.08);
-                        border: 1px solid rgba(16, 185, 129, 0.25);
-                        border-radius: var(--radius-sm);
-                        padding: 12px 16px;
-                        margin-bottom: 20px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                      "
-                    >
-                      <div style="display: flex; align-items: center; gap: 10px">
-                        <span style="font-size: 18px">⚡</span>
-                        <div>
-                          <div style="font-size: 13px; font-weight: 700; color: #10b981" id="active-model-title">
-                            Active Engine: Fast-Lite (Tier 1)
-                          </div>
-                          <div style="font-size: 11.5px; color: var(--text-muted)" id="active-model-desc">
-                            Sub-second receipt parsing with zero cloud calls. Bundled offline.
-                          </div>
-                        </div>
                       </div>
                       <span
                         class="badge"
                         style="
-                          font-size: 11px;
-                          padding: 3px 8px;
-                          border-radius: 12px;
-                          background: rgba(16, 185, 129, 0.2);
-                          color: #34d399;
-                          font-weight: 600;
+                          background: rgba(16, 185, 129, 0.15);
+                          color: #10b981;
+                          border: 1px solid rgba(16, 185, 129, 0.3);
+                          padding: 6px 14px;
+                          border-radius: 20px;
+                          font-size: 12px;
+                          font-weight: 700;
                         "
-                        >Active</span
                       >
+                        ⚡ 100% Offline &amp; Built-in
+                      </span>
                     </div>
 
-                    <!-- Regional & Tier Filter Tabs -->
                     <div
-                      class="models-filter-bar"
-                      id="models-filter-bar"
-                      style="display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px"
+                      style="
+                        background: rgba(217, 130, 43, 0.08);
+                        border: 1px solid rgba(217, 130, 43, 0.25);
+                        border-radius: var(--radius-sm);
+                        padding: 14px 18px;
+                        margin-bottom: 20px;
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                      "
                     >
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-primary models-filter-btn"
-                        data-action="filter-models"
-                        data-filter="all"
-                        style="font-size: 11.5px; border-radius: 16px; padding: 4px 12px"
-                      >
-                        All Engines
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-secondary models-filter-btn"
-                        data-action="filter-models"
-                        data-filter="in"
-                        style="font-size: 11.5px; border-radius: 16px; padding: 4px 12px"
-                      >
-                        🇮🇳 India
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-secondary models-filter-btn"
-                        data-action="filter-models"
-                        data-filter="us"
-                        style="font-size: 11.5px; border-radius: 16px; padding: 4px 12px"
-                      >
-                        🇺🇸 US & Canada
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-secondary models-filter-btn"
-                        data-action="filter-models"
-                        data-filter="eu"
-                        style="font-size: 11.5px; border-radius: 16px; padding: 4px 12px"
-                      >
-                        🇪🇺 Europe & UK
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-secondary models-filter-btn"
-                        data-action="filter-models"
-                        data-filter="apac"
-                        style="font-size: 11.5px; border-radius: 16px; padding: 4px 12px"
-                      >
-                        🇦🇺 🇯🇵 Australia & Japan
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-secondary models-filter-btn"
-                        data-action="filter-models"
-                        data-filter="vision"
-                        style="font-size: 11.5px; border-radius: 16px; padding: 4px 12px"
-                      >
-                        👁️ Tier 2 Vision
-                      </button>
+                      <i data-icon="sparkles" data-icon-size="20" style="color: var(--accent-primary)"></i>
+                      <div>
+                        <div style="font-size: 13.5px; font-weight: 700; color: var(--text-main);">
+                          Zero Downloads Required
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                          Document parsing, currency detection, and tax code extraction (GST, VAT, EIN, ABN) run natively in sub-millisecond offline passes with zero external network requests.
+                        </div>
+                      </div>
                     </div>
 
-                    <!-- Handy-Style Model Cards Grid -->
                     <div
-                      class="models-grid"
-                      id="models-cards-grid"
                       style="
                         display: grid;
-                        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-                        gap: 16px;
-                        margin-bottom: 20px;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 12px;
                       "
                     >
-                      <!-- Rendered dynamically by SettingsView -->
-                    </div>
-
-                    <!-- Intelligence Preferences & Auto-Fallback -->
-                    <div
-                      style="
-                        padding-top: 14px;
-                        border-top: 1px solid rgba(255, 255, 255, 0.06);
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                      "
-                    >
-                      <div style="max-width: 80%">
-                        <strong style="font-size: 13.5px; color: var(--text-main); display: block; margin-bottom: 2px"
-                          >Smart Fallback to Fast-Lite Engine</strong
-                        >
-                        <span style="font-size: 12px; color: var(--text-muted)"
-                          >Automatically falls back to bundled Tier 1 engine if an on-demand model file is uninstalled
-                          or corrupted.</span
-                        >
+                      <div style="background: var(--bg-surface); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <strong style="font-size: 13px; color: var(--text-main); display: block; margin-bottom: 4px;">🇮🇳 India (GST / UPI)</strong>
+                        <span style="font-size: 11.5px; color: var(--text-muted);">GSTIN, CGST/SGST/IGST breakdown, UTR transaction references, Indian rupee parsing.</span>
                       </div>
-                      <label class="toggle-switch">
-                        <input type="checkbox" id="settings-models-auto-fallback" checked />
-                        <span class="toggle-slider"></span>
-                      </label>
+                      <div style="background: var(--bg-surface); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <strong style="font-size: 13px; color: var(--text-main); display: block; margin-bottom: 4px;">🇺🇸 US &amp; Canada</strong>
+                        <span style="font-size: 11.5px; color: var(--text-muted);">EIN/SSN tax identification, gratuity &amp; tip detection, subtotal reconciliation.</span>
+                      </div>
+                      <div style="background: var(--bg-surface); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <strong style="font-size: 13px; color: var(--text-main); display: block; margin-bottom: 4px;">🇪🇺 Europe &amp; UK</strong>
+                        <span style="font-size: 11.5px; color: var(--text-muted);">Standard VAT registration IDs, IBAN bank hashes, multi-rate tax structures.</span>
+                      </div>
+                      <div style="background: var(--bg-surface); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <strong style="font-size: 13px; color: var(--text-main); display: block; margin-bottom: 4px;">🇦🇺 🇯🇵 APAC (Australia &amp; Japan)</strong>
+                        <span style="font-size: 11.5px; color: var(--text-muted);">ABN/BPAY biller codes, Japanese Qualified Invoice T-Numbers, yen formatting.</span>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -2378,7 +2531,7 @@
                 </aside>
 
                 <!-- Center: Interactive Zoom/Pan/Rotate Document Viewer -->
-                <div class="ml-cockpit-viewer-pane">
+                <div class="ml-cockpit-viewer-pane" id="receipt-preview-pane">
                   <!-- Viewer Control Toolbar -->
                   <div class="ml-viewer-toolbar">
                     <div class="ml-toolbar-group">
@@ -2994,6 +3147,9 @@
                     >)</span
                   >
                 </div>
+                <div id="modal-salary-split-guidance" style="font-size: 11.5px; color: var(--text-dim); text-align: center; margin-top: 6px; font-weight: 600;">
+                  33% Essentials / 17% Savings / 50% Discretionary
+                </div>
               </div>
             </div>
           </div>
@@ -3451,6 +3607,206 @@
       </div>
     </div>
 
+    <!-- Dedicated Profile Deletion Confirmation Modal -->
+    <div class="modal-overlay" id="delete-profile-confirm-modal">
+      <div class="modal-card" style="max-width: 440px">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px; color: var(--accent-rose);">
+            <i data-icon="alert-triangle" data-icon-size="18"></i> Delete Profile
+          </div>
+          <button class="titlebar-btn" id="btn-close-delete-profile-modal">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 18px 20px;">
+          <p id="delete-profile-confirm-msg" style="font-size: 14px; line-height: 1.5; color: var(--text-main); margin-bottom: 12px;">
+            Are you sure you want to delete profile <strong id="delete-profile-confirm-name"></strong>?
+          </p>
+          <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; background: rgba(225, 29, 72, 0.08); border: 1px solid rgba(225, 29, 72, 0.2); border-radius: 8px; padding: 10px 12px;">
+            ⚠️ This will permanently remove all associated transactions, logs, and settings for this profile. This action cannot be undone.
+          </p>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-delete-profile">Cancel</button>
+          <button type="button" class="btn btn-danger" id="btn-confirm-delete-profile">Delete Profile</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emergency Recovery Kit Modal (ADR-014 / Wave 2) -->
+    <div class="modal-overlay" id="modal-auth-recovery-kit">
+      <div class="modal-card recovery-kit-modal-card" style="max-width: 540px;">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <i data-icon="shield-check" data-icon-size="20"></i> Emergency Recovery Kit
+          </div>
+          <button class="titlebar-btn" id="btn-close-recovery-kit" aria-label="Close">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 22px 24px; display: flex; flex-direction: column; gap: 16px;">
+          <p class="recovery-kit-intro" style="font-size: 13.5px; line-height: 1.5; color: var(--text-main); margin: 0;">
+            Your bank-grade encrypted financial vault has been created. Store your <strong>Emergency Recovery Key</strong> in a safe place.
+          </p>
+
+          <div class="recovery-key-display-card">
+            <div class="recovery-key-label">EMERGENCY RECOVERY KEY (SLOT 2)</div>
+            <div class="recovery-key-value" id="recovery-kit-key-text">LEDG-XXXX-XXXX-XXXX-XXXX</div>
+            <div class="recovery-key-actions">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-recovery-key">
+                <i data-icon="copy" data-icon-size="14"></i> Copy Key
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-download-recovery-key">
+                <i data-icon="download" data-icon-size="14"></i> Save as Text File
+              </button>
+            </div>
+          </div>
+
+          <div class="recovery-warning-box">
+            <div class="recovery-warning-header">
+              <i data-icon="alert-circle" data-icon-size="16"></i> <strong>Zero-Knowledge Cryptographic Notice</strong>
+            </div>
+            <div class="recovery-warning-text">
+              Ledgerly is 100% offline. We do not operate cloud servers, and we cannot recover your data if you forget your master password. Without this key, lost data cannot be restored.
+            </div>
+          </div>
+
+          <label class="recovery-ack-label">
+            <input type="checkbox" id="recovery-kit-ack-checkbox" />
+            <span class="custom-checkbox-mark"></span>
+            <span>I have securely saved my Emergency Recovery Key in a safe place.</span>
+          </label>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 24px;">
+          <button type="button" class="btn btn-primary" id="btn-recovery-kit-continue" disabled>
+            Continue to Ledgerly
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Master Password Recovery Modal (ADR-014 / Wave 2) -->
+    <div class="modal-overlay" id="modal-auth-recovery">
+      <div class="modal-card recovery-modal-card" style="max-width: 480px;">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <i data-icon="key" data-icon-size="18"></i> Reset Master Password
+          </div>
+          <button class="titlebar-btn" id="btn-close-auth-recovery" aria-label="Close">✕</button>
+        </div>
+        <form id="auth-recovery-form">
+          <div class="modal-body" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;">
+            <p style="font-size: 13px; line-height: 1.5; color: var(--text-muted); margin: 0;">
+              Enter your Emergency Recovery Key to unlock Slot 2 and re-encrypt your vault with a new master password.
+            </p>
+
+            <div id="auth-recovery-error-banner" class="auth-error-banner hidden" style="margin-bottom: 0;"></div>
+
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="recovery-input-key" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">
+                Emergency Recovery Key (16 characters) *
+              </label>
+              <input
+                type="text"
+                id="recovery-input-key"
+                class="form-input recovery-monospace-input"
+                placeholder="LEDG-XXXX-XXXX-XXXX-XXXX"
+                autocomplete="off"
+                required
+                style="font-family: var(--font-mono); letter-spacing: 1.5px; font-weight: 600;"
+              />
+            </div>
+
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="recovery-input-new-password" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">
+                New Master Password / PIN *
+              </label>
+              <div class="auth-password-wrapper">
+                <input
+                  type="password"
+                  id="recovery-input-new-password"
+                  class="form-input"
+                  placeholder="Minimum 4 characters"
+                  required
+                  style="width: 100%;"
+                />
+                <button
+                  type="button"
+                  class="auth-password-toggle-btn"
+                  id="recovery-pwd-toggle"
+                  title="Show password"
+                  aria-label="Show password"
+                >
+                  <i data-icon="eye" data-icon-size="16"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="recovery-input-confirm-password" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">
+                Confirm New Password *
+              </label>
+              <input
+                type="password"
+                id="recovery-input-confirm-password"
+                class="form-input"
+                placeholder="Repeat new password"
+                required
+              />
+            </div>
+
+            <div class="recovery-hard-wall-link-wrap" style="text-align: center; margin-top: 4px;">
+              <a href="javascript:void(0)" class="auth-forgot-link" id="link-lost-recovery-key" style="font-size: 12px; color: var(--accent-rose);">
+                Lost both your password and Emergency Recovery Key?
+              </a>
+            </div>
+          </div>
+          <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 24px;">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-auth-recovery">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit-auth-recovery">Reset Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Cryptographic Hard Wall Modal (ADR-014 / Wave 2) -->
+    <div class="modal-overlay" id="modal-auth-hard-wall">
+      <div class="modal-card hard-wall-modal-card" style="max-width: 500px; border-color: rgba(225, 29, 72, 0.4);">
+        <div class="modal-header" style="border-bottom-color: rgba(225, 29, 72, 0.25);">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px; color: #fb7185;">
+            <i data-icon="shield-alert" data-icon-size="20"></i> Cryptographic Hard Wall
+          </div>
+          <button class="titlebar-btn" id="btn-close-hard-wall" aria-label="Close">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;">
+          <div class="hard-wall-banner" style="background: rgba(225, 29, 72, 0.12); border: 1px solid rgba(225, 29, 72, 0.35); border-radius: 10px; padding: 14px; color: #fecdd3; font-size: 13px; line-height: 1.5;">
+            <strong>No Recovery is Cryptographically Possible.</strong><br />
+            Ledgerly uses bank-grade AES-256-GCM envelope encryption. Because encryption keys reside exclusively on your local device and are zeroized upon exit, no backdoor, recovery service, or support staff can decrypt your data without either the password or recovery key.
+          </div>
+
+          <p style="font-size: 13px; line-height: 1.5; color: var(--text-muted); margin: 0;">
+            If you cannot recover your credentials, you may perform a <strong>Factory Reset</strong> to purge the encrypted vault and start completely fresh.
+          </p>
+
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="hard-wall-confirm-input" style="font-size: 12px; font-weight: 600; color: #f87171;">
+              Type <strong>RESET</strong> in all caps to enable Factory Reset:
+            </label>
+            <input
+              type="text"
+              id="hard-wall-confirm-input"
+              class="form-input"
+              placeholder="RESET"
+              autocomplete="off"
+              style="text-align: center; font-family: var(--font-mono); font-weight: 700; letter-spacing: 2px;"
+            />
+          </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 24px;">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-hard-wall">Go Back</button>
+          <button type="button" class="btn btn-danger" id="btn-confirm-factory-reset" disabled>
+            Factory Reset Ledgerly
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Universal Command Palette Spotlight Modal (Ctrl+K) -->
     <div class="modal-overlay" id="command-palette-modal">
       <div class="command-palette-card">
@@ -3471,6 +3827,66 @@
           <span><kbd>↑</kbd> <kbd>↓</kbd> to navigate</span>
           <span><kbd>↵</kbd> to select</span>
           <span><kbd>ESC</kbd> to close</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Product Walkthrough Guide Modal (Raycast/Linear Style) -->
+    <div class="modal-overlay walkthrough-modal-overlay" id="walkthrough-guide-modal">
+      <div class="modal-card walkthrough-card">
+        <!-- Top Navigation Bar -->
+        <div class="walkthrough-header">
+          <div class="walkthrough-header-left">
+            <span class="walkthrough-step-counter" id="walkthrough-step-counter">Step 1 of 7</span>
+            <span class="walkthrough-step-badge" id="walkthrough-step-badge">SPEED &amp; SIMPLICITY</span>
+          </div>
+          <div class="walkthrough-dots" id="walkthrough-dots-container">
+            <!-- Dynamic step indicator dots -->
+          </div>
+          <button type="button" class="walkthrough-close-btn" id="btn-walkthrough-close" title="Close Tour (Esc)" aria-label="Close Tour">
+            ✕
+          </button>
+        </div>
+
+        <!-- Hero Card Section -->
+        <div class="walkthrough-hero-section">
+          <div class="walkthrough-hero-icon-wrap" id="walkthrough-hero-icon-wrap">
+            <!-- Hero Icon dynamically populated -->
+          </div>
+          <div class="walkthrough-hero-text">
+            <h2 class="walkthrough-step-title" id="walkthrough-step-title">Express Bar &amp; 5-Second Logging</h2>
+            <p class="walkthrough-step-subtitle" id="walkthrough-step-subtitle">Capture daily expenses at the speed of thought without slowing down for complex forms.</p>
+          </div>
+        </div>
+
+        <!-- Key Feature Highlights List -->
+        <div class="walkthrough-points-list" id="walkthrough-points-list">
+          <!-- Dynamically populated points -->
+        </div>
+
+        <!-- Quick Hotkey / Tip Box -->
+        <div class="walkthrough-tip-box">
+          <div class="walkthrough-tip-icon">
+            <i data-icon="lightbulb" data-icon-size="14"></i>
+          </div>
+          <div class="walkthrough-tip-text" id="walkthrough-tip-text">
+            Press <kbd>Ctrl</kbd> + <kbd>N</kbd> or click the Express Bar on the dashboard anytime.
+          </div>
+        </div>
+
+        <!-- Bottom Controls Footer -->
+        <div class="walkthrough-footer">
+          <button type="button" class="btn btn-ghost walkthrough-skip-btn" id="btn-walkthrough-skip">
+            Skip Tour
+          </button>
+          <div class="walkthrough-nav-btns">
+            <button type="button" class="btn btn-secondary walkthrough-prev-btn" id="btn-walkthrough-prev">
+              <i data-icon="arrow-left" data-icon-size="14"></i> <span>Previous</span>
+            </button>
+            <button type="button" class="btn btn-primary walkthrough-next-btn" id="btn-walkthrough-next">
+              <span>Next</span> <i data-icon="arrow-right" data-icon-size="14"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>

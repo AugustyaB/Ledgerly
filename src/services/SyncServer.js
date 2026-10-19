@@ -25,7 +25,6 @@ const fs = require('fs');
 
 const { validateMobileTransaction } = require('../validation/schemaValidator');
 const SyncEngine = require('./SyncEngine');
-const LanBeaconService = require('./LanBeaconService');
 
 const DEFAULT_PORT = 52410;
 const PAIRING_TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -60,8 +59,8 @@ class SyncServer {
     // Rate limiter (IP -> { failedAttempts: number, lockoutUntil: number })
     this.ipRateLimitCache = new Map();
 
-    // Beacon service
-    this.lanBeacon = new LanBeaconService({ serverPort: this.preferredPort });
+    // Beacon decommissioned per ADR-009 / Phase 0.9.2 in favor of zero-firewall Optical QR & HTTP status ping
+    this.lanBeacon = null;
 
     // Receipt deduplication cache (SHA-256 hash -> { filename, absolutePath, timestamp })
     this.receiptHashCache = new Map();
@@ -295,9 +294,6 @@ class SyncServer {
         this.isRunning = false;
         this.boundPort = null;
         this.activePairingSession = null;
-        if (this.lanBeacon) {
-          this.lanBeacon.stop();
-        }
         console.log('[SyncServer] Sync Server stopped.');
         resolve();
       });
@@ -316,7 +312,7 @@ class SyncServer {
   /**
    * Returns live status summary of the sync server.
    *
-   * @returns {{ running: boolean, port: number|null, host: string, lanIps: string[], pairedDevicesCount: number }}
+   * @returns {{ running: boolean, port: number|null, host: string, lanIps: string[], pairedDevicesCount: number, beaconRunning: boolean, discoveryMode: string }}
    */
   getStatus() {
     const paired = this.storage ? this.storage.getPairedDevices() : [];
@@ -326,21 +322,59 @@ class SyncServer {
       host: this.host,
       lanIps: this.getLanAddresses(),
       pairedDevicesCount: paired.length,
-      beaconRunning: this.lanBeacon ? this.lanBeacon.isRunning : false
+      beaconRunning: false,
+      discoveryMode: 'optical-qr'
     };
   }
 
+  /**
+   * Safe no-op stub: UDP beacon decommissioned per ADR-009 in favor of Optical QR & HTTP status ping.
+   *
+   * @returns {{ success: boolean, mode: string }}
+   */
   startPairingBeacon() {
-    if (this.lanBeacon) {
-      this.lanBeacon.serverPort = this.boundPort || this.preferredPort;
-      this.lanBeacon.start();
-    }
+    return { success: true, mode: 'optical-qr' };
   }
 
+  /**
+   * Safe no-op stub: UDP beacon decommissioned per ADR-009 in favor of Optical QR & HTTP status ping.
+   *
+   * @returns {{ success: boolean, mode: string }}
+   */
   stopPairingBeacon() {
-    if (this.lanBeacon) {
-      this.lanBeacon.stop();
-    }
+    return { success: true, mode: 'optical-qr' };
+  }
+
+  /**
+   * Pings an IP address for Ledgerly Desktop status over HTTP.
+   *
+   * @param {string} host
+   * @param {number} [port=52410]
+   * @param {number} [timeoutMs=1500]
+   * @returns {Promise<Object|null>}
+   */
+  static async pingServer(host, port = 52410, timeoutMs = 1500) {
+    return new Promise(resolve => {
+      const req = http.get(`http://${host}:${port}/api/v1/status`, { timeout: timeoutMs }, res => {
+        let raw = '';
+        res.on('data', chunk => {
+          raw += chunk;
+        });
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(raw);
+            resolve(parsed && parsed.name === 'Ledgerly Desktop' ? parsed : null);
+          } catch {
+            resolve(null);
+          }
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(null);
+      });
+    });
   }
 
   resetPairingLockout() {

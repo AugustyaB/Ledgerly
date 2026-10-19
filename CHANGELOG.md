@@ -30,6 +30,37 @@ Future Milestone:
 
 ---
 
+# Version 1.0.0: Official Production Release & Enterprise Resilience (2026-10-14)
+> *The first official production release of Ledgerly — 100% offline personal finance and shared household expense tracking.*
+
+### 🛡️ Bank-Grade AES-256-GCM Envelope Vault at Rest (ADR-014)
+- **Zero-Knowledge Envelope Encryption (`VaultCipherService.js`)**: Cryptographic master password protection with Argon2id/PBKDF2 key derivation and AES-256-GCM authenticated cipher with in-memory zeroization.
+- **2-Slot Emergency Recovery Key (`LEDG-XXXX`)**: Offline printable emergency kit enabling deterministic master credential reset.
+- **Cryptographic Factory Reset Guard**: Hard-wall confirmation preventing accidental data loss.
+
+### ⚡ ADR-009 Architectural Modernization & Core Simplification
+- **Single Unified Encrypted Ledger (`.vault`)**: Decommissioned dual-file `<90d` / `>90d` partitioning in `JsonDatabase.js` and `ExpenseService.js`. Delivers ultra-low latency (<1ms read, <4ms write) with seamless legacy archive auto-merging.
+- **Deterministic Live Daily Impact Math**: Replaced heavy What-If Monte-Carlo simulations with sub-millisecond safe daily allowance impact pills directly under the 1-Box Express Bar and on 1-Click Preset chips.
+- **Built-in Omni-Regional Perception Engine**: Replaced external multi-gigabyte ONNX download dependencies with a built-in, zero-download perception engine leveraging 100% of `RegionalIntelligenceRegistry.js` for India (GST/UPI), US (Sales Tax/Tip), Europe (MwSt/IBAN), and Japan (T-Number/税込).
+- **Zero-UDP Optical QR LAN Sync**: Pruned raw OS UDP datagram sockets (`LanBeaconService.js`), eliminating OS firewall popups in favor of pure-JS SVG Optical QR code pairing and local HTTP ping fallback.
+- **Streamlined 5-Tab Workspace**: Reduced primary sidebar to 5 core operational tabs (`Dashboard`, `Household Split`, `Batch Entry`, `Expense Feed`, `Import & Scan`), embedding contextual notes directly onto ledger rows.
+
+### 🎭 Interactive Onboarding Walkthrough Tour
+- **Modern 7-Pillar Carousel (`WalkthroughGuide.js`)**: Introduces users to Express Logging, Safe-to-Spend Pacing, Command Palette (`Ctrl+K`), Privacy Stealth Mode (`P`), Smart Receipts, Household Splits, and Bank-Grade Vault Security.
+- **Keyboard Ergonomics & Persistence**: Supports arrow-key step cycling, Enter advancement, and Escape key dismissal with persistent `localStorage` completion. Replayable anytime via General Settings or Command Palette.
+
+### 📊 Intelligent Budget Pacing, Category Overrun & Subscription Hunter
+- **Proactive Threshold Alerts**: Real-time 80% discretionary caution warning and 100% hard limit alerts with 24-hour persistent deduplication.
+- **Category Surge Velocity Detection**: Flags non-fixed discretionary categories exceeding 40% of the active monthly pool.
+- **Dynamic Circular Pace Ring**: 3-tier mood styling (`safe`, `warning`, `overrun`) with payday shift guidance.
+- **Subscription Hunter Deck**: Annualized commitment projections and 7-day upcoming renewal countdown pills.
+
+### 📦 Multi-Purpose NSIS Packaging & Mobile Companion
+- **Windows Setup Wizard (`build/installer.nsh`)**: 3-mode clean install, in-place binary repair, finish-page desktop shortcut checkbox, and safe uninstaller with `%APPDATA%` backup export to Documents.
+- **Capacitor Mobile Companion (`mobile/`)**: Offline camera capture, Canvas downscaling to 1600px, IndexedDB local queuing, and instant photo purge upon desktop receipt write.
+
+---
+
 # Version 0.8: Intelligent Financial Automation, Fuzzy Reconciliation & Zero-Config LAN QR Sync
 > *Succeeds Version 0.7.0. Delivers Adaptive Receipt Vision, 10,000-row EDA Rollups, Tri-State Statement Reconciliation, Zombie Subscription Hunter, What-If Burn-Rate Forecasting, and Zero-Config UDP + Optical QR Mobile Pairing.*
 

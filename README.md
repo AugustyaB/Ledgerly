@@ -15,15 +15,15 @@ Get the latest pre-compiled binaries directly from this repository:
 
 | Platform | Recommended Package | Download Link | Installation & Capabilities |
 |---|---|---|---|
-| **🪟 Windows (10/11)** | **`Ledgerly Setup 0.9.0.exe`** | [**📥 Download `.exe`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | NSIS setup wizard with in-place repair and safe uninstall data retention. |
+| **🪟 Windows (10/11)** | **`Ledgerly Setup 1.0.0.exe`** | [**📥 Download `.exe`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | NSIS setup wizard with in-place repair and safe uninstall data retention. |
 | **🤖 Android (8.0+)** | **`app-debug.apk`** *(8.61 MB)* | [**📥 Download `.apk`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Direct sideload APK with camera receipt intake & 1-tap Optical QR LAN pairing. |
-| **🍎 macOS (Silicon/Intel)** | **`Ledgerly-0.9.0.dmg`** | [**📥 Download `.dmg`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Native drag-to-Applications `.dmg` image *(see macOS instructions below)*. |
-| **🐧 Linux (Universal)** | **`Ledgerly-0.9.0.AppImage`** | [**📥 Download `.AppImage`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Standalone portable executable (`chmod +x Ledgerly-0.9.0.AppImage`). |
+| **🍎 macOS (Silicon/Intel)** | **`Ledgerly-1.0.0.dmg`** | [**📥 Download `.dmg`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Native drag-to-Applications `.dmg` image *(see macOS instructions below)*. |
+| **🐧 Linux (Universal)** | **`Ledgerly-1.0.0.AppImage`** | [**📥 Download `.AppImage`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Standalone portable executable (`chmod +x Ledgerly-1.0.0.AppImage`). |
 | **🍏 Apple iOS** | **`Ledgerly-iOS-App.xcarchive`** | [**📥 Download `.xcarchive`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Unsigned Xcode archive for iOS devices (sign via Xcode / Sideloadly / AltStore). |
 
 > [!TIP]
 > **🍎 Note for macOS Users:**
-> 1. Download `Ledgerly-0.9.0.dmg` from [Releases](https://github.com/AugustyaB/Ledgerly/releases/latest), open it, and drag **Ledgerly** into your `Applications` folder.
+> 1. Download `Ledgerly-1.0.0.dmg` from [Releases](https://github.com/AugustyaB/Ledgerly/releases/latest), open it, and drag **Ledgerly** into your `Applications` folder.
 > 2. On first launch, if macOS Gatekeeper prompts that the app is from an unidentified developer, right-click (or Control-click) `Ledgerly.app` in Applications ➔ select **Open** ➔ click **Open**.
 > 3. *Alternative (Zero-Install Dev Mode):* Run directly in terminal via `git clone https://github.com/AugustyaB/Ledgerly.git && cd Ledgerly && npm install && npm start`.
 

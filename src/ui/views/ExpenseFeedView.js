@@ -351,7 +351,7 @@ export class ExpenseFeedView {
                    data-index="${currentIndex}"
                    ${isChecked ? 'checked' : ''}>
           </td>
-          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">${escapeHTML(item.date)}</td>
+          <td class="feed-editable-date" data-id="${escapeHTML(item.id)}" title="Double click to edit date inline" style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); cursor: pointer;">${escapeHTML(item.date)}</td>
           <td class="feed-editable-title" data-id="${escapeHTML(item.id)}" title="Double click to edit title inline">
             <strong style="color: var(--text-main); font-size: 13.5px;">${escapeHTML(item.title)}</strong>
             ${item.description ? `<div style="font-size: 11.5px; color: var(--text-dim); margin-top: 2px;">${escapeHTML(item.description)}</div>` : ''}
@@ -632,6 +632,58 @@ export class ExpenseFeedView {
     select.addEventListener('blur', save);
     select.addEventListener('change', () => select.blur());
     select.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        saved = true;
+        this.render();
+      }
+    });
+  }
+
+  /**
+   * Start in-place inline editing for Date.
+   * @param {HTMLElement} cell
+   * @param {string} expenseId
+   */
+  async startInlineEditDate(cell, expenseId) {
+    const expenses = this.state?.get('expenses') || [];
+    const item = expenses.find(e => e.id === expenseId);
+    if (!item) {
+      showToast('⚠️ Expense record not found');
+      return;
+    }
+
+    const currentVal = item.date || new Date().toISOString().split('T')[0];
+    cell.classList.add('inline-editing-cell');
+    cell.innerHTML = `<input type="date" class="inline-cell-input" value="${escapeHTML(currentVal)}">`;
+    const input = cell.querySelector('input');
+    if (!input) return;
+
+    input.focus();
+
+    let saved = false;
+    const save = async () => {
+      if (saved) return;
+      saved = true;
+      const newVal = input.value.trim();
+      if (newVal && newVal !== currentVal) {
+        item.date = newVal;
+        const res = await this.api.updateExpense(item);
+        if (res?.success) {
+          showToast(`Updated date to "${newVal}"`);
+          if (this.onDataChanged) await this.onDataChanged();
+        } else {
+          showToast(res?.error || 'Failed to update date');
+        }
+      }
+      this.render();
+    };
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        input.blur();
+      }
       if (e.key === 'Escape') {
         saved = true;
         this.render();
@@ -1041,6 +1093,8 @@ export class ExpenseFeedView {
           this.startInlineEditAmount(cell, id);
         } else if (cell.classList.contains('feed-editable-category')) {
           this.startInlineEditCategory(cell, id);
+        } else if (cell.classList.contains('feed-editable-date')) {
+          this.startInlineEditDate(cell, id);
         }
       };
 
@@ -1102,19 +1156,34 @@ export class ExpenseFeedView {
         return;
       }
 
-      let deletedCount = 0;
-      let failedCount = 0;
-      for (const id of selectedIds) {
-        const res = await this.api.deleteExpense(id);
-        if (res?.success) deletedCount++;
-        else failedCount++;
+      const idsArray = Array.from(selectedIds);
+      const allExpenses = this.state?.get('expenses') || [];
+      const deletedExpenses = allExpenses.filter(e => selectedIds.has(e.id));
+
+      if (this.api?.bulkDeleteExpenses) {
+        await this.api.bulkDeleteExpenses(idsArray);
+      } else {
+        for (const id of idsArray) {
+          await this.api.deleteExpense(id);
+        }
       }
 
-      if (failedCount > 0) {
-        showToast(`Deleted ${deletedCount} records (${failedCount} not found)`);
-      } else {
-        showToast(`Deleted ${deletedCount} record(s) successfully`);
+      if (deletedExpenses.length && typeof this.state?.pushUndoAction === 'function') {
+        this.state.pushUndoAction({
+          type: 'BULK_DELETE_EXPENSES',
+          description: `Bulk deleted ${deletedExpenses.length} transaction(s)`,
+          payload: deletedExpenses,
+          undo: async () => {
+            if (this.api?.bulkAddExpenses) {
+              await this.api.bulkAddExpenses(deletedExpenses);
+            }
+            if (this.onDataChanged) await this.onDataChanged();
+            this.render();
+          }
+        });
       }
+
+      showToast(`Deleted ${deletedExpenses.length} record(s) successfully (Ctrl+Z to undo)`);
 
       selectedIds.clear();
       if (this.state) this.state.set('feedSelectedIds', selectedIds);

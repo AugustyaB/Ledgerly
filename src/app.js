@@ -29,6 +29,7 @@ import { NotificationView } from './ui/views/NotificationView.js';
 import { ImportView } from './ui/views/ImportView.js';
 import { AuthScreen } from './ui/components/AuthScreen.js';
 import { CommandPalette } from './ui/components/CommandPalette.js';
+import { WalkthroughGuide } from './ui/components/WalkthroughGuide.js';
 import { escapeHTML } from './ui/helpers/dom.js';
 import { showToast, showActionToast } from './ui/helpers/toast.js';
 
@@ -50,6 +51,7 @@ let notificationView = null;
 let importView = null;
 let authScreen = null;
 let commandPalette = null;
+let walkthroughGuide = null;
 
 // ============================================================================
 // APPLICATION INITIALIZATION & MOUNTING
@@ -90,12 +92,24 @@ function initApplication() {
     onViewReceipt: filename => expenseFeedView.viewReceiptImage(filename)
   });
 
+  walkthroughGuide = new WalkthroughGuide({
+    state,
+    onComplete: () => {
+      // Walkthrough finished
+    }
+  });
+
   authScreen = new AuthScreen({
     state,
     api,
     onSessionReady: async () => {
       await loadAppData();
       router.switchTo('dashboard');
+      if (walkthroughGuide?.shouldAutoLaunch()) {
+        setTimeout(() => {
+          walkthroughGuide.open(0);
+        }, 300);
+      }
     }
   });
 
@@ -108,6 +122,29 @@ function initApplication() {
       onExportExcel: () => document.getElementById('btn-export-excel')?.click(),
       onExportCsv: () => document.getElementById('btn-export-csv')?.click(),
       onTogglePrivacy: () => togglePrivacyMode(),
+      onLockLedgerly: () => authScreen.showProfilePickerScreen(),
+      onReplayWalkthrough: () => walkthroughGuide?.open(0),
+      onOpenSecuritySettings: () => {
+        router.switchTo('settings');
+        setTimeout(() => {
+          const secItem = document.querySelector('[data-settings-target="settings-security-pane"]');
+          if (secItem) secItem.click();
+        }, 60);
+      },
+      onTriggerMirrorBackup: async () => {
+        const syncBtn = document.getElementById('btn-mirror-sync-now');
+        if (syncBtn) {
+          syncBtn.click();
+        } else if (api?.syncMirrorNow) {
+          showToast('Triggering vault mirror backup...');
+          const res = await api.syncMirrorNow();
+          if (res?.success) {
+            showToast('Vault mirror backup synced!');
+          } else {
+            showToast(res?.error || 'Mirror sync failed', 'error');
+          }
+        }
+      },
       onOpenProfilePicker: () => authScreen.showProfilePickerScreen(),
       onNavigateTab: tab => switchTab(tab),
       onOpenExpenseModal: id => expenseFeedView.openEditModal(id),
@@ -126,20 +163,20 @@ function initApplication() {
   householdView.mount(document.getElementById('view-household'));
   batchView.mount(document.getElementById('view-batch'));
   expenseFeedView.mount(document.getElementById('view-expenses'));
-  notesView.mount(document.getElementById('view-notes'));
+  notesView.mount(document.getElementById('view-notes') || null);
   settingsView.mount(document.getElementById('view-settings'));
   notificationView.mount();
   importView.mount(document.getElementById('view-import'));
   authScreen.mount();
   commandPalette.mount();
+  walkthroughGuide.mount();
 
-  // Initialize Tab Lifecycle Router
+  // Initialize Tab Lifecycle Router (Streamlined 5-tab core + import)
   router = new AppRouter(state, {
     dashboard: dashboardView,
     household: householdView,
     batch: batchView,
     expenses: expenseFeedView,
-    notes: notesView,
     settings: settingsView,
     import: importView
   });
@@ -175,12 +212,20 @@ async function loadAppData() {
       api.getCombinedExpenses?.() || [],
       api.getPresets?.() || [],
       api.getSalaryConfig?.() || { monthlyIncome: 60000, fixedBills: 20000, savingsGoal: 10000 },
-      api.getHouseholdMembers?.() || ['Self', 'Partner', 'Roommate'],
+      api.getHouseholdMembers?.() || [],
       api.getNotes?.() || [],
       api.getSettlements?.() || [],
       api.getRecurringBills?.() || [],
       api.getWorkspaceMode?.() || 'household'
     ]);
+
+    const dynamicHouseholdMembers = (householdMembers && householdMembers.length > 0)
+      ? householdMembers
+      : ((data && Array.isArray(data.householdMembers) && data.householdMembers.length > 0)
+          ? data.householdMembers
+          : ((profiles && profiles.length > 0)
+              ? profiles.map(p => p.name).filter(Boolean)
+              : [activeProfile?.name || 'Self']));
 
     state.update({
       profiles: profiles || [],
@@ -192,7 +237,7 @@ async function loadAppData() {
       presets: presets || data.presets || [],
       salaryConfig: salaryConfig ||
         data.salaryConfig || { monthlyIncome: 60000, fixedBills: 20000, savingsGoal: 10000 },
-      householdMembers: householdMembers || data.householdMembers || ['Self', 'Partner', 'Roommate'],
+      householdMembers: dynamicHouseholdMembers,
       notes: notes || [],
       settlements: settlements || [],
       recurringBills: recurringBills || [],
@@ -203,6 +248,11 @@ async function loadAppData() {
     populateCategorySelects();
     populateHouseholdMemberControls();
     if (router) router.refreshCurrentView();
+    if (notificationView) {
+      notificationView.render(true).catch(err => {
+        console.error('[App] Error refreshing notifications on data reload:', err);
+      });
+    }
   } catch (err) {
     console.error('[App] Error loading application data:', err);
   }
@@ -356,6 +406,21 @@ function togglePrivacyMode(forceState = null) {
       : `<span style="display: inline-flex; align-items: center; gap: 4px;">${typeof icon === 'function' ? icon('eye', 12) : ''} Normal</span>`;
   }
 
+  const titlebarBtn = document.getElementById('titlebar-logo-btn');
+  const dashboardBrandBtn = document.getElementById('dashboard-brand-privacy-btn');
+  if (titlebarBtn) {
+    titlebarBtn.setAttribute(
+      'title',
+      next ? 'Stealth Mode Active (Amounts Masked) — Click or press P to reveal' : 'Click to toggle Stealth Mode (or press P)'
+    );
+  }
+  if (dashboardBrandBtn) {
+    dashboardBrandBtn.setAttribute(
+      'title',
+      next ? 'Stealth Mode Active (Amounts Masked) — Click or press P to reveal' : 'Click to toggle Stealth Mode (or press P)'
+    );
+  }
+
   showToast(next ? 'Stealth Mode Active (Amounts Masked)' : 'Normal Visibility Mode Restored');
 }
 
@@ -389,6 +454,20 @@ async function handleGlobalUndo() {
       await action.undo();
     } else if (action.type === 'DELETE_EXPENSE' && action.payload && api?.addExpense) {
       await api.addExpense(action.payload);
+      await loadAppData();
+      router.refreshCurrentView();
+    } else if (action.type === 'ADD_EXPENSE' && (action.payload?.id || action.payload) && api?.deleteExpense) {
+      const id = action.payload?.id || action.payload;
+      await api.deleteExpense(id);
+      await loadAppData();
+      router.refreshCurrentView();
+    } else if (action.type === 'BULK_ADD_EXPENSES' && Array.isArray(action.payload) && api?.bulkDeleteExpenses) {
+      const ids = action.payload.map(e => e?.id || e).filter(Boolean);
+      if (ids.length) await api.bulkDeleteExpenses(ids);
+      await loadAppData();
+      router.refreshCurrentView();
+    } else if (action.type === 'BULK_DELETE_EXPENSES' && Array.isArray(action.payload) && api?.bulkAddExpenses) {
+      if (action.payload.length) await api.bulkAddExpenses(action.payload);
       await loadAppData();
       router.refreshCurrentView();
     }
@@ -498,11 +577,47 @@ function setupGlobalListeners() {
       return;
     }
 
-    // Escape -> Close Command Palette if open
+    // Escape -> Close Command Palette, Walkthrough, or topmost active modal
     if (e.key === 'Escape') {
       const paletteModal = document.getElementById('command-palette-modal');
       if (paletteModal && paletteModal.classList.contains('active')) {
-        commandPalette.close();
+        e.preventDefault();
+        commandPalette?.close();
+        return;
+      }
+
+      const walkthroughModal = document.getElementById('walkthrough-guide-modal');
+      if (walkthroughModal && walkthroughModal.classList.contains('active')) {
+        e.preventDefault();
+        walkthroughGuide?.skip();
+        return;
+      }
+
+      const openModals = Array.from(
+        document.querySelectorAll(
+          '.modal-overlay.active, .modal.active, .modal:not(.hidden), #expense-modal.active, #salary-modal.active, #settle-modal.active, #recurring-bill-modal.active, #person-modal.active, #modal-auth-recovery.active'
+        )
+      ).filter(el => {
+        if (el.classList.contains('hidden')) return false;
+        if (el.id === 'screen-auth' || el.id === 'screen-profile-picker') return false;
+        const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+        if (style && style.display === 'none') return false;
+        return true;
+      });
+
+      if (openModals.length > 0) {
+        e.preventDefault();
+        const topModal = openModals[openModals.length - 1];
+        const closeBtn = topModal.querySelector(
+          '.titlebar-btn, .walkthrough-close-btn, [id$="-close"], [id$="-close-btn"], [id$="-cancel-btn"], [data-action*="close"], .btn-secondary, button[aria-label="Close"]'
+        );
+        if (closeBtn && typeof closeBtn.click === 'function') {
+          closeBtn.click();
+        } else {
+          topModal.classList.remove('active');
+          topModal.classList.add('hidden');
+        }
+        return;
       }
     }
   });
@@ -689,6 +804,9 @@ if (typeof window !== 'undefined') {
   window.getNotesView = () => notesView;
   window.getDashboardView = () => dashboardView;
   window.refreshAppData = loadAppData;
+  window.openWalkthroughGuide = (step = 0) => walkthroughGuide?.open(step);
+  window.closeWalkthroughGuide = () => walkthroughGuide?.close();
+  window.getWalkthroughGuide = () => walkthroughGuide;
 }
 
 // ============================================================================

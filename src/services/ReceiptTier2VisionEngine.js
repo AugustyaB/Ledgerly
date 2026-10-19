@@ -1439,13 +1439,30 @@ class ReceiptTier2VisionEngine {
     // Scan lines in reverse for TOTAL
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i];
-      if (/\b(?:total|grand\s+total|net\s+total|amount\s+payable|balance\s+due|net\s+payable)\b/i.test(line)) {
+      if (/\b(?:total|grand\s+total|net\s+total|amount\s+payable|balance\s+due|net\s+payable|gross\s*worth|gross)\b/i.test(line)) {
         if (/sub\s*total/i.test(line)) continue;
         if (AntiTrapFilter.isPromotionalOrTrapLine(line)) continue;
         if (/[_?*X]/.test(line)) continue;
 
+        // Check for multiple price tokens on summary line (e.g. Net, VAT, Gross)
+        const numMatches = line.match(/(?:[0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]+[.,][0-9]{2})/g);
+        if (numMatches && numMatches.length >= 2) {
+          const vals = numMatches.map(m => this._parseMonetaryValue(m)).filter(v => v > 0);
+          if (vals.length >= 3 && Math.abs(vals[0] + vals[1] - vals[vals.length - 1]) <= 0.05) {
+            total = vals[vals.length - 1];
+            subtotal = vals[0];
+            confidence = 0.95;
+            break;
+          } else if (vals.length >= 2 && vals[vals.length - 1] > vals[0]) {
+            total = vals[vals.length - 1];
+            subtotal = vals[0];
+            confidence = 0.92;
+            break;
+          }
+        }
+
         const match =
-          line.match(/\b(?:total|grand\s+total|payable)[:\s]*[₹$€£¥]?\s*(\d+(?:[.,]\d{2})?)/i) ||
+          line.match(/\b(?:total|grand\s+total|gross\s*worth|payable)[:\s]*[₹$€£¥]?\s*(\d+(?:[.,]\d{2})?)/i) ||
           line.match(/[₹$€£¥]?\s*(\d+[.,]\d{2})/);
         if (match) {
           total = this._parseMonetaryValue(match[1]);
@@ -1492,11 +1509,11 @@ class ReceiptTier2VisionEngine {
   }
 
   extractMerchant(lines) {
-    for (let i = 0; i < Math.min(5, lines.length); i++) {
+    for (let i = 0; i < Math.min(8, lines.length); i++) {
       const l = lines[i].trim();
       if (
         l.length >= 3 &&
-        !/^(tax|invoice|bill|receipt|date|order|tel|phone|gstin|ein|vat|abn)/i.test(l) &&
+        !/^(tax|invoice|bill|receipt|date|order|tel|phone|gstin|ein|vat|abn|trade|seller|client|vendor|customer|buyer|summary|items|description|qty|subtotal|gross|net|billing|shipping)/i.test(l) &&
         !/^[- \s]*page\s+\d+(\s+of\s+\d+)?[- \s]*$/i.test(l)
       ) {
         if (!SEPARATOR_LINE_REGEX.test(l)) {

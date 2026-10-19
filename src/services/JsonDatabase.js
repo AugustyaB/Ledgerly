@@ -20,6 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
+const VaultCipherService = require('./VaultCipherService');
 
 /**
  * @class JsonDatabase
@@ -44,39 +45,27 @@ class JsonDatabase {
       targetPath = path.join(userDataPath, 'expenses_db.json');
     }
 
-    const baseName = path.basename(targetPath);
-    if (baseName === 'active_ledger.json') {
-      this.dataDir = path.dirname(targetPath);
-      this.activeFilePath = targetPath;
-      this.archiveFilePath = path.join(this.dataDir, 'legacy_archive.json');
-      this.legacyFilePath = path.join(path.dirname(this.dataDir), 'expenses_db.json');
-    } else if (baseName === 'expenses_db.json') {
-      this.legacyFilePath = targetPath;
-      this.dataDir = path.join(path.dirname(targetPath), 'data');
-      this.activeFilePath = path.join(this.dataDir, 'active_ledger.json');
-      this.archiveFilePath = path.join(this.dataDir, 'legacy_archive.json');
-    } else {
-      const ext = path.extname(targetPath);
-      const nameWithoutExt = path.basename(targetPath, ext);
-      this.legacyFilePath = targetPath;
-      this.dataDir = path.join(path.dirname(targetPath), 'data_' + nameWithoutExt);
-      this.activeFilePath = path.join(this.dataDir, 'active_ledger.json');
-      this.archiveFilePath = path.join(this.dataDir, 'legacy_archive.json');
-    }
-
-    // If a custom legacyFilePath was provided but was deleted/cleaned up by test runners,
-    // ensure stale partitioned data is purged so the test starts fresh
-    if (this.legacyFilePath && this.legacyFilePath !== this.activeFilePath && !fs.existsSync(this.legacyFilePath)) {
-      if (fs.existsSync(this.dataDir)) {
-        try {
-          fs.rmSync(this.dataDir, { recursive: true, force: true });
-        } catch {
-          // Best effort
+    if (targetPath) {
+      try {
+        if (fs.existsSync(targetPath) && fs.statSync(targetPath).isDirectory()) {
+          targetPath = path.join(targetPath, 'expenses_db.json');
+        } else if (!path.extname(targetPath)) {
+          targetPath = path.join(targetPath, 'expenses_db.json');
         }
+      } catch {
+        // Fallback
       }
     }
 
-    this.filePath = this.activeFilePath;
+    this.filePath = targetPath;
+    this.activeFilePath = targetPath;
+    this.dataDir = path.dirname(targetPath);
+    this.archiveFilePath = path.join(this.dataDir, 'legacy_archive.json');
+    this.legacyFilePath = targetPath;
+
+    this.vaultCipher = new VaultCipherService();
+    this._activeEnvelope = null;
+    this._unlockedRoot = null;
 
     this.ensureStorageExists();
   }
@@ -141,37 +130,20 @@ class JsonDatabase {
   }
 
   /**
-   * Returns diagnostic partition statistics including active size, archive size,
-   * active expense count, and archived expense count.
+   * Returns diagnostic partition statistics. Single unified ledger indicates isPartitioned: false.
    *
-   * @returns {object} Partition telemetry and health statistics.
+   * @returns {object} Health statistics.
    */
   getPartitionStats() {
     try {
-      const activeSize = fs.existsSync(this.activeFilePath) ? fs.statSync(this.activeFilePath).size : 0;
-      const archiveSize = fs.existsSync(this.archiveFilePath) ? fs.statSync(this.archiveFilePath).size : 0;
-
-      let activeExpensesCount = 0;
+      const activeSize = fs.existsSync(this.filePath) ? fs.statSync(this.filePath).size : 0;
+      let totalExpensesCount = 0;
       try {
         const root = this.read();
         if (Array.isArray(root.profiles)) {
           for (const p of root.profiles) {
             if (p && p.data && Array.isArray(p.data.expenses)) {
-              activeExpensesCount += p.data.expenses.length;
-            }
-          }
-        }
-      } catch {
-        // Suppress read error in stats
-      }
-
-      let archivedExpensesCount = 0;
-      try {
-        const archive = this.readArchive();
-        if (archive && archive.profiles) {
-          for (const list of Object.values(archive.profiles)) {
-            if (Array.isArray(list)) {
-              archivedExpensesCount += list.length;
+              totalExpensesCount += p.data.expenses.length;
             }
           }
         }
@@ -180,19 +152,19 @@ class JsonDatabase {
       }
 
       return {
-        activeFilePath: this.activeFilePath,
+        activeFilePath: this.filePath,
         archiveFilePath: this.archiveFilePath,
         activeSizeBytes: activeSize,
-        archiveSizeBytes: archiveSize,
-        totalSizeBytes: activeSize + archiveSize,
-        activeExpensesCount,
-        archivedExpensesCount,
-        totalExpensesCount: activeExpensesCount + archivedExpensesCount,
-        isPartitioned: fs.existsSync(this.activeFilePath) && fs.existsSync(this.archiveFilePath)
+        archiveSizeBytes: 0,
+        totalSizeBytes: activeSize,
+        activeExpensesCount: totalExpensesCount,
+        archivedExpensesCount: 0,
+        totalExpensesCount,
+        isPartitioned: false
       };
     } catch (err) {
       return {
-        activeFilePath: this.activeFilePath,
+        activeFilePath: this.filePath,
         archiveFilePath: this.archiveFilePath,
         activeSizeBytes: 0,
         archiveSizeBytes: 0,
@@ -207,9 +179,31 @@ class JsonDatabase {
   }
 
   /**
-   * Guarantees that the storage directory and partitioned database files exist.
-   * Automatically executes zero-data-loss migration if legacy expenses_db.json is detected.
-   * Generates baseline schemas if database files are missing.
+   * Retrieves an in-memory working-set slice for the active pay-cycle or specified days (default 90d)
+   * for ultra-fast query responsiveness while retaining a single unified file on disk.
+   *
+   * @param {string} [profileId=null] - Target profile ID or active profile.
+   * @param {number} [days=90] - Days in hot working window.
+   * @returns {import('../types').Expense[]} Filtered working-set expenses.
+   */
+  getWorkingSet(profileId = null, days = 90) {
+    const root = this.read();
+    const targetId = profileId || root.activeProfileId || (root.profiles && root.profiles[0]?.id);
+    const profile = (root.profiles || []).find(p => p.id === targetId);
+    if (!profile || !profile.data || !Array.isArray(profile.data.expenses)) {
+      return [];
+    }
+    const cutoffMs = Date.now() - days * 24 * 60 * 60 * 1000;
+    return profile.data.expenses.filter(e => {
+      const expTime = e && e.date ? new Date(e.date).getTime() : 0;
+      return !isNaN(expTime) && expTime >= cutoffMs;
+    });
+  }
+
+  /**
+   * Guarantees that storage directory and the single unified database file exist.
+   * Automatically folds legacy partitioned files (active_ledger.json + legacy_archive.json)
+   * back into a single unified ledger.
    *
    * @returns {void}
    */
@@ -219,25 +213,79 @@ class JsonDatabase {
         fs.mkdirSync(this.dataDir, { recursive: true });
       }
 
-      // Check if legacy database exists and active ledger does not exist -> trigger migration
-      if (this.legacyFilePath && fs.existsSync(this.legacyFilePath) && !fs.existsSync(this.activeFilePath)) {
-        const legacyStats = fs.statSync(this.legacyFilePath);
-        if (legacyStats.size > 0) {
-          this._migrateFromLegacy();
-          return;
+      const partitionedActive = path.join(this.dataDir, 'data', 'active_ledger.json');
+      const partitionedArchive = path.join(this.dataDir, 'data', 'legacy_archive.json');
+
+      // 1. If target file does not exist, check if legacy partitioned files can be migrated
+      if (!fs.existsSync(this.filePath)) {
+        let sourcePath = null;
+        if (fs.existsSync(partitionedActive)) {
+          sourcePath = partitionedActive;
         }
-      }
 
-      // If active ledger does not exist, initialize fresh schema
-      if (!fs.existsSync(this.activeFilePath)) {
+        if (sourcePath) {
+          try {
+            const raw = fs.readFileSync(sourcePath, 'utf-8');
+            const root = this._sanitizeRootStructure(JSON.parse(raw));
+
+            const archivePath = fs.existsSync(partitionedArchive) ? partitionedArchive : this.archiveFilePath;
+            if (fs.existsSync(archivePath)) {
+              try {
+                const archiveRaw = fs.readFileSync(archivePath, 'utf-8');
+                this._mergeArchiveIntoRoot(root, JSON.parse(archiveRaw));
+                fs.renameSync(archivePath, `${archivePath}.merged.bak`);
+              } catch (archErr) {
+                console.warn('Failed to merge archive during consolidation:', archErr.message);
+              }
+            }
+
+            fs.writeFileSync(this.filePath, JSON.stringify(root, null, 2), 'utf-8');
+            return;
+          } catch (migErr) {
+            console.error('Failed to consolidate from active_ledger:', migErr);
+          }
+        }
+
+        // Initialize fresh root schema
         const initialSchema = this._createDefaultRootSchema();
-        fs.writeFileSync(this.activeFilePath, JSON.stringify(initialSchema, null, 2), 'utf-8');
+        fs.writeFileSync(this.filePath, JSON.stringify(initialSchema, null, 2), 'utf-8');
+        return;
       }
 
-      // Ensure legacy archive file exists as valid JSON
-      if (!fs.existsSync(this.archiveFilePath)) {
-        const initialArchive = this._createDefaultArchiveSchema();
-        fs.writeFileSync(this.archiveFilePath, JSON.stringify(initialArchive, null, 2), 'utf-8');
+      // 2. Target file exists. Check if any orphaned legacy archive file needs folding in
+      const candidateArchives = Array.from(new Set([this.archiveFilePath, partitionedArchive]));
+      for (const archPath of candidateArchives) {
+        if (fs.existsSync(archPath)) {
+          try {
+            const archiveRaw = fs.readFileSync(archPath, 'utf-8');
+            const archiveParsed = JSON.parse(archiveRaw);
+            if (archiveParsed && archiveParsed.profiles && Object.keys(archiveParsed.profiles).length > 0) {
+              try {
+                const rootRaw = fs.readFileSync(this.filePath, 'utf-8');
+                const root = this._sanitizeRootStructure(JSON.parse(rootRaw));
+                if (root && !root.isLockedVault) {
+                  const mergedCount = this._mergeArchiveIntoRoot(root, archiveParsed);
+                  if (mergedCount > 0) {
+                    this._atomicWrite(this.filePath, JSON.stringify(root, null, 2));
+                  }
+                }
+              } catch (readErr) {
+                console.warn('Failed to parse existing ledger during archive fold:', readErr.message);
+              }
+            }
+            const bakName = `${archPath}.merged.bak`;
+            if (fs.existsSync(bakName)) {
+              try {
+                fs.unlinkSync(bakName);
+              } catch {
+                // ignore
+              }
+            }
+            fs.renameSync(archPath, bakName);
+          } catch (archErr) {
+            console.warn('Failed to fold archive into existing ledger:', archErr.message);
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to initialize storage directory or database file:', err);
@@ -245,81 +293,46 @@ class JsonDatabase {
   }
 
   /**
-   * Executes a safe, zero-data-loss migration from legacy single-file database
-   * to dual-file partitioned storage (active_ledger.json + legacy_archive.json).
+   * Helper to merge archived expense records into root data profiles.
+   * Preserves chronological sort and deduplicates by ID.
    *
    * @private
-   * @returns {{ migrated: boolean, totalOriginal: number, totalActive: number, totalArchived: number, backupCreated: string }}
+   * @param {import('../types').RootData} root - Root database object.
+   * @param {object} archiveData - Parsed archive data object.
+   * @returns {number} Total merged expenses count.
    */
-  _migrateFromLegacy() {
-    try {
-      const safetyBakPath = `${this.legacyFilePath}.pre-v07-migration.bak`;
-      fs.copyFileSync(this.legacyFilePath, safetyBakPath);
-
-      const raw = fs.readFileSync(this.legacyFilePath, 'utf-8');
-      const parsed = JSON.parse(raw);
-      const sanitizedRoot = this._sanitizeRootStructure(parsed);
-
-      const cutoffMs = Date.now() - 90 * 24 * 60 * 60 * 1000;
-      const archiveData = {
-        version: 1,
-        archivedAt: new Date().toISOString(),
-        profiles: {}
-      };
-
-      let totalOriginal = 0;
-      let totalActive = 0;
-      let totalArchived = 0;
-
-      for (const profile of sanitizedRoot.profiles) {
-        if (!profile.data) {
-          profile.data = {};
+  _mergeArchiveIntoRoot(root, archiveData) {
+    if (!archiveData || !archiveData.profiles || typeof archiveData.profiles !== 'object') {
+      return 0;
+    }
+    let mergedTotal = 0;
+    for (const [profId, archivedList] of Object.entries(archiveData.profiles)) {
+      if (!Array.isArray(archivedList) || archivedList.length === 0) continue;
+      const targetProf = (root.profiles || []).find(p => p.id === profId) ||
+        (root.profiles || []).find(p => p.id === root.activeProfileId);
+      if (targetProf && targetProf.data) {
+        if (!Array.isArray(targetProf.data.expenses)) {
+          targetProf.data.expenses = [];
         }
-        const originalList = Array.isArray(profile.data.expenses) ? profile.data.expenses : [];
-        totalOriginal += originalList.length;
-
-        const activeList = [];
-        const archivedList = [];
-
-        for (const exp of originalList) {
-          const expTime = exp && exp.date ? new Date(exp.date).getTime() : 0;
-          if (!isNaN(expTime) && expTime < cutoffMs) {
-            archivedList.push(exp);
-          } else {
-            activeList.push(exp);
+        const existingIds = new Set(targetProf.data.expenses.map(e => e.id));
+        for (const exp of archivedList) {
+          if (exp && exp.id && !existingIds.has(exp.id)) {
+            targetProf.data.expenses.push(exp);
+            existingIds.add(exp.id);
+            mergedTotal++;
           }
         }
-
-        profile.data.expenses = activeList;
-        archiveData.profiles[profile.id] = archivedList;
-
-        totalActive += activeList.length;
-        totalArchived += archivedList.length;
+        targetProf.data.expenses.sort((a, b) => {
+          const tA = a && a.date ? new Date(a.date).getTime() : 0;
+          const tB = b && b.date ? new Date(b.date).getTime() : 0;
+          if (tB !== tA) return tB - tA;
+          return (b.id || '').localeCompare(a.id || '');
+        });
       }
-
-      // Assert row count invariant
-      if (totalActive + totalArchived !== totalOriginal) {
-        throw new Error(
-          `Migration row count invariant failed: active (${totalActive}) + archived (${totalArchived}) !== original (${totalOriginal})`
-        );
-      }
-
-      // Atomically persist partitioned files
-      this.write(sanitizedRoot);
-      this.writeArchive(archiveData);
-
-      return {
-        migrated: true,
-        totalOriginal,
-        totalActive,
-        totalArchived,
-        backupCreated: safetyBakPath
-      };
-    } catch (err) {
-      console.error('Migration from legacy database failed:', err);
-      throw err;
     }
+    return mergedTotal;
   }
+
 
   // ==========================================================================
   // 2. Read & Recovery Operations
@@ -365,7 +378,37 @@ class JsonDatabase {
         }
       }
 
-      // 3. Ensure mandatory root keys exist
+      // 3. Handle encrypted vault envelope if detected
+      if (this.vaultCipher.isVaultEnvelope(parsed)) {
+        this._activeEnvelope = parsed;
+        if (this.vaultCipher.isUnlocked()) {
+          try {
+            const decryptedStr = this.vaultCipher.decryptPayload(parsed);
+            this._unlockedRoot = this._sanitizeRootStructure(JSON.parse(decryptedStr));
+            return this._unlockedRoot;
+          } catch (decErr) {
+            console.error('Failed to decrypt vault payload with active key:', decErr);
+          }
+        }
+        if (this._unlockedRoot) {
+          return this._unlockedRoot;
+        }
+        // Return safe locked envelope stub indicating configured account
+        return {
+          version: 1,
+          isLockedVault: true,
+          account: {
+            isConfigured: true,
+            userId: parsed.metadata?.userId || '',
+            rememberMe: Boolean(parsed.metadata?.rememberMe),
+            workspaceMode: parsed.metadata?.workspaceMode || 'household'
+          },
+          profiles: [],
+          activeProfileId: null
+        };
+      }
+
+      // 4. Ensure mandatory root keys exist (unencrypted)
       return this._sanitizeRootStructure(parsed);
     } catch (err) {
       console.error('Failed to read root storage:', err);
@@ -374,52 +417,13 @@ class JsonDatabase {
   }
 
   /**
-   * Reads and parses the cold archive database object (>90d historical records) from disk.
-   * Recovers transparently from rotating backup (.bak) if corrupted.
+   * Compatibility method for reading archived records. In the unified ledger architecture,
+   * all historical expenses reside directly within the single unified ledger.
    *
    * @returns {{ version: number, archivedAt: string, profiles: Record<string, import('../types').Expense[]> }}
    */
   readArchive() {
-    try {
-      this.ensureStorageExists();
-      if (!fs.existsSync(this.archiveFilePath)) {
-        const bakPath = `${this.archiveFilePath}.bak`;
-        if (fs.existsSync(bakPath)) {
-          return this._sanitizeArchiveStructure(JSON.parse(fs.readFileSync(bakPath, 'utf-8')));
-        }
-        return this._createDefaultArchiveSchema();
-      }
-
-      let raw;
-      try {
-        raw = fs.readFileSync(this.archiveFilePath, 'utf-8');
-      } catch (readErr) {
-        const bakPath = `${this.archiveFilePath}.bak`;
-        if (fs.existsSync(bakPath)) {
-          raw = fs.readFileSync(bakPath, 'utf-8');
-        } else {
-          throw readErr;
-        }
-      }
-
-      let parsed;
-      try {
-        parsed = JSON.parse(raw);
-      } catch (jsonErr) {
-        const bakPath = `${this.archiveFilePath}.bak`;
-        if (fs.existsSync(bakPath)) {
-          raw = fs.readFileSync(bakPath, 'utf-8');
-          parsed = JSON.parse(raw);
-        } else {
-          throw jsonErr;
-        }
-      }
-
-      return this._sanitizeArchiveStructure(parsed);
-    } catch (err) {
-      console.error('Failed to read archive storage:', err);
-      return this._createDefaultArchiveSchema();
-    }
+    return this._createDefaultArchiveSchema();
   }
 
   // ==========================================================================
@@ -427,7 +431,7 @@ class JsonDatabase {
   // ==========================================================================
 
   /**
-   * Atomically persists active root database object to disk (<90d working set).
+   * Atomically persists active root database object to disk.
    * Writes to a temporary file first (.tmp), rotates current file to (.bak),
    * then executes an atomic rename to prevent corruption during sudden power loss.
    *
@@ -436,6 +440,38 @@ class JsonDatabase {
    */
   write(rootData) {
     try {
+      if (this.vaultCipher.isUnlocked() || this._activeEnvelope) {
+        if (!this.vaultCipher.isUnlocked()) {
+          return { success: false, error: 'Database is encrypted and currently locked.' };
+        }
+        let envelope = this._activeEnvelope;
+        if (!envelope && fs.existsSync(this.activeFilePath)) {
+          try {
+            const onDisk = JSON.parse(fs.readFileSync(this.activeFilePath, 'utf-8'));
+            if (this.vaultCipher.isVaultEnvelope(onDisk)) {
+              envelope = onDisk;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        if (envelope) {
+          if (rootData.account) {
+            envelope.metadata = {
+              ...envelope.metadata,
+              userId: rootData.account.userId || envelope.metadata?.userId || '',
+              rememberMe: Boolean(rootData.account.rememberMe),
+              workspaceMode: rootData.account.workspaceMode || 'household'
+            };
+          }
+          const updated = this.vaultCipher.encryptPayload(rootData, envelope);
+          this._activeEnvelope = updated;
+          this._unlockedRoot = rootData;
+          const serialized = JSON.stringify(updated, null, 2);
+          return this._atomicWrite(this.activeFilePath, serialized);
+        }
+      }
+
       const serialized = JSON.stringify(rootData, null, 2);
       return this._atomicWrite(this.activeFilePath, serialized);
     } catch (err) {
@@ -445,21 +481,14 @@ class JsonDatabase {
   }
 
   /**
-   * Atomically persists cold archive database object to disk (>90d historical records).
+   * Compatibility method for persisting archived records. In the unified ledger architecture,
+   * cold partitioned archive writes are decommissioned in favor of the single ledger.
    *
-   * @param {object} archiveData - Archive object to persist.
+   * @param {object} [archiveData] - Archive object.
    * @returns {import('../types').OperationResult} Status result object.
    */
-  writeArchive(archiveData) {
-    try {
-      const sanitized = this._sanitizeArchiveStructure(archiveData);
-      sanitized.archivedAt = new Date().toISOString();
-      const serialized = JSON.stringify(sanitized, null, 2);
-      return this._atomicWrite(this.archiveFilePath, serialized);
-    } catch (err) {
-      console.error('Failed to atomically persist archive data:', err);
-      return { success: false, error: err.message };
-    }
+  writeArchive(archiveData = null) {
+    return { success: true };
   }
 
   /**
@@ -677,7 +706,7 @@ class JsonDatabase {
               nextPaydayOverride: null,
               currencySymbol: '₹'
             },
-            householdMembers: ['Self', 'Partner', 'Roommate'],
+            householdMembers: ['Self'],
             budgetGoal: 30000,
             notes: [],
             notifications: []
@@ -685,47 +714,7 @@ class JsonDatabase {
         }
       ],
       settlements: [],
-      recurringBills: [
-        {
-          id: 'rec-1',
-          title: 'BESCOM Electricity Bill',
-          icon: 'zap',
-          amount: 1450,
-          category: 'Utilities',
-          dueDay: 10,
-          frequency: 'monthly',
-          paidBy: 'Self',
-          splitWith: ['Self', 'Partner', 'Roommate'],
-          autoSplit: true,
-          lastPaidDate: null
-        },
-        {
-          id: 'rec-2',
-          title: 'Airtel Broadband Wi-Fi',
-          icon: 'wifi',
-          amount: 999,
-          category: 'Utilities',
-          dueDay: 15,
-          frequency: 'monthly',
-          paidBy: 'Self',
-          splitWith: ['Self', 'Partner', 'Roommate'],
-          autoSplit: true,
-          lastPaidDate: null
-        },
-        {
-          id: 'rec-3',
-          title: 'Indane LPG Cylinder',
-          icon: 'flame',
-          amount: 850,
-          category: 'Utilities',
-          dueDay: 25,
-          frequency: 'monthly',
-          paidBy: 'Self',
-          splitWith: ['Self', 'Partner', 'Roommate'],
-          autoSplit: true,
-          lastPaidDate: null
-        }
-      ],
+      recurringBills: [],
       pairedDevices: [],
       schemaVersion: 2
     };
@@ -779,6 +768,238 @@ class JsonDatabase {
     }
 
     return parsed;
+  }
+
+  // ==========================================================================
+  // 4. Vault Encryption & Security Operations (ADR-014)
+  // ==========================================================================
+
+  /**
+   * Evaluates whether the active ledger file on disk is an encrypted vault envelope.
+   *
+   * @returns {boolean} True if file exists and has vault envelope format.
+   */
+  isVaultEncrypted() {
+    try {
+      if (fs.existsSync(this.activeFilePath)) {
+        const raw = fs.readFileSync(this.activeFilePath, 'utf-8');
+        return this.vaultCipher.isVaultEnvelope(raw);
+      }
+    } catch {
+      // Suppress read error
+    }
+    return false;
+  }
+
+  /**
+   * Upgrades the database to an AES-256-GCM encrypted vault envelope.
+   *
+   * @param {string} password - Master password / PIN.
+   * @param {string} recoveryKey - Emergency recovery key.
+   * @param {object} [metadata={}] - Account metadata header.
+   * @returns {import('../types').OperationResult & { envelope?: object }}
+   */
+  upgradeToVault(password, recoveryKey, metadata = {}, rootData = null) {
+    try {
+      let currentRoot = rootData || this._unlockedRoot;
+      if (!currentRoot) {
+        if (fs.existsSync(this.activeFilePath)) {
+          try {
+            const raw = fs.readFileSync(this.activeFilePath, 'utf-8');
+            const parsed = JSON.parse(raw);
+            if (!this.vaultCipher.isVaultEnvelope(parsed)) {
+              currentRoot = this._sanitizeRootStructure(parsed);
+            }
+          } catch {
+            // Ignore parse failure
+          }
+        }
+      }
+      if (!currentRoot) {
+        currentRoot = this._createDefaultRootSchema();
+      }
+
+      // Backup existing unencrypted database file if present
+      if (fs.existsSync(this.activeFilePath)) {
+        try {
+          fs.copyFileSync(this.activeFilePath, `${this.activeFilePath}.pre-vault.bak`);
+        } catch {
+          // Best effort backup
+        }
+      }
+
+      const meta = {
+        userId: currentRoot.account?.userId || metadata.userId || '',
+        rememberMe: Boolean(currentRoot.account?.rememberMe || metadata.rememberMe),
+        workspaceMode: currentRoot.account?.workspaceMode || metadata.workspaceMode || 'household',
+        ...metadata
+      };
+
+      const envelope = this.vaultCipher.createEnvelope(currentRoot, password, recoveryKey, meta);
+      this._activeEnvelope = envelope;
+      this._unlockedRoot = currentRoot;
+
+      const res = this._atomicWrite(this.activeFilePath, JSON.stringify(envelope, null, 2));
+      if (!res.success) {
+        return res;
+      }
+      return { success: true, envelope };
+    } catch (err) {
+      console.error('Failed to upgrade database to encrypted vault:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Unlocks the encrypted vault envelope using Master Password (Slot 1).
+   *
+   * @param {string} password - Master password / PIN.
+   * @returns {import('../types').OperationResult & { root?: import('../types').RootData }}
+   */
+  unlockVaultWithPassword(password) {
+    try {
+      let envelope = this._activeEnvelope;
+      if (!envelope && fs.existsSync(this.activeFilePath)) {
+        const raw = fs.readFileSync(this.activeFilePath, 'utf-8');
+        envelope = JSON.parse(raw);
+      }
+      if (!envelope) {
+        return { success: false, error: 'Vault database file not found.' };
+      }
+
+      const decryptedStr = this.vaultCipher.unlockWithPassword(envelope, password);
+      this._activeEnvelope = envelope;
+      this._unlockedRoot = this._sanitizeRootStructure(JSON.parse(decryptedStr));
+      return { success: true, root: this._unlockedRoot };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Unlocks the encrypted vault envelope using Emergency Recovery Key (Slot 2).
+   *
+   * @param {string} recoveryKey - Emergency recovery key.
+   * @returns {import('../types').OperationResult & { root?: import('../types').RootData }}
+   */
+  unlockVaultWithRecoveryKey(recoveryKey) {
+    try {
+      let envelope = this._activeEnvelope;
+      if (!envelope && fs.existsSync(this.activeFilePath)) {
+        const raw = fs.readFileSync(this.activeFilePath, 'utf-8');
+        envelope = JSON.parse(raw);
+      }
+      if (!envelope) {
+        return { success: false, error: 'Vault database file not found.' };
+      }
+
+      const decryptedStr = this.vaultCipher.unlockWithRecoveryKey(envelope, recoveryKey);
+      this._activeEnvelope = envelope;
+      this._unlockedRoot = this._sanitizeRootStructure(JSON.parse(decryptedStr));
+      return { success: true, root: this._unlockedRoot };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Resets master password using valid recovery key (updates Slot 1).
+   *
+   * @param {string} recoveryKey - Emergency recovery key.
+   * @param {string} newPassword - New master password / PIN.
+   * @returns {import('../types').OperationResult}
+   */
+  resetVaultPasswordWithRecoveryKey(recoveryKey, newPassword) {
+    try {
+      let envelope = this._activeEnvelope;
+      if (!envelope && fs.existsSync(this.activeFilePath)) {
+        const raw = fs.readFileSync(this.activeFilePath, 'utf-8');
+        envelope = JSON.parse(raw);
+      }
+      if (!envelope) {
+        return { success: false, error: 'Vault database file not found.' };
+      }
+
+      const updatedEnvelope = this.vaultCipher.resetPasswordWithRecoveryKey(envelope, recoveryKey, newPassword);
+      this._activeEnvelope = updatedEnvelope;
+
+      const res = this._atomicWrite(this.activeFilePath, JSON.stringify(updatedEnvelope, null, 2));
+      if (!res.success) return res;
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Changes master password using valid current password (updates Slot 1).
+   *
+   * @param {string} currentPassword - Current master password / PIN.
+   * @param {string} newPassword - New master password / PIN.
+   * @returns {import('../types').OperationResult}
+   */
+  changeVaultPassword(currentPassword, newPassword) {
+    try {
+      let envelope = this._activeEnvelope;
+      if (!envelope && fs.existsSync(this.activeFilePath)) {
+        const raw = fs.readFileSync(this.activeFilePath, 'utf-8');
+        envelope = JSON.parse(raw);
+      }
+      if (!envelope) {
+        return { success: false, error: 'Vault database file not found.' };
+      }
+
+      const updatedEnvelope = this.vaultCipher.changePasswordWithCurrentPassword(envelope, currentPassword, newPassword);
+      this._activeEnvelope = updatedEnvelope;
+
+      const res = this._atomicWrite(this.activeFilePath, JSON.stringify(updatedEnvelope, null, 2));
+      if (!res.success) return res;
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Rotates Slot 2 Emergency Recovery Key when the vault is unlocked and persists to disk.
+   *
+   * @param {string} [newRecoveryKey] - Optional new recovery key.
+   * @returns {import('../types').OperationResult & { recoveryKey?: string }}
+   */
+  rotateVaultRecoveryKey(newRecoveryKey = null) {
+    try {
+      let envelope = this._activeEnvelope;
+      if (!envelope && fs.existsSync(this.activeFilePath)) {
+        const raw = fs.readFileSync(this.activeFilePath, 'utf-8');
+        envelope = JSON.parse(raw);
+      }
+      if (!envelope || !this.vaultCipher.isVaultEnvelope(envelope) || !this.vaultCipher.isUnlocked()) {
+        return {
+          success: true,
+          recoveryKey: newRecoveryKey || this.vaultCipher.generateEmergencyRecoveryKey()
+        };
+      }
+
+      const { envelope: updatedEnvelope, recoveryKey } = this.vaultCipher.rotateRecoveryKey(envelope, newRecoveryKey);
+      this._activeEnvelope = updatedEnvelope;
+
+      const res = this._atomicWrite(this.activeFilePath, JSON.stringify(updatedEnvelope, null, 2));
+      if (!res.success) return res;
+      return { success: true, recoveryKey };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Locks the vault by zeroizing in-memory keys and clearing active root data.
+   *
+   * @returns {import('../types').OperationResult}
+   */
+  lockVault() {
+    this.vaultCipher.zeroize();
+    this._unlockedRoot = null;
+    return { success: true };
   }
 
   /**

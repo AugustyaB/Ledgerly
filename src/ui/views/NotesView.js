@@ -74,11 +74,11 @@ export class NotesView {
    */
   mount(container) {
     this.#container = container || document.getElementById('view-notes');
-    if (!this.#container) return;
-
     this.#bindEvents();
     this.#subscribeToState();
-    this.render();
+    if (this.#container) {
+      this.render();
+    }
   }
 
   /**
@@ -378,7 +378,7 @@ export class NotesView {
         await this.#refreshAppData();
         this.render();
       } else {
-        alert(res?.error || 'Failed to delete note');
+        showToast(res?.error || 'Failed to delete note', 'error');
       }
     }
   }

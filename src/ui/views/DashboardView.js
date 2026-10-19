@@ -145,7 +145,6 @@ export class DashboardView {
     this.#bindExpressEntry();
     this.#bindDelegatedActions();
     this.#bindPresetModal();
-    this.#bindWhatIfSimulator();
     this.#bindDashboardFilters();
     this.#bindSalaryModal();
     this.#bindExportModal();
@@ -180,6 +179,7 @@ export class DashboardView {
     this.renderRecentTable();
     this.renderCharts();
     await this.renderHouseholdSplitWidget();
+    await this.renderSubscriptionsDeck();
   }
 
   // ==========================================================================
@@ -291,7 +291,15 @@ export class DashboardView {
       // Graceful fallback
     }
 
-    const dailyAllowance = Math.max(0, budgetRemaining / remainingDays);
+    const safeDailyLimit = salaryCycleMetrics && salaryCycleMetrics.safeDailyLimit !== undefined
+      ? salaryCycleMetrics.safeDailyLimit
+      : Math.max(0, budgetRemaining / remainingDays);
+    const baselineAllowance = salaryCycleMetrics && salaryCycleMetrics.baselineDailyAllowance !== undefined
+      ? salaryCycleMetrics.baselineDailyAllowance
+      : (salaryCycleMetrics && salaryCycleMetrics.dailyAllowance !== undefined
+          ? salaryCycleMetrics.dailyAllowance
+          : budgetGoal / totalDaysSpan);
+    const dailyAllowance = safeDailyLimit;
     const todayStr = now.toISOString().split('T')[0];
     const todaySpent = scoped.filter(e => e.date === todayStr).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
 
@@ -301,34 +309,80 @@ export class DashboardView {
     }
 
     // Rollover Calculation Tooltip
-    const targetDaily = budgetGoal / totalDaysSpan;
+    const targetDaily = baselineAllowance;
     const allowedToDate = targetDaily * elapsedDays;
     const rollover = allowedToDate - totalSpent;
 
     const tooltipBody = document.getElementById('rollover-tooltip-body');
     if (tooltipBody) {
-      tooltipBody.innerHTML = `Day ${elapsedDays} of ${totalDaysSpan}: Allowed spend to date was <strong>${formatCurrencyInt(allowedToDate)}</strong>. You have spent <strong>${formatCurrencyInt(totalSpent)}</strong>.<br><br>${rollover >= 0 ? `You have <strong style="color: #10B981;">+${formatCurrencyInt(rollover)} rolled over</strong> to spend safely across remaining ${remainingDays} days.` : `You are <strong style="color: #FB7185;">-${formatCurrencyInt(Math.abs(rollover))} over pace</strong>.`}`;
+      tooltipBody.innerHTML = `Day ${elapsedDays} of ${totalDaysSpan}: Allowed spend to date was <strong>${formatCurrencyInt(allowedToDate)}</strong> (Baseline Allowance: ${formatCurrency(baselineAllowance)}/day). You have spent <strong>${formatCurrencyInt(totalSpent)}</strong>.<br><br>${rollover >= 0 ? `You have <strong style="color: #10B981;">+${formatCurrencyInt(rollover)} rolled over</strong>. Safe Daily Limit: <strong>${formatCurrency(safeDailyLimit)}/day</strong> across remaining ${remainingDays} days.` : `You are <strong style="color: #FB7185;">-${formatCurrencyInt(Math.abs(rollover))} over pace</strong>. Safe Daily Limit: <strong>${formatCurrency(safeDailyLimit)}/day</strong>.`}`;
+    }
+
+    // 3-Tier Mood & Dynamic Circular Pace Ring Math
+    const paceRatio = dailyAllowance > 0 ? todaySpent / dailyAllowance : (todaySpent > 0 ? 1 : 0);
+    const pacePct = Math.round(paceRatio * 100);
+
+    const paceCard = document.getElementById('card-daily-pace');
+    if (paceCard) {
+      paceCard.classList.remove('pace-safe', 'pace-warning', 'pace-overrun');
+      if (paceRatio < 0.8) {
+        paceCard.classList.add('pace-safe');
+      } else if (paceRatio < 1.0) {
+        paceCard.classList.add('pace-warning');
+      } else {
+        paceCard.classList.add('pace-overrun');
+      }
+    }
+
+    const paceCircle = document.getElementById('pace-ring-progress-circle');
+    const pacePctText = document.getElementById('pace-ring-percentage');
+    if (paceCircle) {
+      const circumference = 113.1; // 2 * PI * 18
+      const clampedRatio = Math.min(1.0, Math.max(0, paceRatio));
+      const offset = circumference * (1 - clampedRatio);
+      paceCircle.style.strokeDasharray = `${circumference}`;
+      paceCircle.style.strokeDashoffset = `${offset}`;
+      if (paceRatio < 0.8) {
+        paceCircle.style.stroke = 'var(--accent-emerald, #10B981)';
+      } else if (paceRatio < 1.0) {
+        paceCircle.style.stroke = 'var(--accent-amber, #F59E0B)';
+      } else {
+        paceCircle.style.stroke = 'var(--accent-rose, #F43F5E)';
+      }
+    }
+    if (pacePctText) {
+      pacePctText.textContent = `${pacePct}%`;
+      if (paceRatio < 0.8) {
+        pacePctText.style.color = 'var(--accent-emerald, #10B981)';
+      } else if (paceRatio < 1.0) {
+        pacePctText.style.color = 'var(--accent-amber, #F59E0B)';
+      } else {
+        pacePctText.style.color = 'var(--accent-rose, #F43F5E)';
+      }
     }
 
     const paceBadge = document.getElementById('daily-pace-badge');
     const paceSubtitle = document.getElementById('daily-pace-metric-subtitle');
     if (paceBadge) {
       paceBadge.className = 'pace-badge';
-      if (todaySpent <= dailyAllowance) {
+      if (paceRatio < 0.8) {
         paceBadge.textContent = 'On Track';
         paceBadge.classList.add('badge-emerald');
-        if (paceSubtitle)
+        if (paceSubtitle) {
           paceSubtitle.innerHTML = '<span class="pace-badge badge-emerald" id="daily-pace-badge">On Track</span>';
-      } else if (todaySpent <= dailyAllowance * 1.3) {
-        paceBadge.textContent = 'Caution';
+        }
+      } else if (paceRatio < 1.0) {
+        paceBadge.textContent = 'Caution (80%+)';
         paceBadge.classList.add('badge-amber');
-        if (paceSubtitle)
-          paceSubtitle.innerHTML = '<span class="pace-badge badge-amber" id="daily-pace-badge">Caution</span>';
+        if (paceSubtitle) {
+          paceSubtitle.innerHTML = '<span class="pace-badge badge-amber" id="daily-pace-badge">Caution (80%+)</span>';
+        }
       } else {
         paceBadge.textContent = 'Over Pace';
         paceBadge.classList.add('badge-rose');
-        if (paceSubtitle)
+        if (paceSubtitle) {
           paceSubtitle.innerHTML = '<span class="pace-badge badge-rose" id="daily-pace-badge">Over Pace</span>';
+        }
       }
     }
 
@@ -615,7 +669,7 @@ export class DashboardView {
     container.innerHTML = presets
       .map(
         (p, idx) => `
-      <div class="preset-chip" data-action="log-preset" data-id="${escapeHTML(p.id)}" title="Click to log ${formatCurrency(p.amount)} for ${escapeHTML(p.title)} (Right-click to edit)">
+      <div class="preset-chip" data-action="log-preset" data-id="${escapeHTML(p.id)}" data-amount="${escapeHTML(String(p.amount))}" title="Click to log ${formatCurrency(p.amount)} for ${escapeHTML(p.title)} (Right-click to edit)">
         <span class="preset-chip-icon">${safeIcon(p.icon || 'tag', 14)}</span>
         <span class="preset-chip-title">${escapeHTML(p.title)}</span>
         <span class="preset-chip-amount">${formatCurrency(p.amount)}</span>
@@ -653,7 +707,21 @@ export class DashboardView {
       isHouseholdExpense: false
     };
 
-    await this.api.addExpense(payload);
+    const res = await this.api.addExpense(payload);
+    const addedId = res?.id || res?.expense?.id || payload.id;
+    if (typeof this.state?.pushUndoAction === 'function') {
+      this.state.pushUndoAction({
+        type: 'ADD_EXPENSE',
+        description: `Preset "${preset.title}"`,
+        payload: res?.expense || { ...payload, id: addedId },
+        undo: async () => {
+          if (addedId) await this.api.deleteExpense(addedId);
+          if (this.onDataChanged) await this.onDataChanged();
+          await this.render();
+        }
+      });
+    }
+
     showActionToast({
       icon: preset.icon || 'tag',
       title: `Logged "${preset.title}"`,
@@ -911,6 +979,116 @@ export class DashboardView {
   }
 
   // ==========================================================================
+  // RECURRING SUBSCRIPTIONS & ACTIVE COMMITMENTS DECK (Phase 0.9.3)
+  // ==========================================================================
+
+  /**
+   * Render recurring subscriptions deck card with annualized total and renewal pills.
+   * @returns {Promise<void>}
+   */
+  async renderSubscriptionsDeck() {
+    if (typeof document === 'undefined') return;
+
+    const annualTotalEl = document.getElementById('sub-deck-annual-total');
+    const monthlyTotalEl = document.getElementById('sub-deck-monthly-total');
+    const countEl = document.getElementById('sub-deck-cadence-count');
+    const container = document.getElementById('sub-deck-items-container');
+    const emptyEl = document.getElementById('sub-deck-empty');
+
+    if (!container) return;
+
+    try {
+      let summary = null;
+      if (this.api?.getSubscriptionsSummary) {
+        summary = await this.api.getSubscriptionsSummary();
+      } else if (this.api?.detectSubscriptions) {
+        const expenses = this.getScopedExpenses();
+        const res = await this.api.detectSubscriptions({ expenses });
+        summary = {
+          subscriptions: res?.subscriptions || [],
+          totalAnnualizedCommitment: res?.summary?.totalAnnualCommitment || 0,
+          monthlyCommitment: res?.summary?.totalMonthlyCommitment || 0,
+          upcomingRenewals: (res?.subscriptions || []).filter(s => s.daysUntilRenewal >= 0 && s.daysUntilRenewal <= 7)
+        };
+      }
+
+      const subsList = summary?.subscriptions || [];
+      const activeSubs = subsList.filter(s => !s.isDismissed);
+
+      if (activeSubs.length === 0) {
+        if (emptyEl) emptyEl.classList.remove('hidden');
+        if (annualTotalEl) annualTotalEl.textContent = `Annualized: ${currSym()}0/yr`;
+        if (monthlyTotalEl) monthlyTotalEl.textContent = `${currSym()}0/mo`;
+        if (countEl) countEl.textContent = '0 Active Cadences';
+        const existingChips = container.querySelectorAll('.sub-cadence-chip');
+        existingChips.forEach(c => c.remove());
+        return;
+      }
+
+      if (emptyEl) emptyEl.classList.add('hidden');
+      if (annualTotalEl) {
+        const ann = summary.totalAnnualizedCommitment || 0;
+        annualTotalEl.textContent = `Annualized: ${currSym()}${Math.round(ann).toLocaleString()}/yr`;
+      }
+      if (monthlyTotalEl) {
+        const mo = summary.monthlyCommitment || 0;
+        monthlyTotalEl.textContent = `${currSym()}${Math.round(mo).toLocaleString()}/mo`;
+      }
+      if (countEl) {
+        countEl.textContent = `${activeSubs.length} Active ${activeSubs.length === 1 ? 'Cadence' : 'Cadences'}`;
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      const itemsHtml = activeSubs
+        .map(s => {
+          const amt = parseFloat(s.amount) || 0;
+          const amountStr = `${currSym()}${amt.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+          const cadenceLabel = s.cadence ? s.cadence.charAt(0).toUpperCase() + s.cadence.slice(1) : 'Monthly';
+
+          let renewalBadge = '';
+          if (s.nextExpectedDate) {
+            const diffDays = Math.ceil(
+              (new Date(s.nextExpectedDate).getTime() - new Date(todayStr).getTime()) / (1000 * 60 * 60 * 24)
+            );
+            if (diffDays >= 0 && diffDays <= 7) {
+              renewalBadge = `<span class="sub-renewal-pill renewal-urgent">${safeIcon('alert-circle', 11)} Renews in ${diffDays === 0 ? 'Today' : `${diffDays}d`}</span>`;
+            } else if (diffDays > 7 && diffDays <= 14) {
+              renewalBadge = `<span class="sub-renewal-pill renewal-soon">Renews in ${diffDays}d</span>`;
+            } else if (diffDays > 14) {
+              renewalBadge = `<span class="sub-renewal-pill">Renews ${escapeHTML(s.nextExpectedDate)}</span>`;
+            }
+          }
+
+          let hikeBadge = '';
+          if (s.hasPriceHike) {
+            hikeBadge = '<span class="sub-hike-pill" title="Detected price hike">⚠️ Hike</span>';
+          }
+
+          return `
+            <div class="sub-cadence-chip" data-sub-id="${escapeHTML(s.id || '')}">
+              <div class="sub-chip-header">
+                <span class="sub-chip-name">${escapeHTML(s.merchant || 'Subscription')}</span>
+                <span class="sub-chip-cadence">${cadenceLabel}</span>
+              </div>
+              <div class="sub-chip-footer">
+                <span class="sub-chip-amount">${amountStr}</span>
+                ${renewalBadge}
+                ${hikeBadge}
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      const existingChips = container.querySelectorAll('.sub-cadence-chip');
+      existingChips.forEach(c => c.remove());
+      container.insertAdjacentHTML('beforeend', itemsHtml);
+    } catch (err) {
+      console.warn('Failed to render subscriptions deck:', err);
+    }
+  }
+
+  // ==========================================================================
   // CHARTS RENDERING
   // ==========================================================================
 
@@ -1028,111 +1206,7 @@ export class DashboardView {
     document.getElementById('preset-modal')?.classList.remove('active');
   }
 
-  // ==========================================================================
-  // WHAT-IF SPENDING IMPACT SIMULATOR
-  // ==========================================================================
 
-  /**
-   * Initialize collapsible What-If simulator card state.
-   */
-  initWhatIfToggle() {
-    const toggleBtn = document.getElementById('btn-toggle-what-if');
-    const card = document.getElementById('what-if-simulator-card');
-    const bar = document.getElementById('what-if-toggle-bar');
-    if (!toggleBtn || !card) return;
-
-    const isCollapsed =
-      typeof localStorage !== 'undefined' && localStorage.getItem('ledgerly-what-if-collapsed') !== 'false';
-    card.classList.toggle('collapsed', isCollapsed);
-    bar?.classList.toggle('expanded', !isCollapsed);
-
-    const toggleHandler = () => {
-      const currentlyCollapsed = card.classList.contains('collapsed');
-      card.classList.toggle('collapsed', !currentlyCollapsed);
-      bar?.classList.toggle('expanded', currentlyCollapsed);
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('ledgerly-what-if-collapsed', currentlyCollapsed ? 'false' : 'true');
-      }
-      if (currentlyCollapsed) {
-        this.updateWhatIfSimulation();
-      }
-    };
-
-    toggleBtn.addEventListener('click', toggleHandler);
-    this.#cleanups.push(() => toggleBtn.removeEventListener('click', toggleHandler));
-  }
-
-  /**
-   * Execute What-If simulation with specified amount.
-   * @param {number} [extraAmount=null]
-   */
-  async updateWhatIfSimulation(extraAmount = null) {
-    if (typeof document === 'undefined') return;
-
-    const slider = /** @type {HTMLInputElement|null} */ (document.getElementById('what-if-range-slider'));
-    const displayEl = document.getElementById('what-if-slider-display');
-    const currPaceEl = document.getElementById('what-if-curr-pace');
-    const projPaceEl = document.getElementById('what-if-proj-pace');
-    const dailyDropEl = document.getElementById('what-if-daily-drop');
-    const badgeEl = document.getElementById('what-if-risk-badge');
-    const msgEl = document.getElementById('what-if-message-bar');
-    const runwayBoxEl = document.getElementById('what-if-runway-box');
-    const runwayValEl = document.getElementById('what-if-runway-val');
-    const gateBarEl = document.getElementById('what-if-gate-bar');
-    const gateMsgEl = document.getElementById('what-if-gate-msg');
-    const gatePillEl = document.getElementById('what-if-gate-pill');
-
-    if (!slider) return;
-
-    const testAmt = extraAmount !== null ? extraAmount : parseFloat(slider.value) || 500;
-    if (displayEl) displayEl.textContent = `${currSym()}${testAmt.toLocaleString('en-IN')}`;
-
-    if (this.api?.simulateWhatIf) {
-      const sim = await this.api.simulateWhatIf(testAmt);
-      if (sim) {
-        if (currPaceEl) currPaceEl.textContent = `${formatCurrencyInt(sim.currentPace)}/day`;
-        if (projPaceEl) projPaceEl.textContent = `${formatCurrencyInt(sim.projectedPace)}/day`;
-        if (dailyDropEl) dailyDropEl.textContent = `-${formatCurrencyInt(sim.dailyDrop)}/day`;
-
-        if (badgeEl) {
-          badgeEl.textContent = sim.statusHeadline;
-          badgeEl.className = 'what-if-badge';
-          if (sim.riskLevel === 'SAFE') badgeEl.classList.add('badge-emerald');
-          else if (sim.riskLevel === 'CAUTION') badgeEl.classList.add('badge-amber');
-          else badgeEl.classList.add('badge-rose');
-        }
-
-        if (msgEl) {
-          msgEl.textContent = sim.statusMessage;
-        }
-
-        // Data-Gate & Runway Forecast UI Handling (Phase 0.8.4)
-        if (gateBarEl) {
-          if (sim.isDataGated) {
-            gateBarEl.style.display = 'flex';
-            if (gateMsgEl && sim.gateMessage) gateMsgEl.textContent = sim.gateMessage;
-            if (gatePillEl) {
-              gatePillEl.textContent = `${sim.activeDays || 0}/${sim.requiredDays || 20} Days`;
-            }
-            if (runwayBoxEl) runwayBoxEl.style.display = 'none';
-          } else {
-            gateBarEl.style.display = 'none';
-            if (runwayBoxEl) {
-              runwayBoxEl.style.display = 'block';
-              if (runwayValEl) {
-                if (sim.currentRunway !== undefined) {
-                  const dropText = sim.runwayDrop > 0 ? ` (-${sim.runwayDrop}d)` : '';
-                  runwayValEl.textContent = `${sim.projectedRunway}d${dropText}`;
-                } else {
-                  runwayValEl.textContent = '—';
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
 
 
   // ==========================================================================
@@ -1151,6 +1225,7 @@ export class DashboardView {
     const pillSplit = document.getElementById('pill-split');
     const pillPay = document.getElementById('pill-pay');
     const pillDate = document.getElementById('pill-date');
+    const pillImpact = document.getElementById('express-impact-pill');
     let nlpTimer = null;
 
     if (nlpInput) {
@@ -1165,6 +1240,10 @@ export class DashboardView {
             if (pillSplit) pillSplit.textContent = 'Personal';
             if (pillPay) pillPay.textContent = 'UPI';
             if (pillDate) pillDate.textContent = 'Today';
+            if (pillImpact) {
+              pillImpact.classList.add('hidden');
+              pillImpact.textContent = 'Daily Impact: --';
+            }
             return;
           }
 
@@ -1179,8 +1258,28 @@ export class DashboardView {
               if (pillPay) pillPay.textContent = parsed.tokens.paymentStr || 'UPI';
               if (pillDate) pillDate.textContent = parsed.tokens.dateStr || 'Today';
             }
+
+            if (parsed && parsed.amount > 0 && this.api?.calculateDailyImpact) {
+              try {
+                const impact = await this.api.calculateDailyImpact(parsed.amount);
+                if (impact && pillImpact) {
+                  const impactText =
+                    impact.formatted ||
+                    `Impact: ${impact.currencySymbol || currSym()}${impact.currentSafeDaily} → ${impact.currencySymbol || currSym()}${impact.projectedSafeDaily}/day`;
+                  pillImpact.innerHTML = `<i data-icon="activity" data-icon-size="12"></i> ${escapeHTML(impactText)}`;
+                  pillImpact.classList.remove('hidden');
+                  if (typeof window !== 'undefined' && typeof window.icon === 'function') {
+                    window.icon('activity', 12);
+                  }
+                }
+              } catch {
+                if (pillImpact) pillImpact.classList.add('hidden');
+              }
+            } else if (pillImpact) {
+              pillImpact.classList.add('hidden');
+            }
           }
-        }, 40);
+        }, 60);
       };
 
       nlpInput.addEventListener('input', inputHandler);
@@ -1192,7 +1291,12 @@ export class DashboardView {
       const submitHandler = async e => {
         e.preventDefault();
         const text = nlpInput?.value.trim();
-        if (!text) return;
+        if (!text) {
+          expressForm.classList.add('express-shake');
+          setTimeout(() => expressForm.classList.remove('express-shake'), 400);
+          showToast('Please specify a valid amount greater than 0');
+          return;
+        }
 
         if (this.api?.nlpParse) {
           const members = this.state?.get('householdMembers') || [];
@@ -1211,10 +1315,28 @@ export class DashboardView {
               isHouseholdExpense: Boolean(parsed.isHouseholdExpense)
             };
 
-            await this.api.addExpense(expenseData);
+            const res = await this.api.addExpense(expenseData);
+            const addedId = res?.id || res?.expense?.id || expenseData.id;
+            if (typeof this.state?.pushUndoAction === 'function') {
+              this.state.pushUndoAction({
+                type: 'ADD_EXPENSE',
+                description: `Logged "${expenseData.title}"`,
+                payload: res?.expense || { ...expenseData, id: addedId },
+                undo: async () => {
+                  if (addedId) await this.api.deleteExpense(addedId);
+                  if (this.onDataChanged) await this.onDataChanged();
+                  await this.render();
+                }
+              });
+            }
+
             if (nlpInput) nlpInput.value = '';
             if (pillAmt) pillAmt.textContent = `${currSym()}0.00`;
             if (pillTitle) pillTitle.textContent = 'Title';
+            if (pillImpact) {
+              pillImpact.classList.add('hidden');
+              pillImpact.textContent = 'Daily Impact: --';
+            }
 
             expressForm.classList.add('express-success-pulse');
             setTimeout(() => expressForm.classList.remove('express-success-pulse'), 350);
@@ -1225,11 +1347,15 @@ export class DashboardView {
               title: `Logged "${expenseData.title}"`,
               amount: expenseData.amount,
               category: expenseData.category,
-              subtext: `${expenseData.category} • Express Entry`
+              subtext: `${expenseData.category} • Express Entry (Ctrl+Z to undo)`
             });
 
             if (this.onDataChanged) await this.onDataChanged();
             await this.render();
+          } else {
+            expressForm.classList.add('express-shake');
+            setTimeout(() => expressForm.classList.remove('express-shake'), 400);
+            showToast('Please specify a valid amount greater than 0');
           }
         }
       };
@@ -1392,13 +1518,27 @@ export class DashboardView {
       this.#cleanups.push(() => jumpBtn.removeEventListener('click', jumpHandler));
     }
 
-    // Settle Selected Splits Button
-    const settleSelectedBtn = document.getElementById('btn-settle-selected-splits');
-    if (settleSelectedBtn) {
-      const settleHandler = () => this.handleSettleSelectedSplits();
-      settleSelectedBtn.addEventListener('click', settleHandler);
-      this.#cleanups.push(() => settleSelectedBtn.removeEventListener('click', settleHandler));
-    }
+    // Preset chip hover impact preview
+    const onPresetHover = async e => {
+      const chip = e.target.closest('.preset-chip');
+      if (!chip || chip.dataset.impactBound) return;
+      chip.dataset.impactBound = 'true';
+      const amount = parseFloat(chip.dataset.amount);
+      if (amount > 0 && this.api?.calculateDailyImpact) {
+        try {
+          const impact = await this.api.calculateDailyImpact(amount);
+          if (impact) {
+            const currentTitle = chip.getAttribute('title') || '';
+            const impactStr =
+              impact.formatted ||
+              `Impact: ${impact.currencySymbol || currSym()}${impact.currentSafeDaily} → ${impact.currencySymbol || currSym()}${impact.projectedSafeDaily}/day`;
+            chip.setAttribute('title', `${currentTitle}\n⚡ Daily ${impactStr}`);
+          }
+        } catch {}
+      }
+    };
+    this.container.addEventListener('mouseover', onPresetHover);
+    this.#cleanups.push(() => this.container.removeEventListener('mouseover', onPresetHover));
   }
 
   /**
@@ -1454,20 +1594,6 @@ export class DashboardView {
     });
   }
 
-  /**
-   * Bind What-If Simulator range slider and toggle bar.
-   * @private
-   */
-  #bindWhatIfSimulator() {
-    this.initWhatIfToggle();
-
-    const slider = document.getElementById('what-if-range-slider');
-    if (slider) {
-      const sliderHandler = () => this.updateWhatIfSimulation();
-      slider.addEventListener('input', sliderHandler);
-      this.#cleanups.push(() => slider.removeEventListener('input', sliderHandler));
-    }
-  }
 
   /**
    * Bind Dashboard mini-table search, category, and sort filters.
@@ -1556,6 +1682,11 @@ export class DashboardView {
     if (fixedPctEl) fixedPctEl.textContent = `${fixedPct.toFixed(1)}%`;
     if (savingsPctEl) savingsPctEl.textContent = `${savingsPct.toFixed(1)}%`;
     if (discPctEl) discPctEl.textContent = `${discPct.toFixed(1)}%`;
+
+    const splitGuidanceEl = document.getElementById('modal-salary-split-guidance');
+    if (splitGuidanceEl) {
+      splitGuidanceEl.textContent = `${Math.round(fixedPct)}% Essentials / ${Math.round(savingsPct)}% Savings / ${Math.round(discPct)}% Discretionary`;
+    }
   }
 
   /**

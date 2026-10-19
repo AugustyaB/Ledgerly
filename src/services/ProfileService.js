@@ -80,14 +80,17 @@ class ProfileService {
     if (!active.data.salaryConfig) {
       active.data.salaryConfig = this.getDefaultSalaryConfig();
     }
-    if (!Array.isArray(active.data.householdMembers)) {
-      active.data.householdMembers = ['Self', 'Partner', 'Roommate'];
+    if (!Array.isArray(active.data.householdMembers) || active.data.householdMembers.length === 0) {
+      active.data.householdMembers = [active.name || 'Self'];
     }
     if (!Array.isArray(active.data.notes)) {
       active.data.notes = [];
     }
     if (!Array.isArray(active.data.notifications)) {
       active.data.notifications = [];
+    }
+    if (!Array.isArray(active.data.dismissedSubscriptionAlerts)) {
+      active.data.dismissedSubscriptionAlerts = [];
     }
 
     return active.data;
@@ -141,14 +144,17 @@ class ProfileService {
     if (!profile.data.salaryConfig) {
       profile.data.salaryConfig = this.getDefaultSalaryConfig();
     }
-    if (!Array.isArray(profile.data.householdMembers)) {
-      profile.data.householdMembers = ['Self', 'Partner', 'Roommate'];
+    if (!Array.isArray(profile.data.householdMembers) || profile.data.householdMembers.length === 0) {
+      profile.data.householdMembers = [profile.name || 'Self'];
     }
     if (!Array.isArray(profile.data.notes)) {
       profile.data.notes = [];
     }
     if (!Array.isArray(profile.data.notifications)) {
       profile.data.notifications = [];
+    }
+    if (!Array.isArray(profile.data.dismissedSubscriptionAlerts)) {
+      profile.data.dismissedSubscriptionAlerts = [];
     }
 
     return profile.data;
@@ -198,6 +204,15 @@ class ProfileService {
   }
 
   /**
+   * Alias for getAll() for semantic consistency with IPC/facades.
+   *
+   * @returns {import('../types').ProfileSummary[]}
+   */
+  getProfiles() {
+    return this.getAll();
+  }
+
+  /**
    * Retrieves the summary descriptor for the currently active profile.
    *
    * @returns {import('../types').ProfileSummary} Active profile summary.
@@ -215,6 +230,15 @@ class ProfileService {
       expenseCount: Array.isArray(active.data?.expenses) ? active.data.expenses.length : 0,
       isActive: true
     };
+  }
+
+  /**
+   * Query alias for getActive() for semantic consistency with IPC and storage facade.
+   *
+   * @returns {import('../types').ProfileSummary}
+   */
+  getActiveProfile() {
+    return this.getActive();
   }
 
   /**
@@ -292,6 +316,16 @@ class ProfileService {
       profile: summary,
       activeProfile: summary
     };
+  }
+
+  /**
+   * Alias for create(input) for semantic consistency with IPC/facades.
+   *
+   * @param {{ name: string, avatar?: string, color?: string }} input
+   * @returns {import('../types').OperationResult & { profile?: import('../types').ProfileSummary, activeProfile?: import('../types').ProfileSummary }}
+   */
+  createProfile(input = {}) {
+    return this.create(input);
   }
 
   /**
@@ -521,22 +555,40 @@ class ProfileService {
   /**
    * Constructs a pristine data object for a new profile.
    *
+   * @param {string} [name='Self'] - Profile display name.
    * @returns {import('../types').ProfileData} Empty profile data container.
    */
-  createEmptyProfileData() {
+  createEmptyProfileData(name = 'Self') {
     return {
       expenses: [],
       categories: this.getDefaultCategories(),
       presets: this.getDefaultPresets(),
       salaryConfig: this.getDefaultSalaryConfig(),
-      householdMembers: ['Self', 'Partner', 'Roommate'],
+      householdMembers: [name || 'Self'],
       budgetGoal: Math.max(
         0,
         DEFAULTS.DEFAULT_MONTHLY_INCOME - DEFAULTS.DEFAULT_FIXED_BILLS - DEFAULTS.DEFAULT_SAVINGS_GOAL
       ),
       notes: [],
-      notifications: []
+      notifications: [],
+      dismissedSubscriptionAlerts: []
     };
+  }
+
+  /**
+   * Returns dynamic household member names derived from all existing user profiles.
+   * Keeps the household team synchronized with real user profiles.
+   *
+   * @returns {string[]} List of member names.
+   */
+  getHouseholdMemberNames() {
+    const profiles = this.getProfiles();
+    if (Array.isArray(profiles) && profiles.length > 0) {
+      const names = profiles.map(p => p.name).filter(Boolean);
+      if (names.length > 0) return Array.from(new Set(names));
+    }
+    const active = this.getActiveProfile();
+    return [active?.name || 'Self'];
   }
 }
 

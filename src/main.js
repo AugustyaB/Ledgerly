@@ -20,6 +20,9 @@ const { crashLogger } = require('./logger/crashLogger');
 const { VALIDATION_LIMITS } = require('./constants');
 const {
   validateExpenseInput,
+  validateBulkAddInput,
+  validateBulkDeleteInput,
+  validateDailyImpactInput,
   validateProfileInput,
   validateBudgetConfig,
   validateHouseholdMember,
@@ -48,6 +51,10 @@ const {
   validateApplyReconciliationInput,
   validateSubscriptionDetectInput,
   validateForesightForecastInput,
+  validateVaultSetupInput,
+  validateVaultUnlockInput,
+  validateVaultRecoverInput,
+  validateChangePasswordInput,
   isPlainObject
 } = require('./validation/schemaValidator');
 
@@ -289,9 +296,9 @@ function createWindow() {
 
   createQuickPillWindow();
 
-  // Register Global Shortcut Ctrl+Alt+L
+  // Register Global Shortcuts Ctrl+Alt+L and Ctrl+Shift+L
   try {
-    globalShortcut.register('CommandOrControl+Alt+L', () => {
+    const toggleQuickPill = () => {
       if (quickPillWindow && !quickPillWindow.isDestroyed()) {
         if (quickPillWindow.isVisible()) {
           quickPillWindow.hide();
@@ -300,7 +307,9 @@ function createWindow() {
           quickPillWindow.focus();
         }
       }
-    });
+    };
+    globalShortcut.register('CommandOrControl+Alt+L', toggleQuickPill);
+    globalShortcut.register('CommandOrControl+Shift+L', toggleQuickPill);
   } catch (err) {
     console.warn('Global shortcut registration warning:', err);
   }
@@ -416,6 +425,65 @@ ipcMain.handle(
     },
     async (event, prefs) => {
       return storage.updateAccountPreferences(prefs);
+    }
+  )
+);
+
+// Bank-Grade AES-256-GCM Vault & Recovery IPC Handlers (ADR-014)
+ipcMain.handle(
+  'auth:setup-vault',
+  wrapIPC(
+    'auth:setup-vault',
+    payload => validateVaultSetupInput(payload),
+    async (event, payload) => {
+      return storage.setupVault(payload);
+    }
+  )
+);
+
+ipcMain.handle(
+  'auth:unlock-vault',
+  wrapIPC(
+    'auth:unlock-vault',
+    payload => validateVaultUnlockInput(payload),
+    async (event, payload) => {
+      return storage.unlockVault(payload);
+    }
+  )
+);
+
+ipcMain.handle(
+  'auth:recover-vault',
+  wrapIPC(
+    'auth:recover-vault',
+    payload => validateVaultRecoverInput(payload),
+    async (event, payload) => {
+      return storage.recoverVault(payload);
+    }
+  )
+);
+
+ipcMain.handle(
+  'auth:get-recovery-key',
+  wrapIPC('auth:get-recovery-key', null, async () => {
+    return storage.getRecoveryKey();
+  })
+);
+
+ipcMain.handle(
+  'auth:factory-reset',
+  wrapIPC('auth:factory-reset', null, async () => {
+    return storage.factoryResetVault();
+  })
+);
+
+ipcMain.handle(
+  'auth:change-password',
+  wrapIPC(
+    'auth:change-password',
+    payload => validateChangePasswordInput(payload),
+    async (event, payload) => {
+      return storage.changePassword(payload);
     }
   )
 );
@@ -545,6 +613,35 @@ ipcMain.handle(
         receiptStorage.deleteReceipt(target.receiptFilename);
       }
       return storage.deleteExpense(id);
+    }
+  )
+);
+
+ipcMain.handle(
+  'bulk-add-expenses',
+  wrapIPC(
+    'bulk-add-expenses',
+    expenses => validateBulkAddInput(expenses),
+    async (event, expenses) => {
+      return storage.bulkAddExpenses(expenses);
+    }
+  )
+);
+
+ipcMain.handle(
+  'bulk-delete-expenses',
+  wrapIPC(
+    'bulk-delete-expenses',
+    ids => validateBulkDeleteInput(ids),
+    async (event, ids) => {
+      const allExpenses = storage.getCombinedExpenses();
+      const idSet = new Set(ids);
+      for (const e of allExpenses) {
+        if (e && idSet.has(e.id) && e.receiptFilename) {
+          receiptStorage.deleteReceipt(e.receiptFilename);
+        }
+      }
+      return storage.bulkDeleteExpenses(ids);
     }
   )
 );
@@ -1016,7 +1113,7 @@ ipcMain.handle(
 ipcMain.handle(
   'get-active-model',
   wrapIPC('get-active-model', null, async () => {
-    return modelManager ? modelManager.getActiveModelId() : 'tier1-fastlite';
+    return 'omni-regional-engine';
   })
 );
 
@@ -1027,16 +1124,14 @@ ipcMain.handle(
     (modelId, options) => {
       return validateModelActionInput({ modelId, action: 'download' }, options);
     },
-    async (event, modelId, options) => {
-      if (!modelManager) throw new Error('ModelManager is not initialized.');
-      return modelManager.downloadModel(modelId, {
-        ...options,
-        onProgress: progress => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('model-download-progress', progress);
-          }
-        }
-      });
+    async (event, modelId) => {
+      return {
+        success: true,
+        modelId: modelId || 'omni-regional-engine',
+        isDownloaded: true,
+        alreadyReady: true,
+        message: 'Omni-Regional Perception Engine is built-in and active.'
+      };
     }
   )
 );
@@ -1048,9 +1143,8 @@ ipcMain.handle(
     modelId => {
       return validateModelActionInput({ modelId, action: 'cancel' });
     },
-    async (event, modelId) => {
-      if (!modelManager) throw new Error('ModelManager is not initialized.');
-      return modelManager.cancelDownload(modelId);
+    async () => {
+      return { success: true };
     }
   )
 );
@@ -1062,9 +1156,8 @@ ipcMain.handle(
     modelId => {
       return validateModelActionInput({ modelId, action: 'delete' });
     },
-    async (event, modelId) => {
-      if (!modelManager) throw new Error('ModelManager is not initialized.');
-      return modelManager.deleteModel(modelId);
+    async () => {
+      return { success: false, error: 'Built-in Omni-Regional Perception Engine cannot be deleted.' };
     }
   )
 );
@@ -1076,9 +1169,8 @@ ipcMain.handle(
     modelId => {
       return validateModelActionInput({ modelId, action: 'setActive' });
     },
-    async (event, modelId) => {
-      if (!modelManager) throw new Error('ModelManager is not initialized.');
-      return modelManager.setActiveModel(modelId);
+    async () => {
+      return { success: true, activeModel: 'omni-regional-engine' };
     }
   )
 );
@@ -1308,6 +1400,18 @@ ipcMain.handle(
     async (event, inputPhrase, knownMembers) => {
       const members = knownMembers || storage.getHouseholdMembers();
       return nlpParser.parse(inputPhrase, members);
+    }
+  )
+);
+
+// Live Daily Allowance Impact (ADR-009 Core Simplification)
+ipcMain.handle(
+  'calculate-daily-impact',
+  wrapIPC(
+    'calculate-daily-impact',
+    amount => validateDailyImpactInput(amount),
+    async (event, amount) => {
+      return storage.calculateDailyImpact(amount);
     }
   )
 );
@@ -2203,6 +2307,38 @@ ipcMain.handle(
     }
   )
 );
+
+ipcMain.handle(
+  'get-subscription-summary',
+  wrapIPC(
+    'get-subscription-summary',
+    payload => (payload ? validateSubscriptionDetectInput(payload) : { valid: true }),
+    async (_event, options) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      return storage.getSubscriptionsSummary(options || {});
+    }
+  )
+);
+
+ipcMain.handle(
+  'dismiss-subscription-alert',
+  wrapIPC(
+    'dismiss-subscription-alert',
+    payload => {
+      const id = typeof payload === 'string' ? payload : (payload && payload.subscriptionId);
+      if (!id || typeof id !== 'string') {
+        return { valid: false, errors: ['subscriptionId must be a non-empty string.'] };
+      }
+      return { valid: true };
+    },
+    async (_event, payload) => {
+      if (!storage) return { success: false, error: 'Storage not initialized' };
+      const id = typeof payload === 'string' ? payload : (payload && payload.subscriptionId);
+      return storage.dismissSubscriptionAlert(id);
+    }
+  )
+);
+
 
 
 

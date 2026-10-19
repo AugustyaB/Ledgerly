@@ -22,7 +22,7 @@ const path = require('path');
 const ROOT_DIR = path.resolve(__dirname, '..');
 
 /**
- * Canonical 5-Layer × 6-Section Manifest (76 files across Desktop & Mobile)
+ * Canonical 5-Layer × 6-Section Manifest (77 files across Desktop & Mobile)
  * Layers:
  *   L1  = Data & Persistence
  *   L2  = Core Domain Services (CRUD & Self-Healing)
@@ -39,6 +39,7 @@ const ARCHITECTURE_MANIFEST = {
   'src/receiptStorage.js': { layer: 'L1', sections: ['Sec 3', 'Sec 5'] },
   'src/services/JsonDatabase.js': { layer: 'L1', sections: ['Sec 1', 'Sec 4', 'Sec 6'] },
   'src/services/BackupMirrorService.js': { layer: 'L1', sections: ['Sec 6'] },
+  'src/services/VaultCipherService.js': { layer: 'L1', sections: ['Sec 6'] },
   'mobile/src/storage/indexedDbQueue.js': { layer: 'L1', sections: ['Sec 5'] },
   'mobile/src/storage/mobileSettings.js': { layer: 'L1', sections: ['Sec 5'] },
 
@@ -102,6 +103,7 @@ const ARCHITECTURE_MANIFEST = {
   'src/ui/views/SettingsView.js': { layer: 'L5A', sections: ['Sec 5', 'Sec 6'] },
   'src/ui/components/AuthScreen.js': { layer: 'L5A', sections: ['Sec 6'] },
   'src/ui/components/ErrorBoundary.js': { layer: 'L5A', sections: ['Sec 6'] },
+  'src/ui/components/WalkthroughGuide.js': { layer: 'L5A', sections: ['Sec 1', 'Sec 2', 'Sec 3', 'Sec 4', 'Sec 5', 'Sec 6'] },
   'mobile/src/main.js': { layer: 'L5A', sections: ['Sec 5'] },
   'mobile/src/router.js': { layer: 'L5A', sections: ['Sec 5'] },
   'mobile/src/views/CaptureView.js': { layer: 'L5A', sections: ['Sec 5'] },

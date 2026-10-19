@@ -80,14 +80,12 @@ class DocumentIntelligenceService {
   }
 
   /**
-   * Returns the currently active model ID according to the ModelManager.
+   * Returns the currently active model ID. In the unified architecture,
+   * the built-in omni-regional engine is always active and ready.
    * @returns {string}
    */
   getActiveEngine() {
-    if (this.modelManager && typeof this.modelManager.getActiveModelId === 'function') {
-      return this.modelManager.getActiveModelId();
-    }
-    return 'tier1-fastlite';
+    return 'omni-regional-engine';
   }
 
   /**
@@ -106,84 +104,46 @@ class DocumentIntelligenceService {
   }
 
   /**
-   * Processes a document (PDF or image) through the multi-engine document intelligence runtime.
+   * Processes a document (PDF or image) through the unified Omni-Regional Perception Engine.
    *
    * @param {string|Buffer|Uint8Array|Object} input - File path, buffer, or normalized payload
-   * @param {Object} [options] - Options (e.g. engine override, currency)
+   * @param {Object} [options] - Options (e.g. currency)
    * @returns {Promise<{ success: boolean, data: Object|null, error: string|null, code: string }>}
    */
   async processDocument(input, options = {}) {
-    // 1. Resolve requested engine tier
-    let requestedEngine = options.engine || options.preferredEngine;
-    if (!requestedEngine || requestedEngine === 'auto') {
-      requestedEngine = this.getActiveEngine();
-    }
-
-    // Auto-resolve Tier 3 regional model if generic 'tier3' or 'tier3-regional'
-    if (requestedEngine === 'tier3' || requestedEngine === 'tier3-regional') {
-      requestedEngine = this.resolveRecommendedRegionalModel(options.currency);
-    }
-
+    const requestedEngine = options.engine || options.preferredEngine || this.getActiveEngine();
     let result = null;
     let fallbackTriggered = false;
     let fallbackReason = null;
 
-    // 2. Dispatch to target engine with automatic fallback
-    if (
-      requestedEngine === 'tier2' ||
-      requestedEngine === 'tier2-visionpro' ||
-      (requestedEngine && requestedEngine.startsWith('tier2-'))
-    ) {
-      const specialistId = requestedEngine === 'tier2' ? 'tier2-visionpro' : requestedEngine;
-      if (this.tier2Engine && this.tier2Engine.isModelReady(specialistId)) {
-        try {
-          result = await this.tier2Engine.processDocument(input, { ...options, specialistId });
-        } catch (tier2Err) {
-          console.warn(
-            `[DocumentIntelligenceService] ${specialistId} exception, falling back to Tier 1:`,
-            tier2Err.message
-          );
-          fallbackTriggered = true;
-          fallbackReason = tier2Err.message;
-        }
-      } else {
-        fallbackTriggered = true;
-        fallbackReason = 'MODEL_NOT_DOWNLOADED';
+    // Direct inference through the unified Omni-Regional Perception Engine (India, US, EU, APAC)
+    try {
+      if (this.tier3Engine) {
+        result = await this.tier3Engine.processDocument(input, {
+          ...options,
+          engine: options.engine || options.specialistId || 'omni-regional-engine'
+        });
       }
-
-      // Fallback to Tier 1 if Tier 2 was unready or threw
-      if (fallbackTriggered || !result || !result.success) {
-        result = await this.tier1Engine.processDocument(input, options);
-      }
-    } else if (requestedEngine && requestedEngine.startsWith('tier3-')) {
-      if (this.tier3Engine && this.tier3Engine.isModelReady(requestedEngine)) {
-        try {
-          result = await this.tier3Engine.processDocument(input, { ...options, specialistId: requestedEngine });
-        } catch (tier3Err) {
-          console.warn(
-            `[DocumentIntelligenceService] ${requestedEngine} exception, falling back to Tier 1:`,
-            tier3Err.message
-          );
-          fallbackTriggered = true;
-          fallbackReason = tier3Err.message;
-        }
-      } else {
-        fallbackTriggered = true;
-        fallbackReason = 'MODEL_NOT_DOWNLOADED';
-      }
-
-      // Fallback to Tier 1 if Tier 3 was unready or threw
-      if (fallbackTriggered || !result || !result.success) {
-        result = await this.tier1Engine.processDocument(input, options);
-      }
-    } else if (requestedEngine === 'tier1' || requestedEngine === 'tier1-fastlite' || requestedEngine === 'auto' || !requestedEngine) {
-      // Default: Tier 1 Fast-Lite
-      result = await this.tier1Engine.processDocument(input, options);
-    } else {
-      // Unknown or uninstalled engine requested -> fallback to Tier 1
+    } catch (engineErr) {
+      console.warn(
+        '[DocumentIntelligenceService] Omni-regional engine error, using Tier 1 fallback:',
+        engineErr.message
+      );
       fallbackTriggered = true;
-      fallbackReason = `UNSUPPORTED_OR_MISSING_ENGINE: ${requestedEngine}`;
-      result = await this.tier1Engine.processDocument(input, options);
+      fallbackReason = engineErr.message;
+    }
+
+    // Resilient fallback to Tier 1 fast-lite if omni-regional was unready or returned error
+    if (!result || !result.success) {
+      if (this.tier1Engine) {
+        try {
+          result = await this.tier1Engine.processDocument(input, options);
+          fallbackTriggered = true;
+          fallbackReason = fallbackReason || 'OMNI_REGIONAL_FALLBACK';
+        } catch (tier1Err) {
+          console.error('[DocumentIntelligenceService] Tier 1 fallback failure:', tier1Err);
+        }
+      }
     }
 
     if (!result || !result.success || !result.data) {

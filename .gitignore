@@ -11,9 +11,10 @@ adapters/
 GSD-STYLE.md
 PROJECT_RULES.md
 GEMINI.md
-docs/runbook.md
-docs/model-selection-playbook.md
-docs/token-optimization-guide.md
+docs/
+Quality assurance testing/
+training/
+Run-Ledgerly.bat
 scripts/validate-*
 scripts/setup_search.*
 scripts/search_repo.*
@@ -25,6 +26,8 @@ models/
 /android
 /expenses_config.json
 /expenses_db.json
+Quality assurance testing/**/audit_run/
+sample_data/backup_workspace_dev/
 
 # Build and distribution outputs
 dist/

@@ -1,6 +1,6 @@
 {
   "name": "ledgerly",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "Ledgerly — A friction-free, 100% offline desktop expense & budget tracker",
   "main": "src/main.js",
   "workspaces": [
@@ -11,10 +11,8 @@
     "dev": "electron .",
     "build": "electron-builder --win",
     "dist": "electron-builder",
-    "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux",
     "test:ui": "node scratch/test_playwright_ui.js",
+    "test:walkthrough": "node scratch/test_playwright_walkthrough.js",
     "test:profiles": "node scratch/test_batch2_profiles.js",
     "test:phase5": "node scratch/test_playwright_phase5.js",
     "test:validation": "node scratch/test_phase5_validation.js",
@@ -50,6 +48,7 @@
     "test:notifications": "node scratch/test_notification_engine_rules.js",
     "test:e2e": "node scratch/test_e2e_ledgerly.js",
     "test:journeys": "node \"Quality assurance testing/06_User_Journeys/run_user_journeys.js\"",
+    "test:bills:global": "node \"Quality assurance testing/benchmarks/run_global_bills_benchmark.js\"",
     "mobile:dev": "npm --prefix mobile run dev",
     "mobile:build": "npm --prefix mobile run build",
     "mobile:preview": "npm --prefix mobile run preview",

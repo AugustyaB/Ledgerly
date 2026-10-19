@@ -46,24 +46,44 @@ class NLPParser {
     let detectedCurrency = '₹';
 
     // -------------------------------------------------------------------------
-    // PASS 1: Amount Extraction (e.g. ₹350, 350.50, 1.2k, rs 500, $25, 17,39 €, 1.14 EUR)
+    // PASS 1: Amount Extraction (e.g. ₹350, 350.50, 1.2k, 240+60, 85*3, 500-120, $25, 17,39 €)
     // -------------------------------------------------------------------------
-    const amountRegex =
-      /(?:(?:[₹$€£]|\b(?:rs\.?|inr|usd|eur|gbp)\b)\s*)?(\b\d+(?:[.,]\d{1,2})?(?:k|K)?)(?:\s*(?:[₹$€£]|\b(?:rs\.?|inr|usd|eur|gbp)\b)|\b)/i;
-    const amountMatch = workingStr.match(amountRegex);
-    if (amountMatch) {
-      if (/€|\beur\b/i.test(amountMatch[0])) detectedCurrency = '€';
-      else if (/\$|\busd\b/i.test(amountMatch[0])) detectedCurrency = '$';
-      else if (/£|\bgbp\b/i.test(amountMatch[0])) detectedCurrency = '£';
+    // 1A. Inline arithmetic expressions (e.g. 240+60, 85*3, 500-120, 250/2)
+    const mathRegex =
+      /(?:(?:[₹$€£]|\b(?:rs\.?|inr|usd|eur|gbp)\b)\s*)?(\b\d+(?:[.,]\d+)?\s*[+*/-]\s*\d+(?:[.,]\d+)?(?:\s*[+*/-]\s*\d+(?:[.,]\d+)?)*\b)(?:\s*(?:[₹$€£]|\b(?:rs\.?|inr|usd|eur|gbp)\b)|\b)/i;
+    const mathMatch = workingStr.match(mathRegex);
 
-      let numValStr = amountMatch[1].toLowerCase().replace(',', '.');
-      if (numValStr.endsWith('k')) {
-        detectedAmount = parseFloat(numValStr.replace('k', '')) * 1000;
-      } else {
-        detectedAmount = parseFloat(numValStr);
+    if (mathMatch) {
+      if (/€|\beur\b/i.test(mathMatch[0])) detectedCurrency = '€';
+      else if (/\$|\busd\b/i.test(mathMatch[0])) detectedCurrency = '$';
+      else if (/£|\bgbp\b/i.test(mathMatch[0])) detectedCurrency = '£';
+
+      const evaluated = this._evaluateArithmetic(mathMatch[1]);
+      if (evaluated !== null && !isNaN(evaluated) && evaluated > 0) {
+        detectedAmount = evaluated;
+        workingStr = workingStr.replace(mathMatch[0], ' ');
       }
-      // Remove amount token from working string
-      workingStr = workingStr.replace(amountMatch[0], ' ');
+    }
+
+    // 1B. Standard numerical amount token (if arithmetic not matched)
+    if (detectedAmount === null) {
+      const amountRegex =
+        /(?:(?:[₹$€£]|\b(?:rs\.?|inr|usd|eur|gbp)\b)\s*)?(\b\d+(?:[.,]\d{1,2})?(?:k|K)?)(?:\s*(?:[₹$€£]|\b(?:rs\.?|inr|usd|eur|gbp)\b)|\b)/i;
+      const amountMatch = workingStr.match(amountRegex);
+      if (amountMatch) {
+        if (/€|\beur\b/i.test(amountMatch[0])) detectedCurrency = '€';
+        else if (/\$|\busd\b/i.test(amountMatch[0])) detectedCurrency = '$';
+        else if (/£|\bgbp\b/i.test(amountMatch[0])) detectedCurrency = '£';
+
+        let numValStr = amountMatch[1].toLowerCase().replace(',', '.');
+        if (numValStr.endsWith('k')) {
+          detectedAmount = parseFloat(numValStr.replace('k', '')) * 1000;
+        } else {
+          detectedAmount = parseFloat(numValStr);
+        }
+        // Remove amount token from working string
+        workingStr = workingStr.replace(amountMatch[0], ' ');
+      }
     }
 
     // -------------------------------------------------------------------------
@@ -135,14 +155,27 @@ class NLPParser {
     }
 
     // -------------------------------------------------------------------------
-    // PASS 3: Household / Split Extraction ("with Priya", "split with Bob", "shared")
+    // PASS 3: Household / Split Extraction ("with Priya and Rohan", "split with Bob", "shared")
     // -------------------------------------------------------------------------
-    const withMatch = workingStr.match(/\b(?:split\s+with|with|for)\s+([a-zA-Z0-9_\-&]+)/i);
+    const withMatch = workingStr.match(
+      /\b(?:split\s+with|with|for)\s+([a-zA-Z0-9_\-&]+(?:\s*(?:,|and|&)\s*[a-zA-Z0-9_\-&]+)*)/i
+    );
     if (withMatch) {
-      const memberName = withMatch[1].trim();
-      splitWithMembers.push(memberName);
-      isHousehold = true;
-      splitTokenStr = `Shared with ${memberName}`;
+      const rawNames = withMatch[1];
+      const parsedMembers = rawNames
+        .split(/(?:\s*,\s*|\s+and\s+|\s+&\s+)/i)
+        .map(n => n.trim())
+        .filter(n => n && n.toLowerCase() !== 'self');
+
+      for (const memberName of parsedMembers) {
+        if (!splitWithMembers.includes(memberName)) {
+          splitWithMembers.push(memberName);
+        }
+      }
+      if (splitWithMembers.length > 0) {
+        isHousehold = true;
+        splitTokenStr = `Shared with ${splitWithMembers.join(', ')}`;
+      }
       workingStr = workingStr.replace(withMatch[0], ' ');
     } else if (/\b(shared|joint|household|flatmates|roommates)\b/i.test(workingStr)) {
       isHousehold = true;
@@ -222,6 +255,51 @@ class NLPParser {
         splitStr: splitTokenStr || (isHousehold ? 'Shared' : 'Personal')
       }
     };
+  }
+
+  /**
+   * Safely evaluates simple inline arithmetic expressions (+, -, *, /) without eval.
+   *
+   * @private
+   * @param {string} expr - Expression string (e.g. "240+60", "85*3", "500-120").
+   * @returns {number|null} Evaluated amount or null if invalid.
+   */
+  _evaluateArithmetic(expr) {
+    if (!expr || typeof expr !== 'string') return null;
+    const normalized = expr.replace(/,/g, '.');
+    const tokens = normalized.match(/\d+(?:\.\d+)?|[+*/-]/g);
+    if (!tokens || tokens.length < 3) return null;
+
+    // Pass 1: Handle * and /
+    const pass1 = [];
+    let i = 0;
+    while (i < tokens.length) {
+      const token = tokens[i];
+      if (token === '*' || token === '/') {
+        const prev = parseFloat(pass1.pop());
+        const next = parseFloat(tokens[++i]);
+        if (isNaN(prev) || isNaN(next)) return null;
+        const res = token === '*' ? prev * next : (next !== 0 ? prev / next : 0);
+        pass1.push(res);
+      } else {
+        pass1.push(token);
+      }
+      i++;
+    }
+
+    // Pass 2: Handle + and -
+    let total = parseFloat(pass1[0]);
+    if (isNaN(total)) return null;
+    let j = 1;
+    while (j < pass1.length) {
+      const op = pass1[j++];
+      const val = parseFloat(pass1[j++]);
+      if (isNaN(val)) return null;
+      if (op === '+') total += val;
+      else if (op === '-') total -= val;
+    }
+
+    return Math.round(total * 100) / 100;
   }
 }
 

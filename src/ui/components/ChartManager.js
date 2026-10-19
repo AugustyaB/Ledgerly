@@ -131,6 +131,10 @@ export class ChartManager {
     this.destroyChart(chartKey);
 
     const currSym = options.currencySymbol || '₹';
+    const cautionData =
+      options.cautionBenchmarkData ||
+      paceBenchmarkData.map(v => (typeof v === 'number' ? parseFloat((v * 0.8).toFixed(2)) : v));
+    const hardLimitData = options.hardLimitBenchmarkData || paceBenchmarkData;
 
     const instance = new Chart(ctx, {
       type: 'bar',
@@ -142,17 +146,30 @@ export class ChartManager {
             data: amounts,
             backgroundColor: '#D9822B',
             borderRadius: 6,
+            order: 3
+          },
+          {
+            label: `80% Caution Ceiling (${currSym})`,
+            data: cautionData,
+            type: 'line',
+            borderColor: '#F59E0B',
+            borderWidth: 1.5,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            pointBackgroundColor: '#F59E0B',
+            fill: false,
             order: 2
           },
           {
-            label: `Daily Budget Pace Line (${currSym})`,
-            data: paceBenchmarkData,
+            label: `100% Daily Budget Limit (${currSym})`,
+            data: hardLimitData,
             type: 'line',
-            borderColor: '#E5943C',
+            borderColor: '#EF4444',
             borderWidth: 2,
             borderDash: [5, 5],
             pointRadius: 3,
-            pointBackgroundColor: '#E5943C',
+            pointBackgroundColor: '#EF4444',
             fill: false,
             order: 1
           }

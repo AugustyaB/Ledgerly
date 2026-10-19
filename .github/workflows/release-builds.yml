@@ -33,7 +33,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.9.0' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
           files: dist/*.exe
           fail_on_unmatched_files: false
         env:
@@ -66,7 +66,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.9.0' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
           files: |
             dist/*.dmg
             dist/*-mac.zip
@@ -89,6 +89,34 @@ jobs:
         run: npm run dist:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify Installation & Launch (.deb & .AppImage)
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnotify-dev libnss3 libasound2
+          echo "=== Testing .deb installation ==="
+          sudo dpkg -i dist/*.deb || sudo apt-get install -f -y
+          echo "=== Launching installed Ledgerly via xvfb ==="
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" ledgerly --no-sandbox &
+          DEB_PID=$!
+          sleep 6
+          if kill -0 $DEB_PID 2>/dev/null; then
+            echo "✅ Ledgerly .deb installed and launched successfully! (PID $DEB_PID)"
+            kill $DEB_PID
+          else
+            echo "❌ Ledgerly .deb failed to launch"
+            exit 1
+          fi
+          echo "=== Testing .AppImage launch ==="
+          chmod +x dist/*.AppImage
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" ./dist/*.AppImage --appimage-extract-and-run --no-sandbox &
+          APP_PID=$!
+          sleep 6
+          if kill -0 $APP_PID 2>/dev/null; then
+            echo "✅ Ledgerly .AppImage extracted and launched successfully! (PID $APP_PID)"
+            kill $APP_PID
+          else
+            echo "❌ Ledgerly .AppImage failed to launch"
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: Ledgerly-Linux-Desktop
@@ -100,7 +128,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.9.0' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
           files: |
             dist/*.AppImage
             dist/*.deb
@@ -139,7 +167,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.9.0' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
           files: dist/Ledgerly-Android-Companion.apk
           fail_on_unmatched_files: false
         env:
@@ -183,8 +211,41 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.9.0' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
           files: mobile/ios/App/build/Ledgerly-iOS-App.xcarchive.tar.gz
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Simulator Installation & Launch (Headless iOS Simulator)
+        run: |
+          echo "=== Building App for iPhone 15 Simulator ==="
+          cd mobile/ios/App
+          xcodebuild -workspace App.xcworkspace \
+                     -scheme App \
+                     -sdk iphonesimulator \
+                     -destination 'platform=iOS Simulator,name=iPhone 15' \
+                     -derivedDataPath build_sim \
+                     build \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO
+          SIM_APP_PATH=$(find build_sim -name "App.app" -type d | head -n 1)
+          echo "Found simulator bundle at: $SIM_APP_PATH"
+          echo "=== Booting iPhone 15 Simulator ==="
+          xcrun simctl boot "iPhone 15" || true
+          echo "=== Installing App onto Simulator ==="
+          xcrun simctl install "iPhone 15" "$SIM_APP_PATH"
+          echo "=== Launching App on Simulator ==="
+          xcrun simctl launch "iPhone 15" com.ledgerly.mobile
+          sleep 5
+          echo "=== Capturing Verification Screenshot ==="
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          xcrun simctl io "iPhone 15" screenshot "$GITHUB_WORKSPACE/dist/ios_simulator_launch.png"
+          echo "✅ iOS Companion installed and launched on simulator!"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ledgerly-iOS-Simulator-Launch-Screenshot
+          path: dist/ios_simulator_launch.png
+          retention-days: 14
+

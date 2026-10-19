@@ -48,6 +48,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   logoutAccount: () => invokeIPC('account-logout'),
   updateAccountPreferences: prefs => invokeIPC('account-update-prefs', prefs),
 
+  // Bank-Grade AES-256-GCM Vault & Recovery (ADR-014)
+  setupVault: payload => invokeIPC('auth:setup-vault', payload),
+  unlockVault: payload => invokeIPC('auth:unlock-vault', payload),
+  recoverVault: payload => invokeIPC('auth:recover-vault', payload),
+  getRecoveryKey: () => invokeIPC('auth:get-recovery-key'),
+  changePassword: payload => invokeIPC('auth:change-password', payload),
+  factoryResetVault: () => invokeIPC('auth:factory-reset'),
+
   // Multi-User Profile Management
   getProfiles: () => invokeIPC('get-profiles'),
   getActiveProfile: () => invokeIPC('get-active-profile'),
@@ -64,6 +72,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addExpense: expense => invokeIPC('add-expense', expense),
   updateExpense: expense => invokeIPC('update-expense', expense),
   deleteExpense: id => invokeIPC('delete-expense', id),
+  bulkAddExpenses: expenses => invokeIPC('bulk-add-expenses', expenses),
+  bulkDeleteExpenses: ids => invokeIPC('bulk-delete-expenses', ids),
   setBudgetGoal: amount => invokeIPC('set-budget-goal', amount),
 
   // Category Management
@@ -80,6 +90,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSalaryConfig: () => invokeIPC('get-salary-config'),
   setSalaryConfig: config => invokeIPC('set-salary-config', config),
   getDailyBudgetMetrics: targetDateStr => invokeIPC('get-daily-budget-metrics', targetDateStr),
+  calculateDailyImpact: additionalAmount => invokeIPC('calculate-daily-impact', additionalAmount),
 
   // Household Members & Split Settlement
   getHouseholdMembers: () => invokeIPC('get-household-members'),
@@ -229,11 +240,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   applyReconciliation: resolutions =>
     invokeIPC('reconciliation-apply', resolutions),
 
-  // Smart Insights, Foresight Forecasting & Subscriptions (Phase 0.8.4)
+  // Smart Insights, Foresight Forecasting & Subscriptions (Phase 0.8.4 & Phase 0.9.3)
   detectSubscriptions: options => invokeIPC('subscriptions-detect', options),
   getForesightForecast: (extraAmount, options) =>
     invokeIPC('foresight-burn-rate', { extraAmount, options }),
   getPacingInsights: options => invokeIPC('pacing-insights-get', options),
+  getSubscriptionsSummary: options => invokeIPC('get-subscription-summary', options),
+  dismissSubscriptionAlert: subscriptionId => invokeIPC('dismiss-subscription-alert', subscriptionId),
 
   // Event Subscriptions
 
