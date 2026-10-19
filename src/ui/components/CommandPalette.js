@@ -343,6 +343,7 @@ export class CommandPalette {
 
     const categorized = {
       calculator: /** @type {Array<any>} */ ([]),
+      security: /** @type {Array<any>} */ ([]),
       actions: /** @type {Array<any>} */ ([]),
       workspaces: /** @type {Array<any>} */ ([]),
       members: /** @type {Array<any>} */ ([]),
@@ -373,7 +374,57 @@ export class CommandPalette {
       });
     }
 
-    // 1. Quick App Actions
+    // 1. Security & Vault Actions (Phase 0.9.1 Sec 6)
+    const securityActions = [
+      {
+        title: 'Toggle Stealth Privacy Mode (P)',
+        badge: 'Privacy',
+        icon: 'lock',
+        category: 'Security & Vault',
+        run: () => this.handlers.onTogglePrivacy?.()
+      },
+      {
+        title: 'Lock Ledgerly / Switch Profile',
+        badge: 'Security',
+        icon: 'lock',
+        category: 'Security & Vault',
+        run: () => {
+          if (this.handlers.onLockLedgerly) {
+            this.handlers.onLockLedgerly();
+          } else {
+            this.handlers.onOpenProfilePicker?.();
+          }
+        }
+      },
+      {
+        title: 'Open Security & Vault Settings',
+        badge: 'Settings',
+        icon: 'shield-check',
+        category: 'Security & Vault',
+        run: () => {
+          if (this.handlers.onOpenSecuritySettings) {
+            this.handlers.onOpenSecuritySettings();
+          } else {
+            this.handlers.onNavigateTab?.('settings');
+          }
+        }
+      },
+      {
+        title: 'Trigger Vault Mirror Backup',
+        badge: 'Backup',
+        icon: 'hard-drive',
+        category: 'Security & Vault',
+        run: () => this.handlers.onTriggerMirrorBackup?.()
+      }
+    ];
+
+    securityActions.forEach(s => {
+      if (!q || s.title.toLowerCase().includes(q) || 'security vault privacy lock mirror backup'.includes(q)) {
+        categorized.security.push(s);
+      }
+    });
+
+    // 2. Quick App Actions
     const actions = [
       {
         title: 'Log New Expense',
@@ -411,18 +462,24 @@ export class CommandPalette {
         run: () => this.handlers.onExportCsv?.()
       },
       {
-        title: 'Toggle Privacy Stealth Mode (P)',
-        badge: 'Action',
-        icon: 'lock',
-        category: 'Quick Actions',
-        run: () => this.handlers.onTogglePrivacy?.()
-      },
-      {
         title: 'Switch User Profile (Netflix Hub)',
         badge: 'Action',
         icon: 'refresh-cw',
         category: 'Quick Actions',
         run: () => this.handlers.onOpenProfilePicker?.()
+      },
+      {
+        title: 'Replay App Walkthrough Guide',
+        badge: 'Guide',
+        icon: 'compass',
+        category: 'Quick Actions',
+        run: () => {
+          if (this.handlers.onReplayWalkthrough) {
+            this.handlers.onReplayWalkthrough();
+          } else if (typeof window !== 'undefined' && window.openWalkthroughGuide) {
+            window.openWalkthroughGuide(0);
+          }
+        }
       }
     ];
 
@@ -546,6 +603,7 @@ export class CommandPalette {
     // Assemble Flat Array & HTML in category order
     const sections = [
       { name: 'Quick Calculator', items: categorized.calculator },
+      { name: 'Security & Vault', items: categorized.security },
       { name: 'Quick Actions', items: categorized.actions },
       { name: 'Workspaces', items: categorized.workspaces },
       { name: 'Household Members', items: categorized.members },
@@ -563,6 +621,7 @@ export class CommandPalette {
           const itemIdx = globalIdx++;
           this.#flatResults.push(item);
           const isSelected = itemIdx === this.#selectedIndex;
+          const badgeClass = `palette-badge-${escapeHTML((item.badge || '').toLowerCase().replace(/[^a-z0-9]/g, '-'))}`;
 
           html += `
             <div class="palette-result-item ${isSelected ? 'selected' : ''}" data-action="execute-item" data-index="${itemIdx}">
@@ -570,7 +629,7 @@ export class CommandPalette {
                 <span style="display: inline-flex; align-items: center;">${safeIcon(item.icon, 16)}</span>
                 <span>${escapeHTML(item.title)}</span>
               </div>
-              <span class="palette-category-badge">${escapeHTML(item.badge)}</span>
+              <span class="palette-category-badge ${badgeClass}">${escapeHTML(item.badge)}</span>
             </div>
           `;
         });

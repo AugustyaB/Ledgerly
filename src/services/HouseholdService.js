@@ -55,8 +55,13 @@ class HouseholdService {
    */
   getMembers() {
     const data = this._profiles.getActiveData();
-    const members = new Set(data.householdMembers || ['Self', 'Partner']);
-    return Array.from(members);
+    const active = this._profiles.getActiveProfile();
+    const fallbackName = active?.name || 'Self';
+    if (Array.isArray(data.householdMembers) && data.householdMembers.length > 0) {
+      return Array.from(new Set(data.householdMembers));
+    }
+    const profileMembers = this._profiles.getHouseholdMemberNames();
+    return profileMembers.length > 0 ? profileMembers : [fallbackName];
   }
 
   /**
@@ -76,8 +81,9 @@ class HouseholdService {
     }
 
     const data = this._profiles.getActiveData();
-    if (!Array.isArray(data.householdMembers)) {
-      data.householdMembers = ['Self'];
+    const active = this._profiles.getActiveProfile();
+    if (!Array.isArray(data.householdMembers) || data.householdMembers.length === 0) {
+      data.householdMembers = [active?.name || 'Self'];
     }
 
     if (!data.householdMembers.includes(trimmed)) {
@@ -332,56 +338,16 @@ class HouseholdService {
   // ==========================================================================
 
   /**
-   * Returns standard default recurring utility bills baseline.
+   * Returns standard default recurring utility bills baseline (empty array to prevent phantom demo bills).
    *
    * @returns {import('../types').RecurringBill[]}
    */
   static getDefaultRecurringBills() {
-    return [
-      {
-        id: 'rec-1',
-        title: 'BESCOM Electricity Bill',
-        icon: 'zap',
-        amount: 1450,
-        category: 'Utilities',
-        dueDay: 10,
-        frequency: 'monthly',
-        paidBy: 'Self',
-        splitWith: ['Self', 'Partner', 'Roommate'],
-        autoSplit: true,
-        lastPaidDate: null
-      },
-      {
-        id: 'rec-2',
-        title: 'Airtel Broadband Wi-Fi',
-        icon: 'wifi',
-        amount: 999,
-        category: 'Utilities',
-        dueDay: 15,
-        frequency: 'monthly',
-        paidBy: 'Self',
-        splitWith: ['Self', 'Partner', 'Roommate'],
-        autoSplit: true,
-        lastPaidDate: null
-      },
-      {
-        id: 'rec-3',
-        title: 'Indane LPG Cylinder',
-        icon: 'flame',
-        amount: 850,
-        category: 'Utilities',
-        dueDay: 25,
-        frequency: 'monthly',
-        paidBy: 'Self',
-        splitWith: ['Self', 'Partner', 'Roommate'],
-        autoSplit: true,
-        lastPaidDate: null
-      }
-    ];
+    return [];
   }
 
   /**
-   * Ensures the recurring bills collection exists and is seeded if needed.
+   * Ensures the recurring bills collection exists and is cleanly initialized.
    *
    * @private
    * @param {object} root - Root schema.
@@ -389,7 +355,7 @@ class HouseholdService {
    */
   _ensureRecurringBills(root) {
     if (!Array.isArray(root.recurringBills)) {
-      root.recurringBills = HouseholdService.getDefaultRecurringBills();
+      root.recurringBills = [];
     }
     return root;
   }

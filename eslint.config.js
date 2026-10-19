@@ -55,6 +55,7 @@ module.exports = [
         Set: 'readonly',
         Map: 'readonly',
         URL: 'readonly',
+        Blob: 'readonly',
         alert: 'readonly',
         prompt: 'readonly',
         confirm: 'readonly',

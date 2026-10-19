@@ -98,7 +98,7 @@ const REGIONAL_MERCHANTS = Object.freeze({
     { canonical: 'Rewe', aliases: ['rewe'], category: 'Groceries & Supermarket' },
     { canonical: 'Boots', aliases: ['boots', 'boots uk', 'boots pharmacy'], category: 'Healthcare & Medical' },
     { canonical: 'Marks & Spencer', aliases: ['marks & spencer', 'm&s', 'm & s'], category: 'Groceries & Supermarket' },
-    { canonical: 'TotalEnergies', aliases: ['total', 'totalenergies'], category: 'Fuel & Transportation' },
+    { canonical: 'TotalEnergies', aliases: ['totalenergies', 'total energies', 'total direct energie'], category: 'Fuel & Transportation' },
     { canonical: 'BP', aliases: ['bp connect', 'bp oil uk'], category: 'Fuel & Transportation' },
     { canonical: 'IKEA', aliases: ['ikea'], category: 'Home & Utilities' }
   ],
@@ -695,6 +695,109 @@ function disambiguateRegionalDate(dateStr, region = 'us') {
   return null;
 }
 
+/**
+ * Automatically senses regional locale and currency from raw text heuristics.
+ * Detects:
+ * - 'apac' (Japan: Kanji/Kana, ¥, 円, 領収書, 消費税, T+13; Australia: ABN, BPAY, A$, AUD, 10% GST)
+ * - 'in' (India: ₹, INR, Rs., GSTIN, CGST, SGST, IGST, UPI, UTR, VPA, Indian merchants)
+ * - 'eu' (Europe & UK: €, EUR, £, GBP, MwSt, TVA, IVA, IBAN, VIES, European chains)
+ * - 'us' (North America: $, USD, Sales Tax, Tip, EIN, Venmo, Apple Pay, CAD, C$)
+ *
+ * @param {string} rawText - Raw OCR text
+ * @param {Object} [options] - Optional overrides (e.g. currency)
+ * @returns {{ region: 'in'|'us'|'eu'|'apac', country: string, currency: string, currencySymbol: string, matchedAnchor: string|null }}
+ */
+function detectRegionalLocale(rawText, options = {}) {
+  const text = String(rawText || '').trim();
+
+  // 1. Japan (APAC) - Kanji / Kana / Yen / Qualified Invoice T-Number
+  if (/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]|¥|円|領収書|消費税|軽減税率|ローソン|セブン|\bT[0-9]{13}\b/i.test(text)) {
+    return {
+      region: 'apac',
+      country: 'jp',
+      currency: 'JPY',
+      currencySymbol: '¥',
+      matchedAnchor: 'JAPAN_KANJI_OR_T_NUMBER'
+    };
+  }
+
+  // 2. Australia (APAC) - ABN, BPAY, AUD, A$, 10% GST
+  if (/\babn\b|\bbpay\b|\b(?:a\$|aud)\b|10%\s*gst|\bwoolworths\b|\bcoles\b/i.test(text)) {
+    return {
+      region: 'apac',
+      country: 'au',
+      currency: 'AUD',
+      currencySymbol: 'A$',
+      matchedAnchor: 'AUSTRALIA_ABN_OR_BPAY'
+    };
+  }
+
+  // 3. India - Rupee symbol, GSTIN, CGST/SGST, UPI, Indian rails
+  if (/(?:₹|\b(?:inr|rs\.?)\b|\bgstin\b|\bcgst\b|\bsgst\b|\bigst\b|\bupi\b|\bbhim\b|\bpaytm\b|\bgpay\b|\bphonepe\b|\butr\b)/i.test(text)) {
+    return {
+      region: 'in',
+      country: 'in',
+      currency: 'INR',
+      currencySymbol: '₹',
+      matchedAnchor: 'INDIA_GST_OR_UPI'
+    };
+  }
+
+  // 4. Europe & UK - Euro, Pound, VAT, MwSt, TVA, IVA, IBAN, VIES
+  if (/(?:€|\beur\b|£|\bgbp\b|\bmwst\b|\btva\b|\biva\b|\biban\b|\bbic\b|\bvies\b|\btesco\b|\bsainsbury\b|\baldi\b|\blidl\b|\bcarrefour\b|\bedeka\b|\brewe\b)/i.test(text)) {
+    const isGbp = /£|\bgbp\b|\bsainsbury\b|\bboots\s*uk\b|\bhmrc\b/i.test(text);
+    return {
+      region: 'eu',
+      country: isGbp ? 'gb' : 'eu',
+      currency: isGbp ? 'GBP' : 'EUR',
+      currencySymbol: isGbp ? '£' : '€',
+      matchedAnchor: isGbp ? 'UK_GBP_OR_VAT' : 'EU_EUR_OR_MWST'
+    };
+  }
+
+  // 5. North America (US / Canada) - $, USD, Sales Tax, Tip, EIN, Venmo, Apple Pay, CAD
+  if (/(?:\$|\busd\b|\bsales\s*tax\b|\btip\b|\bgratuity\b|\bein\b|\bvenmo\b|\bapple\s*pay\b|\bcostco\b|\btarget\b|\bwalmart\b|\btrader\s*joe\b|\bcad\b|c\$)/i.test(text)) {
+    const isCad = /\b(?:cad|c\$|canadian\s*dollar|pst|gst\/hst)\b/i.test(text);
+    return {
+      region: 'us',
+      country: isCad ? 'ca' : 'us',
+      currency: isCad ? 'CAD' : 'USD',
+      currencySymbol: isCad ? 'C$' : '$',
+      matchedAnchor: isCad ? 'CANADA_CAD_OR_PST' : 'US_USD_OR_SALES_TAX'
+    };
+  }
+
+  // 6. Fallback from options.currency or options.defaultCurrency
+  const fallbackCurr = (options.currency || options.defaultCurrency || '').toUpperCase();
+  if (fallbackCurr === 'USD' || fallbackCurr === '$') {
+    return { region: 'us', country: 'us', currency: 'USD', currencySymbol: '$', matchedAnchor: 'FALLBACK_OPTIONS_CURRENCY' };
+  }
+  if (fallbackCurr === 'CAD' || fallbackCurr === 'C$') {
+    return { region: 'us', country: 'ca', currency: 'CAD', currencySymbol: 'C$', matchedAnchor: 'FALLBACK_OPTIONS_CURRENCY' };
+  }
+  if (fallbackCurr === 'EUR' || fallbackCurr === '€') {
+    return { region: 'eu', country: 'eu', currency: 'EUR', currencySymbol: '€', matchedAnchor: 'FALLBACK_OPTIONS_CURRENCY' };
+  }
+  if (fallbackCurr === 'GBP' || fallbackCurr === '£') {
+    return { region: 'eu', country: 'gb', currency: 'GBP', currencySymbol: '£', matchedAnchor: 'FALLBACK_OPTIONS_CURRENCY' };
+  }
+  if (fallbackCurr === 'JPY' || fallbackCurr === '¥') {
+    return { region: 'apac', country: 'jp', currency: 'JPY', currencySymbol: '¥', matchedAnchor: 'FALLBACK_OPTIONS_CURRENCY' };
+  }
+  if (fallbackCurr === 'AUD' || fallbackCurr === 'A$') {
+    return { region: 'apac', country: 'au', currency: 'AUD', currencySymbol: 'A$', matchedAnchor: 'FALLBACK_OPTIONS_CURRENCY' };
+  }
+
+  // Default fallback: India (Ledgerly default)
+  return {
+    region: 'in',
+    country: 'in',
+    currency: 'INR',
+    currencySymbol: '₹',
+    matchedAnchor: 'DEFAULT_FALLBACK'
+  };
+}
+
 module.exports = {
   REGIONAL_MERCHANTS,
   REGIONAL_PAYMENT_RAILS,
@@ -708,5 +811,6 @@ module.exports = {
   extractRegionalPayment,
   extractRegionalUtility,
   parseRegionalMonetary,
-  disambiguateRegionalDate
+  disambiguateRegionalDate,
+  detectRegionalLocale
 };

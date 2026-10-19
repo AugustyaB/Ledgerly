@@ -34,6 +34,29 @@ const { ErrorCode } = require('../constants');
  * @readonly
  */
 const MODEL_CATALOG = Object.freeze({
+  'omni-regional-engine': {
+    id: 'omni-regional-engine',
+    name: 'Omni-Regional Perception Engine',
+    tier: 1,
+    version: '1.0.0',
+    description:
+      'Unified on-device document intelligence engine with automatic multi-regional locale sensing (India, US, Europe, APAC/Japan).',
+    sizeMb: 5.2,
+    ramMb: 120,
+    latencyMs: 290,
+    isBundled: true,
+    localRelativePath: 'assets/models/tesseract/eng.traineddata',
+    filename: 'eng.traineddata',
+    sha256: '5dc5d8d640a212c9d6184921ba103b186f50e0fed9ee716c53e6b312b400d747',
+    features: [
+      'Instant Zero-Download Execution',
+      'Automatic Multi-Region Locale Sensing',
+      '100% Offline Capability',
+      'Sub-Second CPU Processing',
+      'Statutory Tax & Currency Disambiguation'
+    ],
+    recommendedCurrencies: ['USD', 'EUR', 'GBP', 'INR', 'JPY', 'AUD', 'CAD', '₹', '$', '€', '£', '¥', 'A$', 'C$']
+  },
   'tier1-fastlite': {
     id: 'tier1-fastlite',
     name: 'Fast-Lite Engine (Tier 1)',
@@ -272,7 +295,7 @@ class ModelManager {
   #appRoot;
 
   /** @type {string} */
-  #activeModelId = 'tier1-fastlite';
+  #activeModelId = 'omni-regional-engine';
 
   /** @type {Map<string, { req: any, tmpPath: string, totalBytes: number, downloadedBytes: number, startTime: number }>} */
   #activeDownloads = new Map();
@@ -290,7 +313,7 @@ class ModelManager {
   constructor(options = {}) {
     this.#appRoot = options.appRoot || path.resolve(__dirname, '..', '..');
     this.#modelsDir = options.modelsDir || path.join(process.cwd(), 'userData', 'models');
-    this.#activeModelId = options.initialActiveModel || 'tier1-fastlite';
+    this.#activeModelId = options.initialActiveModel || 'omni-regional-engine';
     this.#onActiveModelChanged = options.onActiveModelChanged || null;
 
     this.#ensureDirectories();
@@ -412,18 +435,11 @@ class ModelManager {
   }
 
   /**
-   * Retrieves active model ID.
+   * Retrieves active model ID. Always returns omni-regional-engine.
    * @returns {string}
    */
   getActiveModelId() {
-    // If the active model is not bundled and not downloaded, automatically fallback to tier1
-    if (this.#activeModelId !== 'tier1-fastlite') {
-      const p = this.getModelPath(this.#activeModelId);
-      if (!p || !fs.existsSync(p)) {
-        this.#activeModelId = 'tier1-fastlite';
-      }
-    }
-    return this.#activeModelId;
+    return this.#activeModelId || 'omni-regional-engine';
   }
 
   /**

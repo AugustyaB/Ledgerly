@@ -404,6 +404,64 @@ class SyncClient {
   }
 
   /**
+   * Probes local subnet (/24) via HTTP GET /api/v1/status to discover Ledgerly Desktop.
+   * Serves as automated fallback if QR camera scanning is unavailable.
+   *
+   * @param {string} [subnetPrefix='192.168.1'] - Subnet base prefix (e.g. '192.168.1')
+   * @param {number} [port=52410] - Desktop HTTP port
+   * @param {number} [timeoutMs=1500] - Ping timeout
+   * @returns {Promise<Array<{ host: string, port: number, name: string, machineName: string, currencySymbol: string }>>}
+   */
+  async discoverDesktopSubnet(subnetPrefix = '192.168.1', port = 52410, timeoutMs = 1500) {
+    const cleanPrefix = subnetPrefix.replace(/\.\d+$/, '');
+    const found = [];
+
+    const checkHost = async ip => {
+      const url = `http://${ip}:${port}/api/v1/status`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.name === 'Ledgerly Desktop') {
+            return {
+              host: ip,
+              port,
+              name: data.name,
+              machineName: data.machineName,
+              currencySymbol: data.currencySymbol
+            };
+          }
+        }
+      } catch {
+        clearTimeout(timer);
+      }
+      return null;
+    };
+
+    // Scan high-likelihood LAN addresses in parallel batches of 25
+    const ips = [];
+    for (let i = 1; i <= 254; i++) {
+      ips.push(`${cleanPrefix}.${i}`);
+    }
+
+    const batchSize = 25;
+    for (let i = 0; i < ips.length; i += batchSize) {
+      const batch = ips.slice(i, i + batchSize);
+      const results = await Promise.all(batch.map(ip => checkHost(ip)));
+      for (const item of results) {
+        if (item) found.push(item);
+      }
+      if (found.length > 0) break; // Early exit on first discovered desktop host
+    }
+
+    return found;
+  }
+
+  /**
    * Emits sync status event for reactive UI updates.
    * @private
    * @param {'idle'|'syncing'|'error'} state

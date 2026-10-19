@@ -141,12 +141,22 @@ class AuthService {
     const now = Date.now();
     if (this._lockoutUntil && now < this._lockoutUntil) {
       const waitSec = Math.ceil((this._lockoutUntil - now) / 1000);
-      return { success: false, error: `Too many failed login attempts. Please wait ${waitSec}s.` };
+      return {
+        success: false,
+        locked: true,
+        remainingSeconds: waitSec,
+        error: `Too many failed login attempts. Please wait ${waitSec}s.`
+      };
     }
 
     const userId = (payload.userId || '').trim();
     const password = payload.password || '';
     const rememberMe = Boolean(payload.rememberMe);
+
+    // If active ledger is an encrypted vault, authenticate via unlockWithPassword
+    if (this._db.isVaultEncrypted()) {
+      return this.unlockWithPassword(password, { userId, rememberMe });
+    }
 
     const root = this._db.read();
     if (!root.account?.isConfigured) {
@@ -176,7 +186,13 @@ class AuthService {
       if (this._failedAttempts >= DEFAULTS.MAX_LOGIN_ATTEMPTS) {
         this._lockoutUntil = Date.now() + DEFAULTS.LOCKOUT_DURATION_MS;
         this._failedAttempts = 0;
-        return { success: false, error: 'Too many failed login attempts. Locked for 30 seconds.' };
+        const waitSec = Math.ceil(DEFAULTS.LOCKOUT_DURATION_MS / 1000);
+        return {
+          success: false,
+          locked: true,
+          remainingSeconds: waitSec,
+          error: `Too many failed login attempts. Locked for ${waitSec} seconds. Please wait ${waitSec}s.`
+        };
       }
       return { success: false, error: 'Incorrect Password' };
     }
@@ -193,10 +209,28 @@ class AuthService {
 
     root.account.rememberMe = rememberMe;
     root.account.lastLoggedIn = new Date().toISOString();
-    this._db.write(root);
+
+    // Auto-migrate legacy unencrypted database to AES-256-GCM vault envelope (ADR-014)
+    const recoveryKey = this.generateEmergencyRecoveryKey();
+    const upgradeRes = this._db.upgradeToVault(
+      password,
+      recoveryKey,
+      {
+        userId: root.account.userId,
+        rememberMe: root.account.rememberMe,
+        workspaceMode: root.account.workspaceMode || 'household'
+      },
+      root
+    );
+
+    if (!upgradeRes.success) {
+      this._db.write(root);
+    }
 
     return {
       success: true,
+      migratedToVault: Boolean(upgradeRes.success),
+      recoveryKey: upgradeRes.success ? recoveryKey : undefined,
       account: {
         userId: root.account.userId,
         rememberMe: root.account.rememberMe,
@@ -206,7 +240,307 @@ class AuthService {
   }
 
   /**
-   * Logs out the user by de-authorizing the active session and clearing the rememberMe flag.
+   * Generates a cryptographically secure 16-character Emergency Recovery Key (`LEDG-XXXX-XXXX-XXXX-XXXX`).
+   *
+   * @returns {string} Formatted Emergency Recovery Key.
+   */
+  generateEmergencyRecoveryKey() {
+    return this._db.vaultCipher.generateEmergencyRecoveryKey();
+  }
+
+  /**
+   * Sets up a bank-grade AES-256-GCM encrypted vault on disk with 2-slot recovery (ADR-014).
+   *
+   * @param {{ userId?: string, password?: string, rememberMe?: boolean, recoveryKey?: string }} payload
+   * @returns {import('../types').OperationResult & { recoveryKey?: string, account?: object }}
+   */
+  setupVault(payload = {}) {
+    const userId = (payload.userId || '').trim();
+    const password = payload.password || '';
+    const rememberMe = Boolean(payload.rememberMe);
+    const recoveryKey = payload.recoveryKey || this.generateEmergencyRecoveryKey();
+
+    if (!userId) {
+      return { success: false, error: 'User ID or Email is required.' };
+    }
+
+    if (!password || password.length < DEFAULTS.MIN_PASSWORD_LENGTH) {
+      return { success: false, error: `Password must be at least ${DEFAULTS.MIN_PASSWORD_LENGTH} characters.` };
+    }
+
+    const salt = crypto.randomBytes(DEFAULTS.SALT_BYTES).toString('hex');
+    const passwordHash = this._hashPassword(password, salt, DEFAULTS.PBKDF2_ITERATIONS);
+
+    const root = this._db.read();
+    root.account = {
+      isConfigured: true,
+      userId,
+      passwordHash,
+      salt,
+      hashVersion: 2,
+      rememberMe,
+      lastLoggedIn: new Date().toISOString(),
+      workspaceMode: root.account?.workspaceMode || 'household'
+    };
+
+    const upgradeRes = this._db.upgradeToVault(
+      password,
+      recoveryKey,
+      {
+        userId,
+        rememberMe,
+        workspaceMode: root.account.workspaceMode
+      },
+      root
+    );
+
+    if (!upgradeRes.success) {
+      return { success: false, error: upgradeRes.error || 'Failed to initialize encrypted vault.' };
+    }
+
+    return {
+      success: true,
+      recoveryKey,
+      account: {
+        userId,
+        rememberMe,
+        isConfigured: true
+      }
+    };
+  }
+
+  /**
+   * Unlocks the encrypted vault using Master Password / PIN (Slot 1).
+   *
+   * @param {string} password - Master password / PIN.
+   * @param {object} [options={}] - Optional credentials or rememberMe preferences.
+   * @returns {import('../types').OperationResult & { account?: object }}
+   */
+  unlockWithPassword(password, options = {}) {
+    const now = Date.now();
+    if (this._lockoutUntil && now < this._lockoutUntil) {
+      const waitSec = Math.ceil((this._lockoutUntil - now) / 1000);
+      return {
+        success: false,
+        locked: true,
+        remainingSeconds: waitSec,
+        error: `Too many failed login attempts. Please wait ${waitSec}s.`
+      };
+    }
+
+    if (!password) {
+      return { success: false, error: 'Password is required.' };
+    }
+
+    if (this._db.isVaultEncrypted()) {
+      const unlockRes = this._db.unlockVaultWithPassword(password);
+      if (!unlockRes.success) {
+        this._failedAttempts++;
+        if (this._failedAttempts >= DEFAULTS.MAX_LOGIN_ATTEMPTS) {
+          this._lockoutUntil = Date.now() + DEFAULTS.LOCKOUT_DURATION_MS;
+          this._failedAttempts = 0;
+          const waitSec = Math.ceil(DEFAULTS.LOCKOUT_DURATION_MS / 1000);
+          return {
+            success: false,
+            locked: true,
+            remainingSeconds: waitSec,
+            error: `Too many failed login attempts. Locked for ${waitSec} seconds. Please wait ${waitSec}s.`
+          };
+        }
+        return { success: false, error: 'Incorrect Password' };
+      }
+
+      this._failedAttempts = 0;
+      this._lockoutUntil = null;
+      const root = unlockRes.root || this._db.read();
+      if (options.rememberMe !== undefined && root.account) {
+        root.account.rememberMe = Boolean(options.rememberMe);
+        root.account.lastLoggedIn = new Date().toISOString();
+        this._db.write(root);
+      }
+
+      return {
+        success: true,
+        account: {
+          userId: root.account?.userId || options.userId || '',
+          rememberMe: Boolean(root.account?.rememberMe),
+          isConfigured: true
+        }
+      };
+    }
+
+    return this.login({ password, ...options });
+  }
+
+  /**
+   * Unlocks the encrypted vault using Emergency Recovery Key (Slot 2).
+   *
+   * @param {string} recoveryKey - Emergency recovery key (`LEDG-XXXX-...`).
+   * @returns {import('../types').OperationResult & { account?: object }}
+   */
+  unlockWithRecoveryKey(recoveryKey) {
+    const now = Date.now();
+    if (this._lockoutUntil && now < this._lockoutUntil) {
+      const waitSec = Math.ceil((this._lockoutUntil - now) / 1000);
+      return {
+        success: false,
+        locked: true,
+        remainingSeconds: waitSec,
+        error: `Too many failed attempts. Please wait ${waitSec}s.`
+      };
+    }
+
+    if (!recoveryKey || typeof recoveryKey !== 'string') {
+      return { success: false, error: 'Emergency Recovery Key is required.' };
+    }
+
+    if (this._db.isVaultEncrypted()) {
+      const unlockRes = this._db.unlockVaultWithRecoveryKey(recoveryKey);
+      if (!unlockRes.success) {
+        this._failedAttempts++;
+        if (this._failedAttempts >= DEFAULTS.MAX_LOGIN_ATTEMPTS) {
+          this._lockoutUntil = Date.now() + DEFAULTS.LOCKOUT_DURATION_MS;
+          this._failedAttempts = 0;
+          const waitSec = Math.ceil(DEFAULTS.LOCKOUT_DURATION_MS / 1000);
+          return {
+            success: false,
+            locked: true,
+            remainingSeconds: waitSec,
+            error: `Too many failed recovery attempts. Locked for ${waitSec} seconds. Please wait ${waitSec}s.`
+          };
+        }
+        return { success: false, error: 'Invalid Emergency Recovery Key' };
+      }
+
+      this._failedAttempts = 0;
+      this._lockoutUntil = null;
+      const root = unlockRes.root || this._db.read();
+
+      return {
+        success: true,
+        account: {
+          userId: root.account?.userId || '',
+          rememberMe: Boolean(root.account?.rememberMe),
+          isConfigured: true
+        }
+      };
+    }
+
+    return { success: false, error: 'Database is not an encrypted vault.' };
+  }
+
+  /**
+   * Resets master password using valid recovery key (Slot 2 -> Slot 1 re-encryption).
+   * Zeroizes in-memory keys upon completion.
+   *
+   * @param {string} recoveryKey - Emergency recovery key.
+   * @param {string} newPassword - New master password / PIN.
+   * @returns {import('../types').OperationResult}
+   */
+  resetPasswordWithRecoveryKey(recoveryKey, newPassword) {
+    if (!recoveryKey || typeof recoveryKey !== 'string') {
+      return { success: false, error: 'Emergency Recovery Key is required.' };
+    }
+    if (!newPassword || newPassword.length < DEFAULTS.MIN_PASSWORD_LENGTH) {
+      return { success: false, error: `New password must be at least ${DEFAULTS.MIN_PASSWORD_LENGTH} characters.` };
+    }
+
+    if (this._db.isVaultEncrypted()) {
+      const res = this._db.resetVaultPasswordWithRecoveryKey(recoveryKey, newPassword);
+      if (!res.success) {
+        return { success: false, error: res.error || 'Failed to reset password with recovery key.' };
+      }
+
+      // Re-hash password for account record in decrypted root if unlocked
+      const salt = crypto.randomBytes(DEFAULTS.SALT_BYTES).toString('hex');
+      const passwordHash = this._hashPassword(newPassword, salt, DEFAULTS.PBKDF2_ITERATIONS);
+      const root = this._db.read();
+      if (root.account) {
+        root.account.passwordHash = passwordHash;
+        root.account.salt = salt;
+        root.account.hashVersion = 2;
+        this._db.write(root);
+      }
+
+      // Zeroize master key in RAM after password reset
+      this._db.lockVault();
+
+      return { success: true, message: 'Master password has been reset successfully.' };
+    }
+
+    return { success: false, error: 'Database is not an encrypted vault.' };
+  }
+
+  /**
+   * Changes master password for the active authenticated account.
+   * Updates Slot 1 encryption and account record password hash.
+   *
+   * @param {string} currentPassword - Current master password / PIN.
+   * @param {string} newPassword - New master password / PIN.
+   * @returns {import('../types').OperationResult}
+   */
+  changePassword(currentPassword, newPassword) {
+    if (!currentPassword || typeof currentPassword !== 'string') {
+      return { success: false, error: 'Current password is required.' };
+    }
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < DEFAULTS.MIN_PASSWORD_LENGTH) {
+      return { success: false, error: `New password must be at least ${DEFAULTS.MIN_PASSWORD_LENGTH} characters.` };
+    }
+
+    if (this._db.isVaultEncrypted()) {
+      const res = this._db.changeVaultPassword(currentPassword, newPassword);
+      if (!res.success) {
+        return { success: false, error: res.error || 'Failed to change master password.' };
+      }
+
+      // Re-hash password for account record in decrypted root
+      const salt = crypto.randomBytes(DEFAULTS.SALT_BYTES).toString('hex');
+      const passwordHash = this._hashPassword(newPassword, salt, DEFAULTS.PBKDF2_ITERATIONS);
+      const root = this._db.read();
+      if (root.account) {
+        root.account.passwordHash = passwordHash;
+        root.account.salt = salt;
+        root.account.hashVersion = 2;
+        this._db.write(root);
+      }
+
+      return { success: true, message: 'Master password changed successfully.' };
+    }
+
+    // Legacy unencrypted mode fallback
+    const root = this._db.read();
+    if (!root.account?.isConfigured) {
+      return { success: false, error: 'No account configured.' };
+    }
+
+    const isLegacy = !root.account.hashVersion || root.account.hashVersion < 2;
+    const iterations = isLegacy ? 1000 : DEFAULTS.PBKDF2_ITERATIONS;
+    const testHash = this._hashPassword(currentPassword, root.account.salt, iterations);
+    let isMatch;
+    try {
+      const testBuf = Buffer.from(testHash, 'hex');
+      const targetBuf = Buffer.from(root.account.passwordHash, 'hex');
+      isMatch = testBuf.length === targetBuf.length && crypto.timingSafeEqual(testBuf, targetBuf);
+    } catch {
+      isMatch = false;
+    }
+
+    if (!isMatch) {
+      return { success: false, error: 'Incorrect current password.' };
+    }
+
+    const salt = crypto.randomBytes(DEFAULTS.SALT_BYTES).toString('hex');
+    const passwordHash = this._hashPassword(newPassword, salt, DEFAULTS.PBKDF2_ITERATIONS);
+    root.account.passwordHash = passwordHash;
+    root.account.salt = salt;
+    root.account.hashVersion = 2;
+    this._db.write(root);
+
+    return { success: true, message: 'Password changed successfully.' };
+  }
+
+  /**
+   * Logs out the user by de-authorizing active session, clearing rememberMe, and zeroizing vault keys.
    *
    * @returns {import('../types').OperationResult}
    */
@@ -216,7 +550,34 @@ class AuthService {
       root.account.rememberMe = false;
       this._db.write(root);
     }
+    this._db.lockVault();
     return { success: true };
+  }
+
+  /**
+   * Performs a destructive factory reset of the local encrypted vault.
+   * Clears in-memory keys, wipes active storage file, and resets to an unconfigured initial state.
+   *
+   * @returns {import('../types').OperationResult}
+   */
+  factoryResetVault() {
+    this._db.lockVault();
+    const defaultSchema = this._db._createDefaultRootSchema();
+    defaultSchema.account = {
+      isConfigured: false,
+      userId: '',
+      passwordHash: '',
+      salt: '',
+      rememberMe: false,
+      lastLoggedIn: null
+    };
+    this._db._activeEnvelope = null;
+    this._db._unlockedRoot = defaultSchema;
+    this._failedAttempts = 0;
+    this._lockoutUntil = null;
+    const writeRes = this._db._atomicWrite(this._db.activeFilePath, JSON.stringify(defaultSchema, null, 2));
+    if (!writeRes.success) return writeRes;
+    return { success: true, message: 'Vault has been factory reset to clean initial state.' };
   }
 
   // ==========================================================================

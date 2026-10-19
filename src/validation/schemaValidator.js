@@ -1510,6 +1510,176 @@ function validateForesightForecastInput(extraAmount, options) {
   return { valid: errors.length === 0, errors };
 }
 
+/**
+ * Validates vault setup input payload (ADR-014).
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateVaultSetupInput(payload) {
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Vault setup payload must be an object.'] };
+  }
+
+  const errors = [];
+  if (typeof payload.userId !== 'string' || !payload.userId.trim()) {
+    errors.push('User ID or Email is required.');
+  } else if (payload.userId.length > 255) {
+    errors.push('User ID exceeds maximum length of 255 characters.');
+  } else if (hasControlChars(payload.userId)) {
+    errors.push('User ID contains illegal control characters.');
+  }
+
+  if (typeof payload.password !== 'string' || payload.password.length < 4) {
+    errors.push('Password must be at least 4 characters long.');
+  } else if (payload.password.length > 255) {
+    errors.push('Password exceeds maximum length of 255 characters.');
+  }
+
+  if (payload.recoveryKey !== undefined && payload.recoveryKey !== null) {
+    if (typeof payload.recoveryKey !== 'string') {
+      errors.push('Recovery key must be a string if provided.');
+    } else if (payload.recoveryKey.length > 50) {
+      errors.push('Recovery key exceeds maximum length of 50 characters.');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates vault unlock credentials input payload (ADR-014).
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateVaultUnlockInput(payload) {
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Vault unlock payload must be an object.'] };
+  }
+
+  const errors = [];
+  if (typeof payload.password !== 'string' || !payload.password) {
+    errors.push('Password is required.');
+  } else if (payload.password.length > 255) {
+    errors.push('Password exceeds maximum length of 255 characters.');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates vault recovery credentials input payload (ADR-014).
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateVaultRecoverInput(payload) {
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Vault recovery payload must be an object.'] };
+  }
+
+  const errors = [];
+  if (typeof payload.recoveryKey !== 'string' || !payload.recoveryKey.trim()) {
+    errors.push('Emergency recovery key is required.');
+  } else if (payload.recoveryKey.length > 50) {
+    errors.push('Emergency recovery key exceeds maximum length of 50 characters.');
+  }
+
+  if (typeof payload.newPassword !== 'string' || payload.newPassword.length < 4) {
+    errors.push('New password must be at least 4 characters long.');
+  } else if (payload.newPassword.length > 255) {
+    errors.push('New password exceeds maximum length of 255 characters.');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates change password input payload (currentPassword, newPassword).
+ *
+ * @param {any} payload
+ * @returns {import('../types').ValidationResult}
+ */
+function validateChangePasswordInput(payload) {
+  if (!isPlainObject(payload)) {
+    return { valid: false, errors: ['Change password payload must be an object.'] };
+  }
+
+  const errors = [];
+  if (typeof payload.currentPassword !== 'string' || !payload.currentPassword) {
+    errors.push('Current password is required.');
+  }
+
+  if (typeof payload.newPassword !== 'string' || payload.newPassword.length < 4) {
+    errors.push('New password must be at least 4 characters long.');
+  } else if (payload.newPassword.length > 255) {
+    errors.push('New password exceeds maximum length of 255 characters.');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates bulk add expenses payload.
+ *
+ * @param {any} expenses - Array of expense objects.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateBulkAddInput(expenses) {
+  const errors = [];
+  if (!Array.isArray(expenses)) {
+    return { valid: false, errors: ['Expenses payload must be an array.'] };
+  }
+  const maxRows = VALIDATION_LIMITS?.MAX_IMPORT_ROWS || 25000;
+  if (expenses.length === 0) {
+    errors.push('Expenses array cannot be empty.');
+  } else if (expenses.length > maxRows) {
+    errors.push(`Expenses batch exceeds maximum limit of ${maxRows} records.`);
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates bulk delete expenses payload.
+ *
+ * @param {any} ids - Array of expense IDs to delete.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateBulkDeleteInput(ids) {
+  const errors = [];
+  if (!Array.isArray(ids)) {
+    return { valid: false, errors: ['Expense IDs payload must be an array.'] };
+  }
+  if (ids.length === 0) {
+    errors.push('Expense IDs array cannot be empty.');
+  } else if (ids.length > 10000) {
+    errors.push('Bulk delete exceeds maximum limit of 10,000 IDs.');
+  }
+  for (const id of ids) {
+    if (typeof id !== 'string' || !id.trim()) {
+      errors.push('Each expense ID must be a non-empty string.');
+      break;
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates daily allowance impact input.
+ *
+ * @param {any} amount - Prospective amount.
+ * @returns {import('../types').ValidationResult}
+ */
+function validateDailyImpactInput(amount) {
+  const errors = [];
+  const num = parseFloat(String(amount));
+  if (isNaN(num) || num < 0) {
+    errors.push('Prospective amount must be a non-negative number.');
+  }
+  return { valid: errors.length === 0, errors };
+}
+
 // ============================================================================
 // 4. Module Exports
 // ============================================================================
@@ -1520,6 +1690,9 @@ module.exports = {
   isValidCalendarDate,
   validateId,
   validateExpenseInput,
+  validateBulkAddInput,
+  validateBulkDeleteInput,
+  validateDailyImpactInput,
   validateProfileInput,
   validateBudgetConfig,
   validateHouseholdMember,
@@ -1550,6 +1723,10 @@ module.exports = {
   validateApplyReconciliationInput,
   validateSubscriptionDetectInput,
   validateForesightForecastInput,
+  validateVaultSetupInput,
+  validateVaultUnlockInput,
+  validateVaultRecoverInput,
+  validateChangePasswordInput,
   formatSuccess,
   formatError
 };

@@ -33,6 +33,7 @@ const NotificationEngine = require('./services/NotificationEngine');
 const BackupMirrorService = require('./services/BackupMirrorService');
 const ReceiptLearningService = require('./services/ReceiptLearningService');
 const FinancialIntelligenceFacade = require('./services/FinancialIntelligenceFacade');
+const SubscriptionHunterService = require('./services/SubscriptionHunterService');
 
 class ExpenseStorage {
   constructor(customPath) {
@@ -51,12 +52,17 @@ class ExpenseStorage {
     );
     this.mirror = new BackupMirrorService({ db: this.db });
     this.receiptLearning = new ReceiptLearningService({ db: this.db });
+    this.subscriptionHunter = new SubscriptionHunterService({
+      db: this.db,
+      expenses: this.expenses
+    });
     this.intelligence = new FinancialIntelligenceFacade({
       db: this.db,
       expenses: this.expenses,
       profiles: this.profiles,
       budget: this.budget,
-      receiptLearning: this.receiptLearning
+      receiptLearning: this.receiptLearning,
+      subscriptionHunter: this.subscriptionHunter
     });
     this.notifications.setIntelligence(this.intelligence);
     this.db.setOnDidWrite(() => {
@@ -130,6 +136,34 @@ class ExpenseStorage {
 
   logoutAccount() {
     return this.auth.logout();
+  }
+
+  setupVault(payload = {}) {
+    return this.auth.setupVault(payload);
+  }
+
+  unlockVault(payload = {}) {
+    return this.auth.unlockWithPassword(payload.password, payload);
+  }
+
+  recoverVault(payload = {}) {
+    return this.auth.resetPasswordWithRecoveryKey(payload.recoveryKey, payload.newPassword);
+  }
+
+  getRecoveryKey() {
+    return this.db.rotateVaultRecoveryKey();
+  }
+
+  lockVault() {
+    return this.db.lockVault();
+  }
+
+  factoryResetVault() {
+    return this.auth.factoryResetVault();
+  }
+
+  changePassword(payload = {}) {
+    return this.auth.changePassword(payload.currentPassword, payload.newPassword);
   }
 
   updateAccountPreferences(prefs = {}) {
@@ -287,6 +321,14 @@ class ExpenseStorage {
     return this.budget.calculateDailyBudgetMetrics(targetDateStr);
   }
 
+  getDailyBudgetMetrics(targetDateStr) {
+    return this.budget.getDailyBudgetMetrics(targetDateStr);
+  }
+
+  calculateDailyImpact(additionalAmount, targetDateStr = null) {
+    return this.budget.calculateDailyImpact(additionalAmount, targetDateStr);
+  }
+
   // --- Phase 4: Shared Household Member & Split Calculation Engine ---
 
   getHouseholdMembers() {
@@ -354,6 +396,15 @@ class ExpenseStorage {
    */
   bulkAddExpenses(expenseArray) {
     return this.expenses.bulkAdd(expenseArray);
+  }
+
+  /**
+   * Atomically deletes multiple expenses by ID.
+   * @param {string[]} idsArray
+   * @returns {{ success: boolean, deletedCount: number, deletedIds: string[], deletedExpenses: import('./types').Expense[] }}
+   */
+  bulkDeleteExpenses(idsArray) {
+    return this.expenses.bulkDelete(idsArray);
   }
 
   // --- Phase 5: Contextual Notes System ---
@@ -676,6 +727,77 @@ class ExpenseStorage {
 
   detectSubscriptions(options) {
     return this.intelligence.detectSubscriptions(options);
+  }
+
+  /**
+   * Generates a comprehensive summary of recurring subscriptions, upcoming renewals,
+   * price jumps, and total annualized commitments for the active profile.
+   *
+   * @param {object} [options={}]
+   * @returns {{
+   *   subscriptions: Array,
+   *   totalAnnualizedCommitment: number,
+   *   monthlyCommitment: number,
+   *   upcomingRenewals: Array,
+   *   priceJumps: Array
+   * }}
+   */
+  getSubscriptionsSummary(options = {}) {
+    const data = this.profiles.getActiveData();
+    const dismissed = Array.isArray(data.dismissedSubscriptionAlerts) ? data.dismissedSubscriptionAlerts : [];
+    const expenses = this.expenses.getAll(options);
+    const result = this.subscriptionHunter.detectSubscriptions(expenses, options);
+    const subscriptions = (result.subscriptions || []).map(sub => ({
+      ...sub,
+      isDismissed: dismissed.includes(sub.id)
+    }));
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    const upcomingRenewals = subscriptions.filter(s => {
+      if (!s.nextExpectedDate || s.isDismissed) return false;
+      const daysDiff = this.subscriptionHunter._daysDifference(todayStr, s.nextExpectedDate);
+      return daysDiff >= 0 && daysDiff <= 14;
+    });
+
+    const priceJumps = subscriptions
+      .filter(s => s.hasPriceHike && s.priceHikeDetails && !s.isDismissed)
+      .map(s => ({
+        id: s.id,
+        merchant: s.merchant,
+        cadence: s.cadence,
+        ...s.priceHikeDetails
+      }));
+
+    return {
+      subscriptions,
+      totalAnnualizedCommitment: result.summary ? result.summary.totalAnnualCommitment : 0,
+      monthlyCommitment: result.summary ? result.summary.totalMonthlyCommitment : 0,
+      upcomingRenewals,
+      priceJumps
+    };
+  }
+
+  /**
+   * Persistently dismisses a subscription alert (e.g. price hike or renewal notice) for the active profile.
+   *
+   * @param {string} subscriptionId
+   * @returns {{ success: boolean, dismissedId?: string, error?: string }}
+   */
+  dismissSubscriptionAlert(subscriptionId) {
+    if (!subscriptionId || typeof subscriptionId !== 'string') {
+      return { success: false, error: 'Subscription ID is required' };
+    }
+    const data = this.profiles.getActiveData();
+    if (!Array.isArray(data.dismissedSubscriptionAlerts)) {
+      data.dismissedSubscriptionAlerts = [];
+    }
+    if (!data.dismissedSubscriptionAlerts.includes(subscriptionId)) {
+      data.dismissedSubscriptionAlerts.push(subscriptionId);
+      this.profiles.saveActiveData(data);
+    }
+    return { success: true, dismissedId: subscriptionId };
   }
 
   getForesightForecast(extraAmount, options) {

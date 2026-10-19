@@ -387,6 +387,51 @@ class NotificationEngine {
       if (res.success && !res.duplicate && res.notification?.isCritical) {
         newlyCreatedCritical.push(res.notification);
       }
+    } else if (discBudget > 0 && spent >= discBudget * 0.8 && spent < discBudget) {
+      // ----------------------------------------------------------------------
+      // Trigger 3A (Warning, In-App): 80% Discretionary Budget Reached
+      // ----------------------------------------------------------------------
+      const pct = Math.round((spent / discBudget) * 100);
+      const remaining = Math.max(0, discBudget - spent);
+      this.addNotification({
+        type: 'budget',
+        title: '80% Discretionary Budget Spent',
+        message: `You have spent ${sym}${spent.toFixed(2)} (${pct}%) of your budget. Remaining: ${sym}${remaining.toFixed(2)} for ${metrics.remainingDays} days.`,
+        icon: 'alert-circle',
+        isCritical: false,
+        actionTab: 'dashboard',
+        metadata: { budgetExhaustionPercentage: pct, spent, remaining }
+      });
+    }
+
+    // ------------------------------------------------------------------------
+    // Trigger 3B (In-App Only): Category Surge Alert (>40% of Discretionary Pool)
+    // ------------------------------------------------------------------------
+    if (discBudget > 0) {
+      const cycleExpenses = (data.expenses || []).filter(
+        e => e.date && e.date >= metrics.cycleStartDate && e.date < metrics.nextPaydayDate
+      );
+      const catTotals = Object.create(null);
+      for (const e of cycleExpenses) {
+        const cat = e.category || 'Uncategorized';
+        if (cat === 'Fixed Bills' || cat === 'Investments & Savings') continue;
+        catTotals[cat] = (catTotals[cat] || 0) + (parseFloat(e.amount) || 0);
+      }
+
+      for (const [cat, catSpent] of Object.entries(catTotals)) {
+        if (catSpent >= discBudget * 0.4) {
+          const pct = Math.round((catSpent / discBudget) * 100);
+          this.addNotification({
+            type: 'budget',
+            title: `Category Surge: ${cat}`,
+            message: `${cat} has reached ${sym}${catSpent.toFixed(2)} (${pct}% of monthly discretionary allowance). Slow down non-essential spend in this category.`,
+            icon: 'trending-up',
+            isCritical: false,
+            actionTab: 'dashboard',
+            metadata: { category: cat, catSpent, pct }
+          });
+        }
+      }
     }
 
     // ------------------------------------------------------------------------

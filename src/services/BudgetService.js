@@ -246,6 +246,20 @@ class BudgetService {
       stretchGuidance = `Salary arriving ${Math.abs(cycle.shiftDays)} days early: You have ${sym}${safeDailyLimit.toFixed(2)}/day safe spending room!`;
     }
 
+    const budgetExhaustionPercentage =
+      discretionaryBudget > 0 ? Math.round((spentCycleToDate / discretionaryBudget) * 100) : 0;
+
+    let pacingWarningLevel = 'safe';
+    if (discretionaryBudget > 0) {
+      if (spentCycleToDate >= discretionaryBudget) {
+        pacingWarningLevel = 'overrun';
+      } else if (spentCycleToDate >= discretionaryBudget * 0.8) {
+        pacingWarningLevel = 'warning';
+      } else {
+        pacingWarningLevel = 'safe';
+      }
+    }
+
     return {
       monthlyIncome: salary.monthlyIncome,
       fixedBills: salary.fixedBills,
@@ -265,13 +279,65 @@ class BudgetService {
       daysInMonth: cycle.totalDaysInCycle,
       dayOfMonth: cycle.daysElapsed,
       dailyAllowance: parseFloat(dailyAllowance.toFixed(2)),
+      baselineDailyAllowance: parseFloat(dailyAllowance.toFixed(2)),
       todaySpent: parseFloat(todaySpent.toFixed(2)),
       todayRemaining: Math.max(0, parseFloat((dailyAllowance - todaySpent).toFixed(2))),
       spentMonthToDate: parseFloat(spentCycleToDate.toFixed(2)),
       allowedMonthToDate: parseFloat(allowedCycleToDate.toFixed(2)),
       rolloverBalance: parseFloat(rolloverBalance.toFixed(2)),
       safeDailyLimit: parseFloat(safeDailyLimit.toFixed(2)),
-      pacingStatus
+      dynamicDailyAllowance: parseFloat(safeDailyLimit.toFixed(2)),
+      pacingStatus,
+      budgetExhaustionPercentage,
+      pacingWarningLevel
+    };
+  }
+
+  /**
+   * Query alias for calculateDailyBudgetMetrics for semantic query ergonomics.
+   *
+   * @param {string} [targetDateStr=null]
+   * @returns {import('../types').DailyBudgetMetrics}
+   */
+  getDailyBudgetMetrics(targetDateStr = null) {
+    return this.calculateDailyBudgetMetrics(targetDateStr);
+  }
+
+  /**
+   * Calculates instantaneous daily allowance impact of a prospective expense.
+   * Compares current safe daily spending limit with projected limit if additionalAmount is spent.
+   *
+   * @param {number|string} additionalAmount - Prospective expense amount.
+   * @param {string} [targetDateStr=null] - Date to compute metrics for.
+   * @returns {{ currentSafeDaily: number, projectedSafeDaily: number, impactDelta: number, remainingDays: number, currencySymbol: string, formatted: string }}
+   */
+  calculateDailyImpact(additionalAmount, targetDateStr = null) {
+    const amount = Math.max(0, parseFloat(String(additionalAmount)) || 0);
+    const data = this._profiles.getActiveData();
+    const salary = data.salaryConfig || this._profiles.getDefaultSalaryConfig();
+    const discretionaryBudget = Math.max(0, salary.monthlyIncome - salary.fixedBills - salary.savingsGoal);
+
+    const cycle = this.getSalaryCycleDates(salary, targetDateStr);
+    const cycleExpenses = (data.expenses || []).filter(
+      e => e.date && e.date >= cycle.cycleStartDate && e.date < cycle.nextPaydayDate
+    );
+    const spentCycleToDate = cycleExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+    const remainingDiscretionary = Math.max(0, discretionaryBudget - spentCycleToDate);
+    const remainingDays = cycle.remainingDays > 0 ? cycle.remainingDays : 1;
+
+    const currentSafeDaily = parseFloat((remainingDiscretionary / remainingDays).toFixed(2));
+    const projectedRemaining = Math.max(0, remainingDiscretionary - amount);
+    const projectedSafeDaily = parseFloat((projectedRemaining / remainingDays).toFixed(2));
+    const impactDelta = parseFloat((currentSafeDaily - projectedSafeDaily).toFixed(2));
+    const sym = salary.currencySymbol || '₹';
+
+    return {
+      currentSafeDaily,
+      projectedSafeDaily,
+      impactDelta,
+      remainingDays: cycle.remainingDays,
+      currencySymbol: sym,
+      formatted: `${sym}${currentSafeDaily.toFixed(0)} → ${sym}${projectedSafeDaily.toFixed(0)}/day`
     };
   }
 }

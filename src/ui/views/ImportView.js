@@ -1009,7 +1009,7 @@ export class ImportView {
     const curSym = document.getElementById('ml-form-currency-sym');
     const taxSym = document.getElementById('ml-form-tax-sym');
 
-    const symbol = salaryConfig?.currencySymbol || '₹';
+    const symbol = d.currencySymbol || d.detectedCurrency || d.regionalData?.currencySymbol || salaryConfig?.currencySymbol || '₹';
     if (curSym) curSym.textContent = symbol;
     if (taxSym) taxSym.textContent = symbol;
 
@@ -1020,6 +1020,14 @@ export class ImportView {
     if (catSelect) catSelect.value = d.category;
     if (paySelect) paySelect.value = d.paymentMethod;
     if (descInput) descInput.value = d.description;
+
+    // Highlight low-confidence parsed fields
+    const lowConf = Array.isArray(d.lowConfidenceFields) ? d.lowConfidenceFields : [];
+    [merchantInput, dateInput, totalInput, taxInput].forEach(inp => inp?.classList.remove('low-confidence-field'));
+    if (merchantInput && lowConf.includes('merchant')) merchantInput.classList.add('low-confidence-field');
+    if (dateInput && lowConf.includes('date')) dateInput.classList.add('low-confidence-field');
+    if (totalInput && lowConf.includes('total')) totalInput.classList.add('low-confidence-field');
+    if (taxInput && lowConf.includes('tax')) taxInput.classList.add('low-confidence-field');
 
     // Regional & Utility badges bar (India GSTIN, US EIN/Tip, EU VAT/IBAN, APAC ABN/BPAY/T-Number, Utilities)
     const regionalBar = document.getElementById('ml-form-regional-bar');
@@ -1036,7 +1044,7 @@ export class ImportView {
       // North America
       if (reg.ein) chips.push(`<div class="ml-regional-chip">EIN: <strong>${escapeHTML(reg.ein)}</strong></div>`);
       if (reg.tipAmount > 0)
-        chips.push(`<div class="ml-regional-chip">Tip: <strong>$${reg.tipAmount.toFixed(2)}</strong></div>`);
+        chips.push(`<div class="ml-regional-chip">Tip: <strong>${symbol}${reg.tipAmount.toFixed(2)}</strong></div>`);
 
       // Europe & UK
       if (reg.vatNumber)

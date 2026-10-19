@@ -33,11 +33,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   inputEl.addEventListener('input', updatePreview);
 
+  const triggerShake = () => {
+    const container = document.getElementById('quick-pill-container');
+    if (container) {
+      container.classList.add('pill-shake');
+      setTimeout(() => container.classList.remove('pill-shake'), 400);
+    }
+  };
+
   const handleSubmit = async () => {
+    const text = inputEl.value.trim();
+    if (!text && (!currentParsed || !currentParsed.amount)) {
+      triggerShake();
+      return;
+    }
+
     if (!currentParsed || !currentParsed.success || !currentParsed.amount) {
-      // If user typed without amount, try parsing or do nothing
-      const text = inputEl.value.trim();
-      if (!text) return;
+      if (!text) {
+        triggerShake();
+        return;
+      }
       currentParsed = await window.electronAPI.nlpParse(text);
     }
 
@@ -52,12 +67,15 @@ document.addEventListener('DOMContentLoaded', () => {
         description: `Logged via Quick Pill (${currentParsed.rawInput})`,
         paidBy: activeProfile ? activeProfile.name : 'Self',
         splitWith: currentParsed.splitWith || [],
-        isHouseholdExpense: Boolean(currentParsed.isHouseholdExpense)
+        isHouseholdExpense: Boolean(currentParsed.isHouseholdExpense),
+        receiptFilename: currentParsed.receiptFilename || null
       };
 
       await window.electronAPI.submitQuickPillExpense(expenseData);
       inputEl.value = '';
       currentParsed = null;
+    } else {
+      triggerShake();
     }
   };
 

@@ -59,7 +59,12 @@ const BOILERPLATE_HEADER_PATTERNS = [
   /^(welcome|thank\s+you|thanks\s+for\s+visiting|have\s+a\s+nice\s+day)$/i,
   /^(customer\s+copy|merchant\s+copy|pos\s+slip|terminal\s+slip)$/i,
   /^(order\s+id|invoice\s+no|bill\s+no|token\s+no|table\s+no)[:\s]/i,
-  /^(tel|phone|ph|mobile|email|website|gstin|gst\s+no)[:\s]/i,
+  /^(tel|phone|ph|mobile|email|website|gstin|gst\s*(?:reg\.?\s*)?no)[:\s]/i,
+  /^(trade\s*\/?\s*legal\s*name|seller|client|vendor|customer|buyer|billed\s+to|shipped\s+to)(?:[:\s]|$)/i,
+  /^(date\s+of\s+issue|issue\s+date|invoice\s+date|due\s+date)(?:[:\s]|$)/i,
+  /^(tax\s*id|vat\s*id|vat\s*no|iban|swift|bic)(?:[:\s]|$)/i,
+  /^(summary|items|description|qty|subtotal|gross\s*worth|net\s*worth)(?:[:\s]|$)/i,
+  /^(billing\s+address|shipping\s+address)(?:[:\s]|$)/i,
   /^(google\s*pay|phonepe|paytm|bhim|upi\s+transaction|payment\s+successful|completed|paid\s+successfully)$/i,
   /^[- \s]*page\s+\d+(\s+of\s+\d+)?[- \s]*$/i
 ];
@@ -291,8 +296,16 @@ class ReceiptTier1Engine {
       const layoutId = taxInfoPre.gstin || merchant;
       const layoutMemory = this.receiptLearning ? this.receiptLearning.getLayout(layoutId) : null;
 
+      // Currency hint for regional date disambiguation
+      let currencyHint = 'INR';
+      if (/(?:\$|\bUSD\b)/i.test(rawText)) currencyHint = 'USD';
+      else if (/(?:€|\bEUR\b)/i.test(rawText)) currencyHint = 'EUR';
+      else if (/(?:£|\bGBP\b)/i.test(rawText)) currencyHint = 'GBP';
+      else if (/(?:¥|\bJPY\b)/i.test(rawText)) currencyHint = 'JPY';
+      else if (/(?:₹|\b(?:INR|Rs\.?)\b)/i.test(rawText)) currencyHint = 'INR';
+
       const totalExtraction = this.extractTotal(lines, rawText, layoutMemory);
-      const dateExtraction = this.extractDate(lines, rawText, layoutMemory);
+      const dateExtraction = this.extractDate(lines, rawText, layoutMemory, currencyHint);
       const taxInfo = taxInfoPre;
       const paymentMethod = this.extractPaymentMethod(rawText);
       const lineItems = this.extractLineItems(lines);
@@ -597,9 +610,9 @@ class ReceiptTier1Engine {
       }
     }
 
-    // Pattern A: Explicit Grand Total / Total Paid / Amount Due anchors (including DACH region)
+    // Pattern A: Explicit Grand Total / Total Paid / Amount Due anchors (including DACH region & Gross Worth)
     const explicitTotalRegex =
-      /(?:grand\s*total|total\s*paid|net\s*payable|amount\s*due|invoice\s*total|final\s*bill|total\s*amount|total\s*inr|total\s*usd|total\s*eur|total\s*gbp|amount\s*paid|amount|gesamtsumme|gesamtbetrag|endbetrag|rechnungsbetrag|zu\s*zahlen)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,6}[.,][0-9]{2})(?:\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£))?/i;
+      /(?:grand\s*total|total\s*paid|net\s*payable|amount\s*due|invoice\s*total|final\s*bill|total\s*amount|total\s*inr|total\s*usd|total\s*eur|total\s*gbp|amount\s*paid|gross\s*worth|gross|amount|gesamtsumme|gesamtbetrag|endbetrag|rechnungsbetrag|zu\s*zahlen)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,6}[.,][0-9]{2})(?:\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£))?/i;
 
     // Pattern B: General Total anchors (including German Summe)
     const standardTotalRegex =
@@ -609,17 +622,60 @@ class ReceiptTier1Engine {
     const subtotalRegex =
       /(?:subtotal|sub-total|item\s+total|items\s+total|zwischensumme|netto|warenwert)\s*[:=]?\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,6}[.,][0-9]{2})(?:\s*(?:₹|rs\.?|inr|usd|\$|eur|€|gbp|£))?/i;
 
+    // Helper: analyze multiple numeric price tokens on a summary or total line (Net vs Tax vs Gross)
+    const analyzeMultiPriceLine = (line) => {
+      const numMatches = line.match(/(?:[0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,6}[.,][0-9]{2})/g);
+      if (numMatches && numMatches.length >= 2) {
+        const parsedVals = numMatches
+          .map(m => this._parseCleanFloat(m))
+          .filter(v => v !== null && v > 0);
+
+        if (parsedVals.length >= 3) {
+          const net = parsedVals[0];
+          const tax = parsedVals[1];
+          const gross = parsedVals[parsedVals.length - 1];
+          // Mathematical consistency check: Subtotal + Tax === Gross
+          if (Math.abs(net + tax - gross) <= 0.05) {
+            return { subtotal: net, tax, total: gross };
+          }
+          // Fallback: If last token is the largest token on a total row
+          const maxVal = Math.max(...parsedVals);
+          if (gross === maxVal && maxVal > net) {
+            return { subtotal: net, total: gross };
+          }
+        } else if (parsedVals.length === 2) {
+          if (parsedVals[1] > parsedVals[0]) {
+            return { subtotal: parsedVals[0], total: parsedVals[1] };
+          }
+        }
+      }
+      return null;
+    };
+
     // 1. Reverse scan for explicit grand total and subtotal
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i];
 
       if (grandTotal === null) {
-        const expMatch = line.match(explicitTotalRegex);
-        if (expMatch) {
-          grandTotal = this._parseCleanFloat(expMatch[1]);
-          const rawAnchor = expMatch[0].split(/[:=\d]/)[0].trim();
-          anchorUsed = anchorUsed || rawAnchor;
-          confidence = confidence || 0.94;
+        // Inspect line if it contains total / gross anchors with multiple tokens
+        if (/(?:grand\s*total|gross\s*worth|total|gesamtsumme|gesamtbetrag)\b/i.test(line)) {
+          const multi = analyzeMultiPriceLine(line);
+          if (multi) {
+            grandTotal = multi.total;
+            if (subtotal === null && multi.subtotal) subtotal = multi.subtotal;
+            anchorUsed = anchorUsed || 'GROSS_MULTI_TOKEN';
+            confidence = confidence || 0.95;
+          }
+        }
+
+        if (grandTotal === null) {
+          const expMatch = line.match(explicitTotalRegex);
+          if (expMatch) {
+            grandTotal = this._parseCleanFloat(expMatch[1]);
+            const rawAnchor = expMatch[0].split(/[:=\d]/)[0].trim();
+            anchorUsed = anchorUsed || rawAnchor;
+            confidence = confidence || 0.94;
+          }
         }
       }
 
@@ -640,6 +696,14 @@ class ReceiptTier1Engine {
 
         const stdMatch = line.match(standardTotalRegex);
         if (stdMatch) {
+          const multi = analyzeMultiPriceLine(line);
+          if (multi) {
+            grandTotal = multi.total;
+            if (subtotal === null && multi.subtotal) subtotal = multi.subtotal;
+            anchorUsed = 'TOTAL_MULTI_TOKEN';
+            confidence = 0.90;
+            break;
+          }
           grandTotal = this._parseCleanFloat(stdMatch[1]);
           const rawAnchor = stdMatch[0].split(/[:=\d]/)[0].trim();
           anchorUsed = rawAnchor;
@@ -703,9 +767,10 @@ class ReceiptTier1Engine {
    * @param {Array<string>} lines
    * @param {string} fullText
    * @param {object|null} [layoutMemory=null]
+   * @param {string|null} [detectedCurrency=null]
    * @returns {{ date: string|null, rawDate: string|null, confidence: number, patternUsed: string|null }}
    */
-  extractDate(lines, fullText, layoutMemory = null) {
+  extractDate(lines, fullText, layoutMemory = null, detectedCurrency = null) {
     const currentYear = new Date().getFullYear();
     const preferredPattern = layoutMemory && layoutMemory.datePattern ? layoutMemory.datePattern.toUpperCase() : null;
 
@@ -725,6 +790,24 @@ class ReceiptTier1Engine {
             rawDate: match[0],
             confidence: 0.95,
             patternUsed: 'DD/MM/YYYY'
+          };
+        }
+      }
+    } else if (preferredPattern === 'MM/DD/YYYY' || preferredPattern === 'MM-DD-YYYY') {
+      const mmddyyyyRegex = /\b(0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])[-/.](20\d{2}|\d{2})\b/;
+      const match = fullText.match(mmddyyyyRegex);
+      if (match) {
+        const month = match[1].padStart(2, '0');
+        const day = match[2].padStart(2, '0');
+        let year = match[3];
+        if (year.length === 2) year = `20${year}`;
+        const yrNum = parseInt(year, 10);
+        if (yrNum >= 2015 && yrNum <= currentYear + 1) {
+          return {
+            date: `${year}-${month}-${day}`,
+            rawDate: match[0],
+            confidence: 0.95,
+            patternUsed: 'MM/DD/YYYY'
           };
         }
       }
@@ -775,40 +858,74 @@ class ReceiptTier1Engine {
       };
     }
 
-    // Priority 3: Regional DD/MM/YYYY or DD-MM-YYYY (Common in India / UK / Europe)
-    const ddmmyyyyRegex = /\b(0?[1-9]|[12]\d|3[01])[-/.](0?[1-9]|1[0-2])[-/.](20\d{2}|\d{2})\b/;
-    const ddmmyyyyMatch = fullText.match(ddmmyyyyRegex);
-    if (ddmmyyyyMatch) {
-      const day = ddmmyyyyMatch[1].padStart(2, '0');
-      const month = ddmmyyyyMatch[2].padStart(2, '0');
-      let year = ddmmyyyyMatch[3];
-      if (year.length === 2) year = `20${year}`;
+    // Resolve regional/currency hint for ambiguous dates
+    let currency = detectedCurrency;
+    if (!currency) {
+      if (/(?:₹|\b(?:inr|rs\.?)\b)/i.test(fullText)) currency = 'INR';
+      else if (/(?:€|\beur\b)/i.test(fullText)) currency = 'EUR';
+      else if (/(?:£|\bgbp\b)/i.test(fullText)) currency = 'GBP';
+      else if (/(?:\$|\busd\b)/i.test(fullText)) currency = 'USD';
+    }
 
+    // Priority 3: Slashed or hyphenated numeric dates with Regional Disambiguation
+    const numericDateRegex = /\b(0?[1-9]|[12]\d|3[01])[-/.](0?[1-9]|[12]\d|3[01])[-/.](20\d{2}|\d{2})\b/g;
+    let match;
+    while ((match = numericDateRegex.exec(fullText)) !== null) {
+      const p1 = parseInt(match[1], 10);
+      const p2 = parseInt(match[2], 10);
+      let year = match[3];
+      if (year.length === 2) year = `20${year}`;
       const yrNum = parseInt(year, 10);
-      if (yrNum >= 2015 && yrNum <= currentYear + 1) {
-        const isUnambiguous = parseInt(day, 10) > 12;
+      if (yrNum < 2015 || yrNum > currentYear + 1) continue;
+
+      // Unambiguous DD/MM/YYYY (first number > 12, second <= 12)
+      if (p1 > 12 && p2 <= 12) {
+        const day = String(p1).padStart(2, '0');
+        const month = String(p2).padStart(2, '0');
         return {
           date: `${year}-${month}-${day}`,
-          rawDate: ddmmyyyyMatch[0],
-          confidence: isUnambiguous ? 0.92 : 0.82,
+          rawDate: match[0],
+          confidence: 0.94,
           patternUsed: 'DD/MM/YYYY'
         };
       }
-    }
 
-    // Priority 4: US Format MM/DD/YYYY if first number <= 12 and second > 12
-    const mmddyyyyRegex = /\b(0?[1-9]|1[0-2])[-/.](1[3-9]|2\d|3[01])[-/.](20\d{2})\b/;
-    const mmddyyyyMatch = fullText.match(mmddyyyyRegex);
-    if (mmddyyyyMatch) {
-      const month = mmddyyyyMatch[1].padStart(2, '0');
-      const day = mmddyyyyMatch[2].padStart(2, '0');
-      const year = mmddyyyyMatch[3];
-      return {
-        date: `${year}-${month}-${day}`,
-        rawDate: mmddyyyyMatch[0],
-        confidence: 0.92,
-        patternUsed: 'MM/DD/YYYY'
-      };
+      // Unambiguous MM/DD/YYYY (first number <= 12, second > 12)
+      if (p1 <= 12 && p2 > 12) {
+        const month = String(p1).padStart(2, '0');
+        const day = String(p2).padStart(2, '0');
+        return {
+          date: `${year}-${month}-${day}`,
+          rawDate: match[0],
+          confidence: 0.94,
+          patternUsed: 'MM/DD/YYYY'
+        };
+      }
+
+      // Ambiguous: both p1 <= 12 and p2 <= 12
+      // Disambiguate based on document currency: INR, EUR, GBP -> DD/MM/YYYY; USD -> MM/DD/YYYY
+      if (p1 <= 12 && p2 <= 12) {
+        if (currency === 'USD') {
+          const month = String(p1).padStart(2, '0');
+          const day = String(p2).padStart(2, '0');
+          return {
+            date: `${year}-${month}-${day}`,
+            rawDate: match[0],
+            confidence: 0.88,
+            patternUsed: 'MM/DD/YYYY'
+          };
+        } else {
+          // India, Europe, UK default: DD/MM/YYYY
+          const day = String(p1).padStart(2, '0');
+          const month = String(p2).padStart(2, '0');
+          return {
+            date: `${year}-${month}-${day}`,
+            rawDate: match[0],
+            confidence: 0.88,
+            patternUsed: 'DD/MM/YYYY'
+          };
+        }
+      }
     }
 
     return { date: null, rawDate: null, confidence: 0.0, patternUsed: null };
@@ -835,8 +952,8 @@ class ReceiptTier1Engine {
       };
     }
 
-    // Check top 5 non-empty lines
-    const candidates = lines.slice(0, 5);
+    // Check top 8 non-empty lines
+    const candidates = lines.slice(0, 8);
 
     for (const rawLine of candidates) {
       const line = rawLine.trim();
@@ -856,6 +973,7 @@ class ReceiptTier1Engine {
         .replace(/^[#*->]+\s*/, '')
         .replace(/^(?:paid\s+to|payment\s+to|to:?)\s*/i, '')
         .replace(/\s*[,|-]\s*(?:branch|store|outlet|unit|no\.|plot|road|street|nagar).*$/i, '')
+        .replace(/[:;]+$/, '')
         .trim();
 
       // Ensure merchant has alphabetical characters

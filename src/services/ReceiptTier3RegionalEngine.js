@@ -37,7 +37,8 @@ const {
   extractRegionalPayment,
   extractRegionalUtility,
   parseRegionalMonetary,
-  disambiguateRegionalDate
+  disambiguateRegionalDate,
+  detectRegionalLocale
 } = require('./RegionalIntelligenceRegistry');
 
 // Dynamic tesseract.js requirement
@@ -133,27 +134,17 @@ class ReceiptTier3RegionalEngine {
   }
 
   /**
-   * Checks if Tier 3 model weights exist and are ready for inference.
+   * Checks if Omni-Regional Perception Engine is ready for inference.
+   * Built-in 100% offline heuristic and statutory intelligence is always ready.
    *
-   * @param {string} [specialistId='tier3-regional-in']
-   * @returns {boolean}
+   * @param {string} [_specialistId='omni-regional-engine']
+   * @returns {boolean} True unconditionally
    */
-  isModelReady(specialistId = 'tier3-regional-in') {
-    const filenameMap = {
-      'tier3-regional-in': 'tier3-regional-in.bin',
-      'tier3-regional-us': 'tier3-regional-us.bin',
-      'tier3-regional-eu': 'tier3-regional-eu.bin',
-      'tier3-regional-apac': 'tier3-regional-apac.bin'
-    };
-    const filename = filenameMap[specialistId] || `${specialistId}.bin`;
-    const binPathInModelDir = path.join(this.modelDir, filename);
-    const binPathInSubDir = this.modelsRoot ? path.join(this.modelsRoot, specialistId, filename) : null;
+  isModelReady(_specialistId = 'omni-regional-engine') {
+    return true;
+  }
 
-    return (
-      (fs.existsSync(binPathInModelDir) && fs.statSync(binPathInModelDir).size > 0) ||
-      (binPathInSubDir && fs.existsSync(binPathInSubDir) && fs.statSync(binPathInSubDir).size > 0)
-    );
-  } /**
+  /**
    * Fast-path synchronous processor for pre-extracted text strings.
    * Useful in testing and instant vector-text processing.
    *
@@ -185,7 +176,12 @@ class ReceiptTier3RegionalEngine {
       };
     }
 
-    const specialistId = options.modelId || options.specialistId || options.engine || 'tier3-regional-in';
+    let specialistId = options.modelId || options.specialistId || options.engine;
+    if (!specialistId || specialistId === 'auto' || specialistId === 'tier3-regional-omni' || specialistId === 'omni-regional-engine') {
+      const detected = detectRegionalLocale(rawText, options);
+      specialistId = `tier3-regional-${detected.region}`;
+    }
+
     switch (specialistId) {
       case 'tier3-regional-us':
         return this._processNorthAmericaSpecialist(rawText, lines, startTime, true);
@@ -295,7 +291,11 @@ class ReceiptTier3RegionalEngine {
       }
 
       // 4. Determine Active Specialist Engine
-      const specialistId = options.specialistId || options.engine || 'tier3-regional-in';
+      let specialistId = options.specialistId || options.engine || options.modelId;
+      if (!specialistId || specialistId === 'auto' || specialistId === 'tier3-regional-omni' || specialistId === 'omni-regional-engine') {
+        const detected = detectRegionalLocale(rawText, options);
+        specialistId = `tier3-regional-${detected.region}`;
+      }
 
       // 5. Dispatch to Specialist Pipeline
       switch (specialistId) {
@@ -444,7 +444,7 @@ class ReceiptTier3RegionalEngine {
     let taxRate = null;
     const taxMatch =
       rawText.match(
-        /\b(?:sales\s*tax|state\s*tax|local\s*tax|tax)(?:\s*\(([0-9.]+)%\))?[:\s]*\$?\s*([0-9]+[.,][0-9]{2})/i
+        /\b(?:sales\s*tax|state\s*tax|local\s*tax|tax)(?:\s*\(?([0-9.]+)%\)?)?[:\s]*\$?\s*([0-9]+[.,][0-9]{2})/i
       ) || rawText.match(/\b([0-9.]+)%\s*(?:sales\s*tax|tax)[:\s]*\$?\s*([0-9]+[.,][0-9]{2})/i);
     if (taxMatch) {
       taxRate = taxMatch[1] ? parseFloat(taxMatch[1]) : null;
@@ -629,11 +629,33 @@ class ReceiptTier3RegionalEngine {
 
     // 5. Total and Subtotal using European Comma parsing
     let total;
-    const totalMatch = rawText.match(/\b(?:total|gesamt|montant\s*total|totale)[:\s]*[€£]?\s*([0-9]+[.,][0-9]{2})/i);
-    if (totalMatch) {
-      total = parseRegionalMonetary(totalMatch[1], 'eu');
-    } else {
-      total = this.extractTotal(lines, rawText, false).total;
+    let multiTotalFound = false;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (/\b(?:total|gesamt|montant\s*total|gross\s*worth|zu\s*zahlen)\b/i.test(line)) {
+        const numMatches = line.match(/(?:[0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]+[.,][0-9]{2})/g);
+        if (numMatches && numMatches.length >= 2) {
+          const vals = numMatches.map(m => parseRegionalMonetary(m, 'eu')).filter(v => v > 0);
+          if (vals.length >= 3 && Math.abs(vals[0] + vals[1] - vals[vals.length - 1]) <= 0.05) {
+            total = vals[vals.length - 1];
+            multiTotalFound = true;
+            break;
+          } else if (vals.length >= 2 && vals[vals.length - 1] > vals[0]) {
+            total = vals[vals.length - 1];
+            multiTotalFound = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!multiTotalFound) {
+      const totalMatch = rawText.match(/\b(?:total|gesamt|montant\s*total|totale|gross\s*worth)[:\s]*[€£$]?\s*([0-9]+[.,][0-9]{2})/i);
+      if (totalMatch) {
+        total = parseRegionalMonetary(totalMatch[1], 'eu');
+      } else {
+        total = this.extractTotal(lines, rawText, false).total;
+      }
     }
 
     const dateInfo = this.extractDate(lines, rawText, 'eu');
@@ -1236,7 +1258,23 @@ class ReceiptTier3RegionalEngine {
       'receipt',
       'original for recipient',
       'welcome',
-      'customer copy'
+      'customer copy',
+      'trade / legal name',
+      'trade  legal name',
+      'trade legal name',
+      'seller',
+      'client',
+      'vendor',
+      'customer',
+      'buyer',
+      'date of issue',
+      'issue date',
+      'tax id',
+      'vat id',
+      'gross worth',
+      'net worth',
+      'billing address',
+      'shipping address'
     ];
 
     for (let i = 0; i < Math.min(lines.length, 5); i++) {

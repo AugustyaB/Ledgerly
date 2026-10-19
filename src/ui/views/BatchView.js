@@ -195,6 +195,21 @@ export class BatchView {
       });
     });
 
+    // Title auto-categorization on blur
+    const titleInput = tr.querySelector('.batch-title');
+    titleInput?.addEventListener('blur', async e => {
+      const val = e.target.value?.trim();
+      if (val && this.#api?.predictCategory) {
+        try {
+          const predicted = await this.#api.predictCategory(val);
+          const catSelect = tr.querySelector('.batch-category');
+          if (predicted && catSelect) {
+            catSelect.value = predicted;
+          }
+        } catch {}
+      }
+    });
+
     // Date input shorthand resolver on blur & Enter
     const dateInput = tr.querySelector('.batch-date');
     dateInput?.addEventListener('blur', e => {
@@ -314,10 +329,10 @@ export class BatchView {
     if (typeof document === 'undefined') return;
 
     const rows = document.querySelectorAll('#batch-table-body tr');
-    let savedCount = 0;
     const activeProfile = this.#state.get('activeProfile');
     const paidBy = activeProfile ? activeProfile.name : 'Self';
 
+    const batchItems = [];
     for (const tr of rows) {
       const title = tr.querySelector('.batch-title')?.value.trim();
       const amount = parseFloat(tr.querySelector('.batch-amount')?.value);
@@ -328,7 +343,7 @@ export class BatchView {
       const description = tr.querySelector('.batch-desc')?.value.trim();
 
       if (title && !isNaN(amount) && amount > 0) {
-        await this.#api.addExpense({
+        batchItems.push({
           title,
           amount,
           date,
@@ -338,22 +353,50 @@ export class BatchView {
           paidBy,
           isHouseholdExpense: false
         });
-        savedCount++;
       }
     }
 
-    if (savedCount > 0) {
+    if (batchItems.length > 0) {
+      let savedRecords = [];
+      if (this.#api?.bulkAddExpenses) {
+        const res = await this.#api.bulkAddExpenses(batchItems);
+        savedRecords = res?.data || res?.expenses || batchItems;
+      } else {
+        for (const item of batchItems) {
+          const res = await this.#api.addExpense(item);
+          savedRecords.push(res?.expense || item);
+        }
+      }
+
+      if (typeof this.#state?.pushUndoAction === 'function') {
+        this.#state.pushUndoAction({
+          type: 'BULK_ADD_EXPENSES',
+          description: `Batch added ${batchItems.length} expenses`,
+          payload: savedRecords,
+          undo: async () => {
+            const ids = savedRecords.map(e => e.id).filter(Boolean);
+            if (ids.length && this.#api?.bulkDeleteExpenses) {
+              await this.#api.bulkDeleteExpenses(ids);
+            }
+            await this.#refreshAppData();
+          }
+        });
+      }
+
       showActionToast({
         icon: 'clipboard',
-        title: `Saved ${savedCount} Batch Records`,
-        subtext: 'Added to your financial ledger'
+        title: `Saved ${batchItems.length} Batch Records`,
+        subtext: 'Added to your financial ledger (Ctrl+Z to undo)'
       });
       await this.#refreshAppData();
       this.#tabSwitcher('dashboard');
     } else {
-      if (typeof alert !== 'undefined') {
-        alert('No valid rows to save. Please enter a Title and Amount for at least one row.');
+      const table = document.getElementById('batch-grid-table');
+      if (table) {
+        table.classList.add('express-shake');
+        setTimeout(() => table.classList.remove('express-shake'), 400);
       }
+      showToast('No valid rows to save. Please enter a Title and Amount for at least one row.', 'warning');
     }
   }
 
@@ -368,9 +411,7 @@ export class BatchView {
     try {
       const text = await navigator.clipboard.readText();
       if (!text || !text.trim()) {
-        if (typeof alert !== 'undefined') {
-          alert('Clipboard is empty. Copy tab-delimited rows from Excel or Google Sheets first.');
-        }
+        showToast('Clipboard is empty. Copy tab-delimited rows from Excel or Google Sheets first.', 'warning');
         return;
       }
 
@@ -410,14 +451,10 @@ export class BatchView {
       if (parsedCount > 0) {
         showToast(`Pasted and inserted ${parsedCount} rows from clipboard!`);
       } else {
-        if (typeof alert !== 'undefined') {
-          alert('No tab-delimited tabular rows detected in clipboard.');
-        }
+        showToast('No tab-delimited tabular rows detected in clipboard.', 'warning');
       }
     } catch (err) {
-      if (typeof alert !== 'undefined') {
-        alert('Clipboard read error: ' + err.message);
-      }
+      showToast('Clipboard read error: ' + err.message, 'error');
     }
   }
 

@@ -71,6 +71,16 @@ export function showActionToast({
   container.classList.remove('hidden');
   clearTimeout(toastActionTimer);
 
+  const toastCard = document.getElementById('toast-card') || container;
+  if (toastCard && !toastCard.dataset.dismissBound) {
+    toastCard.dataset.dismissBound = 'true';
+    toastCard.style.cursor = 'pointer';
+    toastCard.addEventListener('click', () => {
+      clearTimeout(toastActionTimer);
+      container.classList.add('hidden');
+    });
+  }
+
   toastActionTimer = setTimeout(() => {
     container.classList.add('hidden');
   }, duration);
