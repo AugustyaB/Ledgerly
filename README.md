@@ -9,6 +9,21 @@
 
 ---
 
+## 👋 A Note from the Developer (My First Solo App!)
+
+Hi! Welcome to **Ledgerly**. 
+
+This repository marks the **initial release (`v1.0.0`)** of an app I have designed and built from the ground up as a **solo developer**. This is my very first time architecting, building, and launching a complete cross-platform application across desktop (Windows, macOS, Linux) and mobile (Android, iOS).
+
+Because this is a solo passion project built without a large corporate team:
+- **Open to Feedback & Criticism:** If something feels unintuitive, clunky, or could be engineered better, I want to hear it! Constructive criticism is warmly welcomed and directly helps me learn and improve.
+- **Found an Issue or Bug?** If you run into any quirks—whether it's a specific receipt format that doesn't parse cleanly, an edge case with your currency, or a platform display glitch—please **[open an issue on GitHub](https://github.com/AugustyaB/Ledgerly/issues)**.
+- **Contributions & Ideas:** Suggestions, discussions, and pull requests are always welcome.
+
+Thank you so much for trying out Ledgerly and supporting an independent developer! 🙌
+
+---
+
 ## ⚡ Quick Download & Installation
 
 Get the latest pre-compiled binaries directly from this repository:
@@ -90,7 +105,7 @@ Most people abandon expense trackers within two weeks. The reasons are always th
 ## 🚀 How to Launch
 
 ### Option 1: Official Windows Installer (Recommended for Users)
-1. Download and run **`Ledgerly Setup 0.9.0.exe`** from [Releases](https://github.com/AugustyaB/Ledgerly/releases).
+1. Download and run **`Ledgerly Setup 1.0.0.exe`** from [Releases](https://github.com/AugustyaB/Ledgerly/releases).
 2. Follow the setup wizard to choose your install path and create a desktop shortcut.
 3. Launch Ledgerly from your Desktop or Start Menu.
 
@@ -203,7 +218,6 @@ npm run mobile:build:apk
 │
 ├── build/                               # installer.nsh (Custom NSIS in-place repair & safe uninstall)
 ├── scripts/                             # check-syntax.js, check-architecture-layers.js
-├── .gsd/                                # Spec-driven development framework (ACTIVE_PLAN, STATE, ROADMAP, DECISION)
 ├── FLOW.md                              # System architecture & 5-Layer x 6-Section blueprints
 └── package.json                         # Build configurations, dependencies & npm scripts
 ```
@@ -258,8 +272,8 @@ npm run test:journeys
 | **v0.6** | Capacitor Mobile Companion & Zero-Cloud Local LAN Wi-Fi Sync | ✅ Complete |
 | **v0.7** | Partitioned Storage Engine (`<90d` / `>90d`), European Polish & Mirror Vault | ✅ Complete |
 | **v0.8** | Smart Insights, Subscriptions, Fuzzy Reconciliation & Optical QR LAN Pairing | ✅ Certified Complete |
-| **v0.9** | **Multi-Platform Installer Suite & Section-by-Section UX Refinement (`Sec 1–6`)** | 🔄 **Active** |
-| **v1.0.0** | **Official Production Release** (Signed Binaries, Auto-Updater & Public Distribution) | 🎯 Staged Target |
+| **v0.9** | Multi-Platform Installer Suite & Section-by-Section UX Refinement (`Sec 1–6`) | ✅ Complete |
+| **v1.0.0** | **Official Production Release** (Bank-Grade AES-256 Vault, Multi-Platform Releases & Public Launch) | ✅ **Live Release** |
 
 ---
 
