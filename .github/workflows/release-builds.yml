@@ -98,27 +98,27 @@ jobs:
           BIN_PATH=$(which ledgerly 2>/dev/null || find /opt -name "*ledgerly*" -type f -perm /111 2>/dev/null | head -n 1)
           echo "Resolved binary path: $BIN_PATH"
           xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" "$BIN_PATH" --no-sandbox &
-          DEB_PID=$!
-          sleep 6
-          if kill -0 $DEB_PID 2>/dev/null; then
-            echo "✅ Ledgerly .deb installed and launched successfully! (PID $DEB_PID)"
-            kill $DEB_PID
+          sleep 5
+          if pgrep -f "ledgerly" > /dev/null; then
+            echo "✅ Ledgerly .deb installed and running!"
+            pkill -f "ledgerly" || true
           else
             echo "❌ Ledgerly .deb failed to launch"
             exit 1
           fi
           echo "=== Testing .AppImage launch ==="
           chmod +x dist/*.AppImage
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" ./dist/*.AppImage --appimage-extract-and-run --no-sandbox &
-          APP_PID=$!
-          sleep 6
-          if kill -0 $APP_PID 2>/dev/null; then
-            echo "✅ Ledgerly .AppImage extracted and launched successfully! (PID $APP_PID)"
-            kill $APP_PID
+          cd dist && ./Ledgerly-*.AppImage --appimage-extract > /dev/null
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" ./squashfs-root/ledgerly --no-sandbox &
+          sleep 5
+          if pgrep -f "ledgerly" > /dev/null; then
+            echo "✅ Ledgerly .AppImage extracted and running!"
+            pkill -f "ledgerly" || true
           else
             echo "❌ Ledgerly .AppImage failed to launch"
             exit 1
           fi
+          cd ..
       - uses: actions/upload-artifact@v4
         with:
           name: Ledgerly-Linux-Desktop
