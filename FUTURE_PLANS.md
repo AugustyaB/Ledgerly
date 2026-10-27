@@ -161,8 +161,38 @@ This document serves as the persistent registry of long-term ideas, feature pros
     - Formal defect logging, reproduction steps, ground-truth logs, and severity prioritization (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`).
     - Release certification gates (ensuring zero unresolved P0/P1 blockers before pushing public binary updates).
     - Asynchronous multi-agent defect triage and regression verification.
-  - *Current Status*: Kept intentionally detached from active development to maximize engineering velocity and eliminate cognitive context saturation for AI agents.
+
+### 13. 🛡️ Code Hardening, Anti-Decompilation & Reverse-Engineering Defense
+- [ ] **V8 Bytecode Compilation (`bytenode`)**:
+  - Compile the Electron main process (`src/main.js`, `src/services/`, `src/storage.js`) into V8 native bytecode (`.jsc`) prior to packaging into `app.asar`.
+  - Eliminates human-readable JavaScript source text, comments, and standard AST structures from release bundles, neutralizing automated ASAR extractors and LLM-driven reverse-engineering suites (e.g. REA / AI decoders).
+- [ ] **AST Control-Flow Flattening & Obfuscation (`javascript-obfuscator`)**:
+  - Integrate an automated obfuscation pipeline in production builds with control-flow flattening (converting linear functions into state-machine graphs), dead-code injection, and encrypted string arrays (RC4/Base64).
+  - Disrupts token-flow linearity and pattern recognition models, rendering automated AI de-obfuscation and static analysis tools economically unviable.
+- [ ] **Native C++ / Rust Node-API Addons (`.node`)**:
+  - Extract proprietary core algorithms (such as regional receipt heuristics, offline financial math engines, or future commercial licensing validators) into native Rust (`napi-rs`) or C++ (Node-API) compiled binaries.
+  - Requires low-level machine assembly disassembly (Ghidra / IDA Pro) rather than high-level script decompilation.
+- [ ] **Runtime Integrity, Anti-Tampering & DevTools Lockout**:
+  - Enforce `webPreferences.devTools = false` in production builds and disable debugging startup arguments (`--inspect`, `--remote-debugging-port`).
+  - Completely strip `.map` source maps from production packaging.
+  - Runtime SHA-256 bundle hash self-check to detect modified, unpacked, or tampered executables before initializing storage.
+- [ ] **Cryptographic Code Signing (Windows Authenticode & Android Keystore)**:
+  - Sign Windows desktop executables and NSIS installers with an Authenticode Code Signing Certificate.
+
+### 14. 🧹 Code Cohesion & Subsystem Consolidation (Anti-Overengineering Diet)
+- [ ] **Unified Receipt Perception Engine Consolidation**:
+  - Consolidate the 7 fragmented receipt services (`ReceiptTier1Engine.js`, `ReceiptTier2VisionEngine.js`, `ReceiptTier3RegionalEngine.js`, `DocumentIntelligenceService.js`, `DocumentNormalizer.js`, `ReceiptLearningService.js`, and `SmartDocumentAnalyzer.js`) into a clean, unified `ReceiptEngine.js` (supported by a pure helper `receiptNormalizer.js`).
+  - Preserves 100% of omni-regional extraction capabilities (net vs. gross worth, DACH VAT, Indian GSTIN, confidence scoring) while eliminating cross-service coordination hops and vastly improving code readability.
+- [ ] **Database Integrity & Diagnostics Unification**:
+  - Merge `DataQualityAuditor.js` (data sanitization, schema version migration) directly into `DatabaseAuditor.js` (startup integrity, file repair, orphaned note cleaning, `.bak` snapshotting).
+  - Eliminates duplicate audit passes and establishes a single, comprehensive source of truth for all database self-healing and schema audits.
+- [ ] **Redundant Facade & Wrapper Elimination**:
+  - Streamline `FinancialIntelligenceFacade.js` and route all UI/IPC queries straight through the domain services via `storage.js`.
+  - Removes unnecessary middleman abstraction layers that wrap services without adding domain logic.
+- [ ] **Micro-Optimization & Cache Layer Simplification**:
+  - Audit `AggregationRollupService.js` and replace premature LRU/rollup cache invalidation machinery with clean, direct V8 reductions unless real-world profiling demonstrates a perceptible UI bottleneck.
+  - Eliminates state synchronization risks and simplifies computational reasoning.
 
 ---
 
-*Last Updated: 2026-09-18*
+*Last Updated: 2026-10-20*
