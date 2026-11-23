@@ -9,27 +9,17 @@ permissions:
 jobs:
   submit-initial-winget:
     name: Submit Initial Manifest to WinGet
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET 9 Runtime
-        uses: actions/setup-dotnet@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          dotnet-version: '9.0.x'
+          node-version: 20
 
-      - name: Download WingetCreate CLI on Cloud Runner
-        run: |
-          curl.exe -sL "https://aka.ms/wingetcreate/latest" -o "wingetcreate.exe"
-          ./wingetcreate.exe --version
-
-      - name: Validate and Submit Manifests to microsoft/winget-pkgs
+      - name: Submit Manifests to microsoft/winget-pkgs via GitHub API
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-        run: |
-          if (-not $env:WINGET_TOKEN) {
-            Write-Error "WINGET_TOKEN secret is not set. Please add a GitHub Personal Access Token (classic with public_repo scope) in Repository Settings -> Secrets and variables -> Actions."
-            exit 1
-          }
-          ./wingetcreate.exe submit "winget-manifests/manifests/a/AugustyaB/Ledgerly/1.0.0" --prtitle "New package: AugustyaB.Ledgerly version 1.0.0" --token "$env:WINGET_TOKEN" --no-open
+        run: node scripts/submit-winget-pr.js
