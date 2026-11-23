@@ -14,7 +14,7 @@ const path = require('path');
 const token = process.env.WINGET_TOKEN;
 if (!token) {
   console.error('❌ ERROR: WINGET_TOKEN secret is not set.');
-  console.error('Please configure a GitHub Personal Access Token (classic with public_repo scope) in Repository Secrets.');
+  console.error('Please configure a GitHub Personal Access Token in Repository Secrets.');
   process.exit(1);
 }
 
@@ -89,13 +89,13 @@ async function main() {
     }
   }
 
-  // 3. Get latest master commit SHA from upstream microsoft/winget-pkgs
-  console.log('📥 Fetching latest master commit SHA from microsoft/winget-pkgs...');
-  const upstreamMaster = await githubRequest('GET', '/repos/microsoft/winget-pkgs/git/ref/heads/master');
-  const baseSha = upstreamMaster.object.sha;
-  console.log(`✅ Base SHA: ${baseSha}\n`);
+  // 3. Get master commit SHA directly from the user's fork
+  console.log(`📥 Fetching master commit SHA from ${username}/winget-pkgs...`);
+  const forkMaster = await githubRequest('GET', `/repos/${username}/winget-pkgs/git/ref/heads/master`);
+  const baseSha = forkMaster.object.sha;
+  console.log(`✅ Base SHA on fork: ${baseSha}\n`);
 
-  // 4. Create or reset submission branch
+  // 4. Create or reset submission branch on user's fork
   const branchName = 'AugustyaB.Ledgerly-1.0.0';
   console.log(`🌿 Preparing branch: ${branchName} on ${username}/winget-pkgs...`);
   try {
@@ -106,21 +106,22 @@ async function main() {
     console.log(`✅ Branch ${branchName} created.`);
   } catch (err) {
     if (err.statusCode === 422) {
-      console.log(`ℹ️ Branch ${branchName} already exists, updating to latest upstream master...`);
+      console.log(`ℹ️ Branch ${branchName} already exists, updating to base SHA...`);
       await githubRequest('PATCH', `/repos/${username}/winget-pkgs/git/refs/heads/${branchName}`, {
         sha: baseSha,
         force: true
       });
       console.log(`✅ Branch ${branchName} updated to base SHA.`);
     } else if (err.statusCode === 403) {
-      console.error('\n❌ PERMISSION ERROR (HTTP 403): Personal Access Token cannot write to your fork.');
+      console.error('\n❌ PERMISSION ERROR (HTTP 403): Personal Access Token cannot write Git refs.');
       console.error('---------------------------------------------------------------------------------');
       console.error('GitHub returned: "Resource not accessible by personal access token"');
-      console.error('\n👉 Root Cause: You are likely using a "Fine-grained Token" that does not have write access to AugustyaB/winget-pkgs.');
-      console.error('\n👉 How to Fix in 1 Minute:');
+      console.error('\n👉 Root Cause: Creating Git refs (branches) requires the full "repo" scope checkbox on your Classic Token.');
+      console.error('   If only "public_repo" was checked, GitHub blocks low-level Git ref creation.');
+      console.error('\n👉 Solution:');
       console.error('1. Go to: GitHub Settings -> Developer settings -> Personal access tokens -> Tokens (classic).');
-      console.error('2. Generate a token with the "public_repo" scope selected.');
-      console.error('3. Update your repository secret WINGET_TOKEN with this classic token.');
+      console.error('2. Generate or edit token: Check the top-level "repo" checkbox (Full control of private and public repositories).');
+      console.error('3. Update your repository secret WINGET_TOKEN with this token.');
       console.error('---------------------------------------------------------------------------------\n');
       throw err;
     } else {
@@ -146,7 +147,6 @@ async function main() {
     const base64Content = Buffer.from(content).toString('base64');
     const repoPath = `manifests/a/AugustyaB/Ledgerly/1.0.0/${fileName}`;
 
-    // Check if file already exists in branch to get its sha (required for update)
     let fileSha = null;
     try {
       const existing = await githubRequest('GET', `/repos/${username}/winget-pkgs/contents/${repoPath}?ref=${branchName}`);
