@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
+PackageIdentifier: AugustyaB.Ledgerly
+PackageVersion: 1.0.0
+InstallerType: nullsoft
+InstallModes:
+  - interactive
+  - silent
+Installers:
+  - Architecture: x64
+    Scope: user
+    InstallerUrl: https://github.com/AugustyaB/Ledgerly/releases/download/v1.0.0/Ledgerly.Setup.1.0.0.exe
+    InstallerSha256: 02DE739E7ABEDC59BEA2F8DD199603F58EBDF1E267A84F268DE75F60889515F7
+ManifestType: installer
+ManifestVersion: 1.9.0

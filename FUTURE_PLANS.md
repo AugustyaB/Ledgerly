@@ -193,6 +193,31 @@ This document serves as the persistent registry of long-term ideas, feature pros
   - Audit `AggregationRollupService.js` and replace premature LRU/rollup cache invalidation machinery with clean, direct V8 reductions unless real-world profiling demonstrates a perceptible UI bottleneck.
   - Eliminates state synchronization risks and simplifies computational reasoning.
 
+### 15. 📋 Distributor UX & OS Gatekeeper Guidance (Next README Polish)
+- [ ] **Windows SmartScreen Walkthrough**:
+  - Add explicit guide note in README.md for first-time Windows downloaders explaining the blue 'Windows protected your PC' banner and how to click 'More info' -> 'Run anyway' (standard for non-EV signed indie software).
+- [ ] **macOS Gatekeeper & Architecture Clarification**:
+  - Ensure the right-click -> Open -> Open flow is prominent, and clearly label the current automated build as Apple Silicon (arm64), providing zero-install dev mode instructions for Intel Mac users.
+- [ ] **Android APK Sideloading Instructions**:
+  - Add note regarding the 'Allow from this source' security toggle required when installing GitHub APK downloads outside Google Play.
+- [ ] **Release Asset Label Synchronization**:
+  - Synchronize the README.md download table label from app-debug.apk to match the exact CI release asset name: Ledgerly-Android-Companion.apk (6.60 MB).
+
+### 16. 🏛️ Dual-Licensing, Open-Core & Commercial Transition Strategy (v2.0 / v3.0 Roadmap)
+- [ ] **Preservation of v1.x MIT Commons**:
+  - Guarantee that all existing releases (v0.1 through v1.0.0) remain permanently free, unencumbered, and open source under the MIT license in perpetuity.
+- [ ] **Commercial Transition Models Evaluated**:
+  - **Open-Core Model (Recommended)**: Core offline ledger remains free and open; proprietary closed-source plugins/tiers are introduced for premium features (e.g. encrypted cloud sync, enterprise multi-user vaults, premium OCR/AI models).
+  - **Source-Available License (FSL / BSL 1.1)**: Transition v2.0+ to Functional Source License or Business Source License, making source code readable and free for personal use while restricting commercial reproduction, converting back to MIT after a 2-year window.
+  - **Proprietary Commercial Release (v2.0+ Branch Split)**: Fork development into a private repository for v2.0+ with standard commercial EULA and closed-source binary distribution while retaining v1.0 as a public open-source archive.
+- [ ] **Contributor IP Hygiene & CLA Gate**:
+  - Prior to merging any community pull requests, require a lightweight Contributor License Agreement (CLA) or Developer Certificate of Origin (DCO) to preserve the author's unilateral right to re-license or release future versions commercially without copyright disputes.
+- [ ] **Public/Private Repository Security Firewall & Airgap Protocol**:
+  - **Push-Disabled Upstream**: Configure `git remote set-url --push upstream DISABLE` in the private repository to physically prevent any accidental git push of proprietary code, roadmap plans, or commercial features to the public GitHub repo.
+  - **Zero Secrets in Git History**: Asymmetric licensing private keys, payment webhook secrets, and commercial signing certificates must never exist inside any git commit (public or private), maintained strictly in encrypted vaults or injected at build-time.
+  - **One-Way Architectural Isolation**: Public generic improvements (e.g. receipt regex, UI fixes) flow downstream into private via cherry-picks/merges, but private proprietary logic (licensing validation, advanced modules) remains strictly airgapped in dedicated unshared namespaces or native binaries, preventing public code from weakening private security.
+  - **Pre-Push Secret Scanning**: Implement pre-push git hooks with high-entropy regex scans to intercept sensitive data before commits leave local workstations.
+
 ---
 
-*Last Updated: 2026-10-20*
+*Last Updated: 2026-10-29*

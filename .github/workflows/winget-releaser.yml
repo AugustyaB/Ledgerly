@@ -1,0 +1,21 @@
+name: Publish to WinGet
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-winget:
+    name: WinGet Package Releaser
+    runs-on: windows-latest
+    steps:
+      - name: Run WinGet Releaser
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: AugustyaB.Ledgerly
+          installers-regex: 'Ledgerly\.Setup\..*\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}
