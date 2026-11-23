@@ -5,7 +5,6 @@
  * 
  * Lightweight, zero-dependency submitter for Windows Package Manager (WinGet).
  * Submits validated manifests directly to microsoft/winget-pkgs via the GitHub REST API.
- * Eliminates external .NET 9 dependencies, binary downloads, and gigabyte-sized repository clones.
  */
 
 const https = require('https');
@@ -43,10 +42,10 @@ function githubRequest(method, endpoint, body = null) {
           if (res.statusCode >= 200 && res.statusCode < 300) {
             resolve(parsed);
           } else {
-            reject({ statusCode: res.statusCode, data: parsed });
+            reject({ statusCode: res.statusCode, data: parsed, endpoint });
           }
         } catch (e) {
-          reject({ statusCode: res.statusCode, raw: data, error: e });
+          reject({ statusCode: res.statusCode, raw: data, error: e, endpoint });
         }
       });
     });
@@ -67,19 +66,26 @@ async function main() {
 
   // 2. Ensure fork of microsoft/winget-pkgs exists
   console.log(`🔍 Checking for ${username}/winget-pkgs fork...`);
-  let fork;
-  try {
-    fork = await githubRequest('GET', `/repos/${username}/winget-pkgs`);
-    console.log(`✅ Existing fork detected: ${fork.full_name}\n`);
-  } catch (err) {
-    if (err.statusCode === 404) {
-      console.log('⚡ Fork not found. Creating fork of microsoft/winget-pkgs...');
-      fork = await githubRequest('POST', '/repos/microsoft/winget-pkgs/forks');
-      console.log('⏳ Waiting 10 seconds for GitHub to provision the fork...');
-      await sleep(10000);
-      console.log('✅ Fork provisioned successfully!\n');
-    } else {
-      throw err;
+  let forkReady = false;
+  let attempts = 0;
+
+  while (!forkReady && attempts < 10) {
+    try {
+      const fork = await githubRequest('GET', `/repos/${username}/winget-pkgs`);
+      console.log(`✅ Existing fork detected: ${fork.full_name}\n`);
+      forkReady = true;
+    } catch (err) {
+      if (err.statusCode === 404) {
+        attempts++;
+        if (attempts === 1) {
+          console.log('⚡ Fork not found. Creating fork of microsoft/winget-pkgs via API...');
+          await githubRequest('POST', '/repos/microsoft/winget-pkgs/forks');
+        }
+        console.log(`⏳ Waiting for fork to finish provisioning (attempt ${attempts}/10)...`);
+        await sleep(6000);
+      } else {
+        throw err;
+      }
     }
   }
 
@@ -91,7 +97,7 @@ async function main() {
 
   // 4. Create or reset submission branch
   const branchName = 'AugustyaB.Ledgerly-1.0.0';
-  console.log(`🌿 Preparing branch: ${branchName}...`);
+  console.log(`🌿 Preparing branch: ${branchName} on ${username}/winget-pkgs...`);
   try {
     await githubRequest('POST', `/repos/${username}/winget-pkgs/git/refs`, {
       ref: `refs/heads/${branchName}`,
@@ -106,6 +112,17 @@ async function main() {
         force: true
       });
       console.log(`✅ Branch ${branchName} updated to base SHA.`);
+    } else if (err.statusCode === 403) {
+      console.error('\n❌ PERMISSION ERROR (HTTP 403): Personal Access Token cannot write to your fork.');
+      console.error('---------------------------------------------------------------------------------');
+      console.error('GitHub returned: "Resource not accessible by personal access token"');
+      console.error('\n👉 Root Cause: You are likely using a "Fine-grained Token" that does not have write access to AugustyaB/winget-pkgs.');
+      console.error('\n👉 How to Fix in 1 Minute:');
+      console.error('1. Go to: GitHub Settings -> Developer settings -> Personal access tokens -> Tokens (classic).');
+      console.error('2. Generate a token with the "public_repo" scope selected.');
+      console.error('3. Update your repository secret WINGET_TOKEN with this classic token.');
+      console.error('---------------------------------------------------------------------------------\n');
+      throw err;
     } else {
       throw err;
     }
