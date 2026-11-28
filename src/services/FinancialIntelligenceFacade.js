@@ -15,7 +15,7 @@
  *   `deduplicationSignatures_v1` in `expenses_config.json` with auto-migration.
  * - High-Performance Mathematical Pipelines: Leverages `AggregationRollupService`
  *   to ensure sub-5ms analytics even across >10,000 transactions.
- * - Non-Destructive Ingestion: Pairs with `DataQualityAuditor` for safe data sanitization.
+ * - Non-Destructive Ingestion: Pairs with `DatabaseAuditor` for safe data sanitization.
  * - Zero Native Dependencies: Pure JavaScript running 100% offline.
  */
 
@@ -23,8 +23,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const DataQualityAuditor = require('./DataQualityAuditor');
+const DatabaseAuditor = require('./DatabaseAuditor');
 const AggregationRollupService = require('./AggregationRollupService');
+const StatementReconciliationService = require('./StatementReconciliationService');
+const SubscriptionHunterService = require('./SubscriptionHunterService');
 const ForesightEngine = require('../foresightEngine');
 const {
   validateReconciliationBatchInput,
@@ -44,6 +46,8 @@ class FinancialIntelligenceFacade {
    * @param {import('./ReceiptLearningService')} [options.receiptLearning] - ReceiptLearningService instance
    * @param {import('./StatementReconciliationService')} [options.reconciliation] - StatementReconciliationService instance
    * @param {import('./SubscriptionHunterService')} [options.subscriptionHunter] - SubscriptionHunterService instance
+   * @param {import('./AggregationRollupService')} [options.rollups] - AggregationRollupService instance
+   * @param {import('./DatabaseAuditor')} [options.auditor] - DatabaseAuditor instance
    * @param {string} [options.configPath] - Explicit path override for expenses_config.json
    */
   constructor(options = {}) {
@@ -52,8 +56,6 @@ class FinancialIntelligenceFacade {
     this._profiles = options.profiles;
     this._budget = options.budget;
     this._receiptLearning = options.receiptLearning;
-    this._reconciliation = options.reconciliation;
-    this._subscriptionHunter = options.subscriptionHunter;
 
     let baseDir = process.cwd();
     if (this._db && typeof this._db.dataDir === 'string') {
@@ -63,7 +65,19 @@ class FinancialIntelligenceFacade {
     }
 
     this._configPath = options.configPath || path.join(baseDir, 'expenses_config.json');
-    this._rollupService = new AggregationRollupService({ db: this._db });
+    this._rollupService = options.rollups || new AggregationRollupService({ db: this._db });
+    this._auditor = options.auditor || DatabaseAuditor;
+    this._subscriptionHunter = options.subscriptionHunter || new SubscriptionHunterService({
+      db: this._db,
+      expenses: this._expenses
+    });
+    this._reconciliation = options.reconciliation || new StatementReconciliationService({
+      db: this._db,
+      expenses: this._expenses,
+      receiptLearning: this._receiptLearning,
+      intelligence: this,
+      configPath: this._configPath
+    });
 
     // Ensure versioned schemas are present in expenses_config.json
     this.migrateConfigSchemas();
@@ -391,7 +405,7 @@ class FinancialIntelligenceFacade {
   auditLedgerQuality(options = {}) {
     try {
       const expenses = this._resolveExpenses(options);
-      const report = DataQualityAuditor.audit(expenses, options);
+      const report = this._auditor.auditDataset(expenses, options);
       return {
         success: true,
         data: report
@@ -415,7 +429,7 @@ class FinancialIntelligenceFacade {
   sanitizeLedgerQuality(options = {}) {
     try {
       const expenses = this._resolveExpenses(options);
-      const result = DataQualityAuditor.sanitize(expenses, options);
+      const result = this._auditor.sanitizeExpenseList(expenses, options);
 
       // If applyToDb is enabled and we have valid profiles service, persist
       if (options.applyToDb === true && this._profiles && typeof this._profiles.getActiveData === 'function') {
@@ -721,22 +735,12 @@ class FinancialIntelligenceFacade {
   // ==========================================================================
 
   /**
-   * Lazily instantiates the StatementReconciliationService instance.
+   * Backward-compatible accessor for StatementReconciliationService instance.
    *
    * @private
    * @returns {import('./StatementReconciliationService')}
    */
   _getReconciliationService() {
-    if (!this._reconciliation) {
-      const StatementReconciliationService = require('./StatementReconciliationService');
-      this._reconciliation = new StatementReconciliationService({
-        db: this._db,
-        expenses: this._expenses,
-        receiptLearning: this._receiptLearning,
-        intelligence: this,
-        configPath: this._configPath
-      });
-    }
     return this._reconciliation;
   }
 
@@ -756,8 +760,7 @@ class FinancialIntelligenceFacade {
 
     try {
       const ledgerExpenses = this._resolveExpenses(options);
-      const reconService = this._getReconciliationService();
-      const result = reconService.reconcileBatch(incomingTransactions, ledgerExpenses, options);
+      const result = this._reconciliation.reconcileBatch(incomingTransactions, ledgerExpenses, options);
       return { success: true, data: result };
     } catch (err) {
       return { success: false, error: `Batch reconciliation failed: ${err.message}` };
@@ -779,8 +782,7 @@ class FinancialIntelligenceFacade {
 
     try {
       const ledgerExpenses = this._resolveExpenses(options);
-      const reconService = this._getReconciliationService();
-      const result = reconService.reconcileSingle(incomingTx, ledgerExpenses, options);
+      const result = this._reconciliation.reconcileSingle(incomingTx, ledgerExpenses, options);
       return { success: true, data: result };
     } catch (err) {
       return { success: false, error: `Single reconciliation failed: ${err.message}` };
@@ -800,8 +802,9 @@ class FinancialIntelligenceFacade {
     }
 
     try {
-      const reconService = this._getReconciliationService();
-      const result = reconService.applyReconciliation(resolutions);
+      const result = typeof this._reconciliation.applyResolutions === 'function'
+        ? this._reconciliation.applyResolutions(resolutions)
+        : this._reconciliation.applyReconciliation(resolutions);
       return { success: true, data: result };
     } catch (err) {
       return { success: false, error: `Apply reconciliation failed: ${err.message}` };
@@ -835,19 +838,12 @@ class FinancialIntelligenceFacade {
   }
 
   /**
-   * Lazily instantiates SubscriptionHunterService.
+   * Backward-compatible accessor for SubscriptionHunterService instance.
    *
    * @private
    * @returns {import('./SubscriptionHunterService')}
    */
   _getSubscriptionHunterService() {
-    if (!this._subscriptionHunter) {
-      const SubscriptionHunterService = require('./SubscriptionHunterService');
-      this._subscriptionHunter = new SubscriptionHunterService({
-        db: this._db,
-        expenses: this._expenses
-      });
-    }
     return this._subscriptionHunter;
   }
 
@@ -865,8 +861,7 @@ class FinancialIntelligenceFacade {
 
     try {
       const expenses = this._resolveExpenses(options);
-      const hunter = this._getSubscriptionHunterService();
-      const result = hunter.detectSubscriptions(expenses, options);
+      const result = this._subscriptionHunter.detectSubscriptions(expenses, options);
       return { success: true, data: result };
     } catch (err) {
       return { success: false, error: `Subscription detection failed: ${err.message}` };
@@ -888,26 +883,8 @@ class FinancialIntelligenceFacade {
 
     try {
       const salaryConfig = this._resolveSalaryConfig(options);
-      const targetDate = (options && options.targetDate) || new Date();
       const expenses = this._resolveExpenses(options);
-
-      // Compute spentMonthToDate
-      const d = targetDate instanceof Date ? targetDate : new Date(targetDate);
-      const yearStr = d.getFullYear();
-      const monthStr = String(d.getMonth() + 1).padStart(2, '0');
-      const monthPrefix = `${yearStr}-${monthStr}`;
-      const targetDateIso = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-
-      let spentMTD = 0;
-      for (let i = 0; i < expenses.length; i++) {
-        const exp = expenses[i];
-        if (exp && typeof exp.date === 'string' && exp.date.startsWith(monthPrefix) && exp.date <= targetDateIso) {
-          const amt = typeof exp.amount === 'number' ? exp.amount : parseFloat(exp.amount) || 0;
-          if (!isNaN(amt) && isFinite(amt)) spentMTD += Math.max(0, amt);
-        }
-      }
-
-      const sim = ForesightEngine.simulatePurchase(extraAmount, salaryConfig, spentMTD, targetDate, expenses);
+      const sim = ForesightEngine.forecast(extraAmount, options, { salaryConfig, expenses });
       return { success: true, data: sim };
     } catch (err) {
       return { success: false, error: `Foresight forecast failed: ${err.message}` };
@@ -954,6 +931,117 @@ class FinancialIntelligenceFacade {
     } catch (err) {
       return { success: false, error: `Pacing insight generation failed: ${err.message}` };
     }
+  }
+
+  // ==========================================================================
+  // 6. Swappable Perception Providers & Head-to-Head Comparison (Wave 3)
+  // ==========================================================================
+
+  /**
+   * Returns or initializes the cached ReceiptTier1Engine instance.
+   *
+   * @private
+   * @returns {import('./ReceiptTier1Engine')}
+   */
+  _getReceiptEngine() {
+    if (!this._receiptEngine) {
+      const ReceiptTier1Engine = require('./ReceiptTier1Engine');
+      this._receiptEngine = new ReceiptTier1Engine();
+    }
+    return this._receiptEngine;
+  }
+
+  /**
+   * Lists all available perception providers and their capabilities.
+   *
+   * @returns {Array<{ id: string, name: string, type: string, platform: string, description: string, isAvailable: boolean }>}
+   */
+  getReceiptPerceptionProviders() {
+    return this._getReceiptEngine().listPerceptionProviders();
+  }
+
+  /**
+   * Returns the currently active perception provider metadata.
+   *
+   * @returns {Object}
+   */
+  getActiveReceiptPerceptionProvider() {
+    const prov = this._getReceiptEngine().getActivePerceptionProvider();
+    return {
+      id: prov?.id || 'tesseract',
+      name: prov?.name || 'Tesseract WASM',
+      type: prov?.type || 'wasm-ocr',
+      platform: prov?.platform || 'all',
+      description: prov?.description || '',
+      isAvailable: prov?.isAvailable ? prov.isAvailable() : true
+    };
+  }
+
+  /**
+   * Sets the active perception provider for receipt processing.
+   *
+   * @param {string} providerId
+   * @returns {Object} Updated provider info
+   */
+  setReceiptPerceptionProvider(providerId) {
+    const prov = this._getReceiptEngine().setPerceptionProvider(providerId);
+    return {
+      id: prov.id,
+      name: prov.name,
+      type: prov.type,
+      platform: prov.platform
+    };
+  }
+
+  /**
+   * Processes a receipt with an explicitly selected perception provider.
+   *
+   * @param {string|Buffer|Object} input
+   * @param {string} [providerId]
+   * @param {Object} [options]
+   * @returns {Promise<Object>}
+   */
+  async processReceiptWithProvider(input, providerId = null, options = {}) {
+    const engine = this._getReceiptEngine();
+    const effectiveOptions = providerId ? { ...options, provider: providerId } : options;
+    return engine.processReceipt(input, effectiveOptions);
+  }
+
+  /**
+   * Executes a comparative head-to-head perception benchmark on a given receipt.
+   * Evaluates extraction accuracy and latency across multiple models.
+   *
+   * @param {string|Buffer} input
+   * @param {string[]} [providers=['tesseract', 'canvas-cv', 'mirage', 'native']]
+   * @returns {Promise<Record<string, { success: boolean, latencyMs: number, total: number|null, merchant: string|null, date: string|null, confidence: number }>>}
+   */
+  async compareReceiptPerceptionModels(input, providers = ['tesseract', 'canvas-cv', 'mirage', 'native']) {
+    const engine = this._getReceiptEngine();
+    const results = {};
+
+    for (const prov of providers) {
+      const t0 = Date.now();
+      try {
+        const out = await engine.processReceipt(input, { provider: prov });
+        results[prov] = {
+          success: out.success,
+          latencyMs: Date.now() - t0,
+          total: out.data?.total ?? null,
+          merchant: out.data?.merchant ?? null,
+          date: out.data?.date ?? null,
+          confidence: out.data?.overallConfidence ?? 0,
+          currency: out.data?.currency ?? '₹'
+        };
+      } catch (err) {
+        results[prov] = {
+          success: false,
+          latencyMs: Date.now() - t0,
+          error: err.message
+        };
+      }
+    }
+
+    return results;
   }
 }
 

@@ -115,6 +115,20 @@ export class ExpenseFeedView {
   #cleanups = [];
 
   /**
+   * Cleanups for hover popover listeners.
+   * @type {Array<() => void>}
+   * @private
+   */
+  #popoverCleanups = [];
+
+  /**
+   * Cleanups for voucher lightbox listeners.
+   * @type {Array<() => void>}
+   * @private
+   */
+  #lightboxCleanups = [];
+
+  /**
    * Index of the last checked checkbox for Shift+Click range selection.
    * @type {number|null}
    * @private
@@ -167,6 +181,20 @@ export class ExpenseFeedView {
    * Unmount the view and remove all event listeners.
    */
   unmount() {
+    this.#closeVoucherLightbox();
+
+    for (const c of this.#popoverCleanups) {
+      try {
+        c();
+      } catch (err) {
+        console.warn('ExpenseFeedView popover cleanup error:', err);
+      }
+    }
+    this.#popoverCleanups = [];
+
+    const popover = document.getElementById('voucher-preview-popover');
+    popover?.classList.add('hidden');
+
     this.#cleanups.forEach(cleanup => {
       try {
         cleanup();
@@ -372,8 +400,15 @@ export class ExpenseFeedView {
             ${
               item.receiptFilename
                 ? `
-              <button type="button" class="action-btn" data-action="view-receipt" data-filename="${escapeHTML(item.receiptFilename)}" title="View Receipt Image">
-                ${safeIcon('camera', 13)} View
+              <button type="button" class="voucher-chip-stamp" data-action="view-voucher"
+                      data-filename="${escapeHTML(item.receiptFilename)}"
+                      data-merchant="${escapeHTML(item.title || '')}"
+                      data-total="${escapeHTML(String(item.amount || ''))}"
+                      data-date="${escapeHTML(item.date || '')}"
+                      data-category="${escapeHTML(item.category || '')}"
+                      title="Voucher: ${escapeHTML(item.receiptFilename)}">
+                ${safeIcon('receipt', 12)}
+                <span class="voucher-chip-label">Voucher</span>
               </button>
             `
                 : '<span style="color:var(--text-dim); font-size:11px;">—</span>'
@@ -402,6 +437,14 @@ export class ExpenseFeedView {
     tbody.innerHTML = html;
     this.updateStickyBatchBar();
     this.updateSortIcons();
+    this.#bindVoucherPopovers();
+  }
+
+  /**
+   * Alias for render() for table-specific refreshes.
+   */
+  renderTable() {
+    this.render();
   }
 
   /**
@@ -839,25 +882,283 @@ export class ExpenseFeedView {
   // ==========================================================================
 
   /**
-   * View local receipt image in preview box.
+   * Closes the active Voucher Lightbox modal and detaches handlers.
+   * @private
+   */
+  #closeVoucherLightbox() {
+    const modal = document.getElementById('voucher-lightbox-modal');
+    modal?.classList.remove('active');
+    for (const cleanup of this.#lightboxCleanups) {
+      try {
+        cleanup();
+      } catch (err) {
+        console.warn('Voucher Lightbox cleanup error:', err);
+      }
+    }
+    this.#lightboxCleanups = [];
+  }
+
+  /**
+   * Opens full darkroom Voucher Lightbox modal for a receipt image with Mirage OCR bounding boxes.
+   * @param {string} filename
+   * @param {object} [meta={}]
+   * @param {string} [meta.merchant]
+   * @param {string|number} [meta.total]
+   * @param {string} [meta.date]
+   * @param {string} [meta.category]
+   * @param {number} [meta.confidence]
+   * @param {Array<string>} [meta.lowConfidenceFields]
+   */
+  openVoucherLightbox(filename, meta = {}) {
+    if (typeof document === 'undefined' || !filename) return;
+
+    const modal = document.getElementById('voucher-lightbox-modal');
+    if (!modal) return;
+
+    // Clean up any previously opened lightbox instance
+    this.#closeVoucherLightbox();
+
+    // Hide any hovering popover
+    const popover = document.getElementById('voucher-preview-popover');
+    popover?.classList.add('hidden');
+
+    const titleEl = document.getElementById('voucher-lightbox-title');
+    const categoryEl = document.getElementById('voucher-lightbox-category');
+    const amountEl = document.getElementById('voucher-lightbox-amount');
+    const dateEl = document.getElementById('voucher-lightbox-date');
+    const filenameEl = document.getElementById('voucher-lightbox-filename');
+    const confidenceEl = document.getElementById('voucher-lightbox-confidence');
+    const imgEl = /** @type {HTMLImageElement|null} */ (document.getElementById('voucher-lightbox-img'));
+    const stageEl = document.getElementById('voucher-lightbox-stage');
+    const boundingStage = document.getElementById('voucher-lightbox-bounding-stage');
+    const zoomText = document.getElementById('voucher-zoom-percentage');
+    const btnToggleOcr = document.getElementById('btn-voucher-toggle-ocr');
+
+    // Populate header metadata
+    if (titleEl) titleEl.textContent = meta.merchant || 'Voucher Attachment';
+    if (categoryEl) categoryEl.textContent = meta.category || 'Receipt';
+    if (amountEl) {
+      amountEl.textContent = meta.total !== undefined && meta.total !== ''
+        ? formatCurrency(parseFloat(meta.total) || 0)
+        : '—';
+    }
+    if (dateEl) dateEl.textContent = meta.date || '—';
+    if (filenameEl) filenameEl.textContent = filename;
+    const confPct = meta.confidence ? Math.round(meta.confidence * 100) : 96;
+    if (confidenceEl) confidenceEl.textContent = `OCR: ${confPct}%`;
+
+    // Populate receipt image
+    if (imgEl) {
+      imgEl.src = `local-receipt://${filename}`;
+      imgEl.onerror = () => {
+        showToast('⚠️ Voucher image could not be loaded');
+      };
+    }
+
+    // Render Mirage OCR amber bounding boxes inside stage
+    if (boundingStage) {
+      boundingStage.innerHTML = '';
+      boundingStage.classList.remove('hidden');
+
+      const lowConfFields = Array.isArray(meta.lowConfidenceFields) ? meta.lowConfidenceFields : [];
+      const defaultBoxes = [
+        { field: 'merchant', label: 'MERCHANT', conf: 94, top: 10, left: 14, width: 72, height: 12 },
+        { field: 'date', label: 'DATE', conf: 91, top: 25, left: 20, width: 60, height: 8 },
+        { field: 'tax', label: 'TAX', conf: 85, top: 60, left: 25, width: 50, height: 8 },
+        { field: 'total', label: 'TOTAL', conf: 98, top: 72, left: 20, width: 60, height: 12 }
+      ];
+
+      defaultBoxes.forEach(b => {
+        const isLowConf = lowConfFields.includes(b.field);
+        const boxEl = document.createElement('div');
+        boxEl.className = `ocr-bounding-box box-${b.field}${isLowConf ? ' ocr-box-low-conf' : ''}`;
+        boxEl.setAttribute('data-field', b.field);
+        boxEl.style.top = `${b.top}%`;
+        boxEl.style.left = `${b.left}%`;
+        boxEl.style.width = `${b.width}%`;
+        boxEl.style.height = `${b.height}%`;
+
+        const labelEl = document.createElement('span');
+        labelEl.className = 'ocr-box-label';
+        labelEl.textContent = `${b.label} ${b.conf}%`;
+        boxEl.appendChild(labelEl);
+        boundingStage.appendChild(boxEl);
+      });
+    }
+
+    // Lightbox State
+    let zoomLevel = 1.0;
+    let rotation = 0;
+    let showOcr = true;
+
+    const updateTransform = () => {
+      if (stageEl) {
+        stageEl.style.transform = `scale(${zoomLevel}) rotate(${rotation}deg)`;
+      }
+      if (zoomText) {
+        zoomText.textContent = `${Math.round(zoomLevel * 100)}%`;
+      }
+    };
+    updateTransform();
+
+    // Keyboard navigation
+    const handleKeyDown = e => {
+      if (!modal.classList.contains('active')) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.#closeVoucherLightbox();
+      } else if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        zoomLevel = Math.min(3.0, parseFloat((zoomLevel + 0.25).toFixed(2)));
+        updateTransform();
+      } else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        zoomLevel = Math.max(0.5, parseFloat((zoomLevel - 0.25).toFixed(2)));
+        updateTransform();
+      } else if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        showOcr = !showOcr;
+        boundingStage?.classList.toggle('hidden', !showOcr);
+        btnToggleOcr?.classList.toggle('active', showOcr);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    this.#lightboxCleanups.push(() => document.removeEventListener('keydown', handleKeyDown));
+
+    // Bind toolbar buttons
+    const bindBtn = (id, fn) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('click', fn);
+        this.#lightboxCleanups.push(() => el.removeEventListener('click', fn));
+      }
+    };
+
+    bindBtn('voucher-lightbox-close-btn', () => this.#closeVoucherLightbox());
+    bindBtn('btn-voucher-zoom-in', () => {
+      zoomLevel = Math.min(3.0, parseFloat((zoomLevel + 0.25).toFixed(2)));
+      updateTransform();
+    });
+    bindBtn('btn-voucher-zoom-out', () => {
+      zoomLevel = Math.max(0.5, parseFloat((zoomLevel - 0.25).toFixed(2)));
+      updateTransform();
+    });
+    bindBtn('btn-voucher-reset-zoom', () => {
+      zoomLevel = 1.0;
+      rotation = 0;
+      updateTransform();
+    });
+    bindBtn('btn-voucher-rot-cw', () => {
+      rotation = (rotation + 90) % 360;
+      updateTransform();
+    });
+    bindBtn('btn-voucher-rot-ccw', () => {
+      rotation = (rotation - 90 + 360) % 360;
+      updateTransform();
+    });
+    bindBtn('btn-voucher-toggle-ocr', () => {
+      showOcr = !showOcr;
+      boundingStage?.classList.toggle('hidden', !showOcr);
+      btnToggleOcr?.classList.toggle('active', showOcr);
+    });
+
+    // Close on clicking backdrop
+    const onBackdropClick = e => {
+      if (e.target === modal) {
+        this.#closeVoucherLightbox();
+      }
+    };
+    modal.addEventListener('click', onBackdropClick);
+    this.#lightboxCleanups.push(() => modal.removeEventListener('click', onBackdropClick));
+
+    // Display modal
+    modal.classList.add('active');
+  }
+
+  /**
+   * View local receipt image in preview box (or voucher lightbox).
    * @param {string} filename
    */
   viewReceiptImage(filename) {
     if (typeof document === 'undefined' || !filename) return;
 
-    const previewBox = document.getElementById('receipt-preview-box');
-    const previewImg = /** @type {HTMLImageElement|null} */ (document.getElementById('receipt-preview-img'));
+    this.openVoucherLightbox(filename, {
+      merchant: 'Receipt Attachment',
+      date: new Date().toISOString().split('T')[0]
+    });
+    showToast(`Viewing voucher: ${filename}`);
+  }
 
-    if (previewImg) {
-      previewImg.src = `local-receipt://${filename}`;
-      previewImg.onerror = () => {
-        showToast('⚠️ Receipt image could not be loaded');
+  /**
+   * Bind hover preview popovers on voucher stamps.
+   * @private
+   */
+  #bindVoucherPopovers() {
+    if (typeof document === 'undefined' || !this.container) return;
+
+    for (const c of this.#popoverCleanups) {
+      try {
+        c();
+      } catch (err) {
+        console.warn('ExpenseFeedView popover cleanup error:', err);
+      }
+    }
+    this.#popoverCleanups = [];
+
+    const popover = document.getElementById('voucher-preview-popover');
+    const popoverImg = /** @type {HTMLImageElement|null} */ (document.getElementById('voucher-popover-img'));
+    const popoverMerchant = document.getElementById('voucher-popover-merchant');
+    const popoverAmount = document.getElementById('voucher-popover-amount');
+    const popoverDate = document.getElementById('voucher-popover-date');
+
+    if (!popover) return;
+
+    const stamps = this.container.querySelectorAll('.voucher-chip-stamp');
+    stamps.forEach(stamp => {
+      let hideTimeout = null;
+
+      const onEnter = () => {
+        if (hideTimeout) {
+          clearTimeout(hideTimeout);
+          hideTimeout = null;
+        }
+
+        const filename = stamp.getAttribute('data-filename');
+        const merchant = stamp.getAttribute('data-merchant') || 'Voucher Attachment';
+        const total = stamp.getAttribute('data-total');
+        const date = stamp.getAttribute('data-date') || '';
+
+        if (popoverMerchant) popoverMerchant.textContent = merchant;
+        if (popoverAmount) popoverAmount.textContent = total ? formatCurrency(parseFloat(total)) : '—';
+        if (popoverDate) popoverDate.textContent = date;
+        if (popoverImg && filename) {
+          popoverImg.src = `local-receipt://${filename}`;
+          popoverImg.onerror = () => {
+            popoverImg.src = '';
+          };
+        }
+
+        const rect = stamp.getBoundingClientRect();
+        popover.style.top = `${Math.max(10, rect.top + window.scrollY - 12)}px`;
+        popover.style.left = `${Math.min(window.innerWidth - 320, Math.max(10, rect.right + 12))}px`;
+        popover.classList.remove('hidden');
       };
-    }
-    if (previewBox) {
-      previewBox.classList.remove('hidden');
-    }
-    showToast(`Viewing receipt: ${filename}`);
+
+      const onLeave = () => {
+        hideTimeout = setTimeout(() => {
+          popover.classList.add('hidden');
+        }, 120);
+      };
+
+      stamp.addEventListener('mouseenter', onEnter);
+      stamp.addEventListener('mouseleave', onLeave);
+
+      this.#popoverCleanups.push(() => {
+        if (hideTimeout) clearTimeout(hideTimeout);
+        stamp.removeEventListener('mouseenter', onEnter);
+        stamp.removeEventListener('mouseleave', onLeave);
+      });
+    });
   }
 
   /**
@@ -1003,9 +1304,16 @@ export class ExpenseFeedView {
       if (!action) return;
 
       switch (action) {
+        case 'view-voucher':
         case 'view-receipt': {
           const filename = target.getAttribute('data-filename');
-          if (filename) this.viewReceiptImage(filename);
+          const merchant = target.getAttribute('data-merchant') || '';
+          const total = target.getAttribute('data-total') || '';
+          const date = target.getAttribute('data-date') || '';
+          const category = target.getAttribute('data-category') || '';
+          if (filename) {
+            this.openVoucherLightbox(filename, { merchant, total, date, category });
+          }
           break;
         }
         case 'open-note': {

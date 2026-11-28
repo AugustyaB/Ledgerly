@@ -382,6 +382,12 @@ function togglePrivacyMode(forceState = null) {
   state.set('isPrivacyMode', next);
   document.body.classList.toggle('privacy-mode', next);
 
+  const privacyVeil = document.getElementById('privacy-veil');
+  if (privacyVeil) {
+    privacyVeil.classList.toggle('hidden', !next);
+    privacyVeil.setAttribute('aria-hidden', next ? 'false' : 'true');
+  }
+
   const lockBadge = document.getElementById('privacy-lock-badge');
   const titlebarIcon = document.getElementById('brand-logo-icon');
   const dashboardBrandIcon = document.getElementById('dashboard-brand-icon');
@@ -518,6 +524,7 @@ function setupGlobalListeners() {
   // Privacy Mode Triggers
   document.getElementById('titlebar-logo-btn')?.addEventListener('click', () => togglePrivacyMode());
   document.getElementById('dashboard-brand-privacy-btn')?.addEventListener('click', () => togglePrivacyMode());
+  document.getElementById('privacy-veil')?.addEventListener('click', () => togglePrivacyMode(false));
 
   // Scope Selector
   document.getElementById('dashboard-scope-filter')?.addEventListener('change', e => {
@@ -666,11 +673,13 @@ function setupGlobalListeners() {
   document.getElementById('form-title')?.addEventListener('input', async e => {
     const title = /** @type {HTMLInputElement} */ (e.target).value.trim();
     if (title && api?.predictCategory) {
-      const predicted = await api.predictCategory(title);
-      if (predicted) {
+      const res = await api.predictCategory(title);
+      const predicted = typeof res === 'string' ? res : res?.category || res?.data || null;
+      if (predicted && typeof predicted === 'string') {
         const catSelect = /** @type {HTMLSelectElement|null} */ (document.getElementById('form-category'));
         if (catSelect && catSelect.value !== predicted) {
-          catSelect.value = predicted;
+          const hasOption = Array.from(catSelect.options).some(opt => opt.value === predicted);
+          if (hasOption) catSelect.value = predicted;
         }
       }
     }

@@ -5,12 +5,16 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Preserve Capacitor bridge, plugins, and WebView JavaScript interfaces
+-keep class com.getcapacitor.** { *; }
+-keep class * extends com.getcapacitor.Plugin { *; }
+-keepclassmembers class * {
+    @com.getcapacitor.PluginMethod <methods>;
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keep class org.apache.cordova.** { *; }
+-keep class com.ledgerly.mobile.MainActivity { *; }
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.

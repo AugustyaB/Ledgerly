@@ -2,6 +2,7 @@
 
 > **A lightning-fast, 100% offline desktop application & mobile companion for effortless personal budgeting and shared household spending.**
 
+[![Release: v1.2.0](https://img.shields.io/badge/Release-v1.2.0-orange?style=flat-square)](https://github.com/AugustyaB/Ledgerly/releases/tag/v1.2.0)
 [![Platform: Windows | macOS | Linux](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/AugustyaB/Ledgerly/releases)
 [![Mobile: Android | iOS](https://img.shields.io/badge/Mobile-Android%20%7C%20iOS-green?style=flat-square)](https://github.com/AugustyaB/Ledgerly/releases)
 [![Privacy: 100% Offline / Zero-Cloud](https://img.shields.io/badge/Privacy-100%25%20Offline%20%2F%20Zero--Cloud-amber?style=flat-square&color=D9822B)](FLOW.md)
@@ -13,7 +14,7 @@
 
 Hi! Welcome to **Ledgerly**. 
 
-This repository marks the **initial release (`v1.0.0`)** of an app I have designed and built from the ground up as a **solo developer**. This is my very first time architecting, building, and launching a complete cross-platform application across desktop (Windows, macOS, Linux) and mobile (Android, iOS).
+This repository hosts **Ledgerly (`v1.2.0`)**, an app I have designed and built from the ground up as a **solo developer**. This is my very first time architecting, building, and launching a complete cross-platform application across desktop (Windows, macOS, Linux) and mobile (Android, iOS).
 
 Because this is a solo passion project built without a large corporate team:
 - **Open to Feedback & Criticism:** If something feels unintuitive, clunky, or could be engineered better, I want to hear it! Constructive criticism is warmly welcomed and directly helps me learn and improve.
@@ -30,17 +31,25 @@ Get the latest pre-compiled binaries directly from this repository:
 
 | Platform | Recommended Package | Download Link | Installation & Capabilities |
 |---|---|---|---|
-| **🪟 Windows (10/11)** | **`Ledgerly Setup 1.0.0.exe`** | [**📥 Download `.exe`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | NSIS setup wizard with in-place repair and safe uninstall data retention. |
-| **🤖 Android (8.0+)** | **`app-debug.apk`** *(8.61 MB)* | [**📥 Download `.apk`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Direct sideload APK with camera receipt intake & 1-tap Optical QR LAN pairing. |
-| **🍎 macOS (Silicon/Intel)** | **`Ledgerly-1.0.0.dmg`** | [**📥 Download `.dmg`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Native drag-to-Applications `.dmg` image *(see macOS instructions below)*. |
-| **🐧 Linux (Universal)** | **`Ledgerly-1.0.0.AppImage`** | [**📥 Download `.AppImage`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Standalone portable executable (`chmod +x Ledgerly-1.0.0.AppImage`). |
-| **🍏 Apple iOS** | **`Ledgerly-iOS-App.xcarchive`** | [**📥 Download `.xcarchive`**](https://github.com/AugustyaB/Ledgerly/releases/latest) | Unsigned Xcode archive for iOS devices (sign via Xcode / Sideloadly / AltStore). |
+| **🪟 Windows (10/11)** | **`Ledgerly.Setup.1.2.0.exe`** | [**📥 Download `.exe`**](https://github.com/AugustyaB/Ledgerly/releases/download/v1.2.0/Ledgerly.Setup.1.2.0.exe) | NSIS setup wizard with in-place repair and safe uninstall data retention. |
+| **🤖 Android (8.0+)** | **`Ledgerly-Android-Companion.apk`** | [**📥 Download `.apk`**](https://github.com/AugustyaB/Ledgerly/releases/download/v1.2.0/Ledgerly-Android-Companion.apk) | Direct sideload APK with camera receipt intake & 1-tap Optical QR LAN pairing. |
+| **🍎 macOS (Apple Silicon)** | **`Ledgerly-1.2.0-arm64.dmg`** | [**📥 Download `.dmg`**](https://github.com/AugustyaB/Ledgerly/releases/download/v1.2.0/Ledgerly-1.2.0-arm64.dmg) | Native drag-to-Applications `.dmg` image for Apple Silicon (`arm64`) *(see macOS instructions below)*. |
+| **🐧 Linux (Universal)** | **`Ledgerly-1.2.0.AppImage`** | [**📥 Download `.AppImage`**](https://github.com/AugustyaB/Ledgerly/releases/download/v1.2.0/Ledgerly-1.2.0.AppImage) | Standalone portable executable (`chmod +x Ledgerly-1.2.0.AppImage`). |
+| **🍏 Apple iOS** | **`Ledgerly-iOS-App.xcarchive`** | [**📥 Download `.xcarchive`**](https://github.com/AugustyaB/Ledgerly/releases/tag/v1.2.0) | Unsigned Xcode archive for iOS devices (sign via Xcode / Sideloadly / AltStore). |
+
+> [!NOTE]
+> **🪟 Note for Windows Users (SmartScreen):**
+> Because Ledgerly is an independent open-source release without a commercial EV code-signing certificate, Windows may show a blue *"Windows protected your PC"* SmartScreen prompt on first launch. Click **More info** ➔ **Run anyway** to proceed with the installer.
 
 > [!TIP]
-> **🍎 Note for macOS Users:**
-> 1. Download `Ledgerly-1.0.0.dmg` from [Releases](https://github.com/AugustyaB/Ledgerly/releases/latest), open it, and drag **Ledgerly** into your `Applications` folder.
+> **🍎 Note for macOS Users (Gatekeeper & Architecture):**
+> 1. Download `Ledgerly-1.2.0-arm64.dmg` from [Releases](https://github.com/AugustyaB/Ledgerly/releases/tag/v1.2.0), open it, and drag **Ledgerly** into your `Applications` folder. *(Current automated macOS builds target Apple Silicon `arm64`; Intel Mac users can run via zero-install dev mode below.)*
 > 2. On first launch, if macOS Gatekeeper prompts that the app is from an unidentified developer, right-click (or Control-click) `Ledgerly.app` in Applications ➔ select **Open** ➔ click **Open**.
-> 3. *Alternative (Zero-Install Dev Mode):* Run directly in terminal via `git clone https://github.com/AugustyaB/Ledgerly.git && cd Ledgerly && npm install && npm start`.
+> 3. *Alternative (Zero-Install Dev Mode / Intel Macs):* Run directly in terminal via `git clone https://github.com/AugustyaB/Ledgerly.git && cd Ledgerly && npm install && npm start`.
+
+> [!NOTE]
+> **🤖 Note for Android Users (APK Sideloading):**
+> When installing `Ledgerly-Android-Companion.apk` directly from GitHub outside Google Play, Android will prompt you to enable **"Allow from this source"** for your browser or file manager in system settings before confirming installation.
 
 ---
 
@@ -105,7 +114,7 @@ Most people abandon expense trackers within two weeks. The reasons are always th
 ## 🚀 How to Launch
 
 ### Option 1: Official Windows Installer (Recommended for Users)
-1. Download and run **`Ledgerly Setup 1.0.0.exe`** from [Releases](https://github.com/AugustyaB/Ledgerly/releases).
+1. Download and run **`Ledgerly.Setup.1.2.0.exe`** from [Releases](https://github.com/AugustyaB/Ledgerly/releases/tag/v1.2.0).
 2. Follow the setup wizard to choose your install path and create a desktop shortcut.
 3. Launch Ledgerly from your Desktop or Start Menu.
 
@@ -273,7 +282,9 @@ npm run test:journeys
 | **v0.7** | Partitioned Storage Engine (`<90d` / `>90d`), European Polish & Mirror Vault | ✅ Complete |
 | **v0.8** | Smart Insights, Subscriptions, Fuzzy Reconciliation & Optical QR LAN Pairing | ✅ Certified Complete |
 | **v0.9** | Multi-Platform Installer Suite & Section-by-Section UX Refinement (`Sec 1–6`) | ✅ Complete |
-| **v1.0.0** | **Official Production Release** (Bank-Grade AES-256 Vault, Multi-Platform Releases & Public Launch) | ✅ **Live Release** |
+| **v1.0.0** | **Official Production Release** (Bank-Grade AES-256 Vault, Multi-Platform Releases & Public Launch) | ✅ Complete |
+| **v1.1.0** | **Design Craft & Antialgorithm Modernization** (7-Section Visual & Typography Overhaul) | ✅ Complete |
+| **v1.2.0** | **Subsystem Consolidation & Hardened Distribution** (Unified Receipt Engine, DB Audit, Code Cohesion) | ✅ **Live Release** |
 
 ---
 

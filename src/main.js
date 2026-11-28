@@ -1,4 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, globalShortcut, Notification } = require('electron');
+if (app && typeof app.setName === 'function') {
+  app.name = 'ledgerly';
+}
 const path = require('path');
 const fs = require('fs');
 const ExpenseStorage = require('./storage');
@@ -111,6 +114,44 @@ function sendSyncEventToRenderer(event) {
   }
 }
 
+/**
+ * Lock down DevTools shortcuts and auto-close DevTools in packaged builds.
+ * @param {Electron.WebContents} webContents
+ */
+function hardenPackagedWebContents(webContents) {
+  if (!webContents || !(app && app.isPackaged)) return;
+
+  webContents.on('before-input-event', (event, input) => {
+    const key = String(input.key || '').toLowerCase();
+    const isDevToolsShortcut =
+      key === 'f12' ||
+      ((input.control || input.meta) && input.shift && (key === 'i' || key === 'c')) ||
+      (process.platform === 'darwin' && input.meta && input.alt && key === 'i');
+    if (isDevToolsShortcut) {
+      event.preventDefault();
+    }
+  });
+
+  webContents.on('devtools-opened', () => {
+    if (!webContents.isDestroyed()) {
+      webContents.closeDevTools();
+    }
+  });
+}
+
+/**
+ * Resolves preload script path cleanly across dev (`src/preload.js`) and
+ * bundled production (`dist-app/preload.cjs`) layouts.
+ * @returns {string}
+ */
+function resolvePreloadPath() {
+  const bundledPreload = path.join(__dirname, 'preload.cjs');
+  if (fs.existsSync(bundledPreload)) {
+    return bundledPreload;
+  }
+  return path.join(__dirname, 'preload.js');
+}
+
 function createQuickPillWindow() {
   quickPillWindow = new BrowserWindow({
     width: 600,
@@ -123,12 +164,15 @@ function createQuickPillWindow() {
     show: false,
     backgroundColor: '#00000000',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: resolvePreloadPath(),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true
+      sandbox: true,
+      devTools: !(app && app.isPackaged)
     }
   });
+
+  hardenPackagedWebContents(quickPillWindow.webContents);
 
   quickPillWindow.webContents.on('will-navigate', (event, url) => {
     if (url !== quickPillWindow.webContents.getURL()) {
@@ -234,10 +278,11 @@ function createWindow() {
     transparent: false,
     backgroundColor: '#0F172A',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: resolvePreloadPath(),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true
+      sandbox: true,
+      devTools: !(app && app.isPackaged)
     },
     show: false,
     icon:
@@ -253,6 +298,8 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  hardenPackagedWebContents(mainWindow.webContents);
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
@@ -327,6 +374,19 @@ if (!gotTheLock) {
       mainWindow.focus();
     }
   });
+
+  // Strip debugging/inspection CLI flags before app.whenReady() in packaged builds
+  if (app && app.isPackaged) {
+    const blockedSwitches = ['inspect', 'inspect-brk', 'remote-debugging-port'];
+    for (const sw of blockedSwitches) {
+      if (app.commandLine && typeof app.commandLine.removeSwitch === 'function') {
+        app.commandLine.removeSwitch(sw);
+      }
+    }
+    process.argv = process.argv.filter(
+      arg => !blockedSwitches.some(sw => arg === `--${sw}` || arg.startsWith(`--${sw}=`))
+    );
+  }
 
   // App Lifecycles
   app.whenReady().then(createWindow);
@@ -1492,7 +1552,8 @@ ipcMain.handle(
       categoryCount: Array.isArray(data.categories) ? data.categories.length : 0,
       presetCount: Array.isArray(data.presets) ? data.presets.length : 0,
       noteCount: Array.isArray(data.notes) ? data.notes.length : 0,
-      fileSizeBytes
+      fileSizeBytes,
+      accuracyScoreboard: storage ? storage.getReceiptAccuracyScoreboard() : null
     };
   })
 );
@@ -2117,6 +2178,30 @@ ipcMain.handle(
   'receipt-get-layouts',
   wrapIPC('receipt-get-layouts', null, async () => {
     return storage ? storage.getMerchantLayouts() : {};
+  })
+);
+
+ipcMain.handle(
+  'receipt-learn-correction',
+  wrapIPC('receipt-learn-correction', null, async (_event, payload) => {
+    if (!storage) return { success: false, error: 'Storage not initialized' };
+    return storage.learnFromCorrection(payload);
+  })
+);
+
+ipcMain.handle(
+  'receipt-get-accuracy-scoreboard',
+  wrapIPC('receipt-get-accuracy-scoreboard', null, async (_event, refDate) => {
+    if (!storage) return null;
+    return storage.getReceiptAccuracyScoreboard(refDate);
+  })
+);
+
+ipcMain.handle(
+  'receipt-record-accuracy-event',
+  wrapIPC('receipt-record-accuracy-event', null, async (_event, eventPayload) => {
+    if (!storage) return { success: false, error: 'Storage not initialized' };
+    return storage.recordReceiptAccuracyEvent(eventPayload);
   })
 );
 

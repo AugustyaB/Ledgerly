@@ -353,6 +353,16 @@ class AuthService {
       this._failedAttempts = 0;
       this._lockoutUntil = null;
       const root = unlockRes.root || this._db.read();
+
+      // Validate user ID if provided on login form (VULN-DB-04)
+      if (options.userId && root.account?.userId) {
+        if (options.userId.trim().toLowerCase() !== root.account.userId.trim().toLowerCase()) {
+          this._db.lockVault();
+          this._failedAttempts++;
+          return { success: false, error: 'Invalid User ID or Email' };
+        }
+      }
+
       if (options.rememberMe !== undefined && root.account) {
         root.account.rememberMe = Boolean(options.rememberMe);
         root.account.lastLoggedIn = new Date().toISOString();

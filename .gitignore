@@ -18,6 +18,7 @@ Run-Ledgerly.bat
 scripts/validate-*
 scripts/setup_search.*
 scripts/search_repo.*
+scripts/runner-lock.js
 
 # Scratch, test runs, and temporary data
 scratch/
@@ -31,8 +32,13 @@ sample_data/backup_workspace_dev/
 
 # Build and distribution outputs
 dist/
+dist-app/
 build/*
 !build/installer.nsh
+
+# Release signing keystores & local launcher
+*.jks
+start.bat
 
 # Logs
 *.log

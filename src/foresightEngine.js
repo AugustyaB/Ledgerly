@@ -160,6 +160,41 @@ class ForesightEngine {
 
     return result;
   }
+
+  /**
+   * Evaluates simulated purchase impact, dynamic pace reduction, and runway forecasting.
+   * Direct domain routing alias for simulatePurchase (Milestone v1.2.0 Phase 3).
+   *
+   * @param {number} extraAmount - Potential expenditure amount.
+   * @param {object} [options={}] - Options containing targetDate or explicit salaryConfig.
+   * @param {object} [context={}] - Injected context { salaryConfig, expenses, spentMTD }.
+   * @returns {import('./types').ForesightBurnRateResult} Simulation analysis and forecast.
+   */
+  static forecast(extraAmount, options = {}, context = {}) {
+    const salaryConfig = context.salaryConfig || (options && options.salaryConfig) || {};
+    const targetDate = (options && options.targetDate) || new Date();
+    const expenses = context.expenses || (options && options.expenses) || [];
+    const d = targetDate instanceof Date ? targetDate : new Date(targetDate);
+    const yearStr = d.getFullYear();
+    const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+    const monthPrefix = `${yearStr}-${monthStr}`;
+    const targetDateIso = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+    let spentMTD = 0;
+    if (context.spentMTD !== undefined) {
+      spentMTD = context.spentMTD;
+    } else {
+      for (let i = 0; i < expenses.length; i++) {
+        const exp = expenses[i];
+        if (exp && typeof exp.date === 'string' && exp.date.startsWith(monthPrefix) && exp.date <= targetDateIso) {
+          const amt = typeof exp.amount === 'number' ? exp.amount : parseFloat(exp.amount) || 0;
+          if (!isNaN(amt) && isFinite(amt)) spentMTD += Math.max(0, amt);
+        }
+      }
+    }
+
+    return ForesightEngine.simulatePurchase(extraAmount, salaryConfig, spentMTD, targetDate, expenses);
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -219,6 +219,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   learnMerchantLayout: (identifier, layoutData) =>
     invokeIPC('receipt-learn-layout', { identifier, ...layoutData }),
   getMerchantLayouts: () => invokeIPC('receipt-get-layouts'),
+  learnReceiptCorrection: correction => invokeIPC('receipt-learn-correction', correction),
+  getReceiptAccuracyScoreboard: refDate => invokeIPC('receipt-get-accuracy-scoreboard', refDate),
+  recordReceiptAccuracyEvent: event => invokeIPC('receipt-record-accuracy-event', event),
 
   // EDA & Financial Intelligence Foundation (Phase 0.8.2)
   auditLedgerQuality: options => invokeIPC('intelligence-audit-ledger', options),

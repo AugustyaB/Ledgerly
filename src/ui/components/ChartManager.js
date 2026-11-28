@@ -135,6 +135,13 @@ export class ChartManager {
       options.cautionBenchmarkData ||
       paceBenchmarkData.map(v => (typeof v === 'number' ? parseFloat((v * 0.8).toFixed(2)) : v));
     const hardLimitData = options.hardLimitBenchmarkData || paceBenchmarkData;
+    const runwayTrajectoryData =
+      options.runwayTrajectoryData ||
+      amounts.reduce((acc, curr, idx) => {
+        const prev = idx > 0 ? acc[idx - 1] : 0;
+        acc.push(Math.round((prev + (parseFloat(curr) || 0)) * 100) / 100);
+        return acc;
+      }, []);
 
     const instance = new Chart(ctx, {
       type: 'bar',
@@ -147,6 +154,20 @@ export class ChartManager {
             backgroundColor: '#D9822B',
             borderRadius: 6,
             order: 3
+          },
+          {
+            label: `Runway Trajectory (${currSym})`,
+            data: runwayTrajectoryData,
+            type: 'line',
+            borderColor: '#38BDF8',
+            borderWidth: 2,
+            borderDash: [],
+            pointRadius: 2.5,
+            pointHoverRadius: 4,
+            pointBackgroundColor: '#38BDF8',
+            tension: 0.3,
+            fill: false,
+            order: 0
           },
           {
             label: `80% Caution Ceiling (${currSym})`,

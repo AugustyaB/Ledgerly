@@ -6,7 +6,8 @@
  * @fileoverview
  * Cross-platform camera interface providing native Android/iOS camera capture via
  * @capacitor/camera with seamless fallback to HTML5 file capture inputs for web
- * previews and automated Playwright testing. Integrates client-side downscaling.
+ * previews and automated Playwright testing. Integrates client-side downscaling
+ * and CV pre-processing pipeline (corner detection, 4-point warp, Sauvola binarization).
  */
 
 'use strict';
@@ -57,10 +58,12 @@ class CameraService {
 
   /**
    * Captures a receipt photo using the native camera or browser fallback,
-   * then applies client-side downscaling.
+   * then applies client-side CV pre-processing and downscaling prior to saving drafts or OCR queue.
    *
    * @param {Object} [options]
    * @param {'camera'|'photos'|'prompt'} [options.source='camera']
+   * @param {boolean} [options.preprocess=true] - Whether to apply CV pre-processing (contour, warp, binarization)
+   * @param {Object} [options.cvOptions] - Options for the CV pipeline (autoWarp, binarize, targetLineHeight, etc.)
    * @returns {Promise<{
    *   blob: Blob,
    *   dataUrl: string,
@@ -68,11 +71,19 @@ class CameraService {
    *   fileSize: number,
    *   width: number,
    *   height: number,
-   *   capturedAt: string
+   *   capturedAt: string,
+   *   cvMetadata?: Object
    * }>}
    */
   async captureReceipt(options = {}) {
     const sourceMode = options.source || 'camera';
+    const compressOptions = {
+      preprocess: options.preprocess !== false,
+      cvOptions: options.cvOptions || {},
+      quality: options.quality || 0.82,
+      maxDimension: options.maxDimension || 1600,
+      mimeType: options.mimeType || 'image/jpeg'
+    };
 
     if (this.isNativeCameraAvailable()) {
       try {
@@ -91,11 +102,11 @@ class CameraService {
           throw new Error('Native camera returned no valid photo URI.');
         }
 
-        // Fetch the photo as a Blob to pass to downscaler
+        // Fetch the photo as a Blob to pass to downscaler & CV pre-processor
         const response = await fetch(rawUrl);
         const rawBlob = await response.blob();
 
-        const compressed = await compressReceiptImage(rawBlob);
+        const compressed = await compressReceiptImage(rawBlob, compressOptions);
         return {
           ...compressed,
           capturedAt: new Date().toISOString()
@@ -110,16 +121,19 @@ class CameraService {
     }
 
     // Fallback to HTML5 file input (Browser / Playwright testing)
-    return this.captureViaFileInput(sourceMode);
+    return this.captureViaFileInput({ source: sourceMode, ...compressOptions });
   }
 
   /**
    * Captures image via HTML5 <input type="file">.
    * @private
-   * @param {'camera'|'photos'} mode
+   * @param {'camera'|'photos'|Object} options
    * @returns {Promise<Object>}
    */
-  captureViaFileInput(mode = 'camera') {
+  captureViaFileInput(options = 'camera') {
+    const mode = typeof options === 'string' ? options : (options.source || 'camera');
+    const compressOptions = typeof options === 'object' ? options : {};
+
     return new Promise((resolve, reject) => {
       if (!this.fallbackInput) {
         this.initFallbackInput();
@@ -147,7 +161,7 @@ class CameraService {
         }
 
         try {
-          const compressed = await compressReceiptImage(file);
+          const compressed = await compressReceiptImage(file, compressOptions);
           resolve({
             ...compressed,
             capturedAt: new Date().toISOString()
@@ -188,11 +202,26 @@ class CameraService {
   }
 
   /**
-   * Shortcut to choose photo from device photo gallery.
+   * Shortcut to choose photo from device photo gallery with CV pre-processing.
+   * @param {Object} [options]
    * @returns {Promise<Object>}
    */
-  async pickFromGallery() {
-    return this.captureReceipt({ source: 'photos' });
+  async pickFromGallery(options = {}) {
+    return this.captureReceipt({ source: 'photos', ...options });
+  }
+
+  /**
+   * Directly pre-processes and enhances an existing receipt image source.
+   *
+   * @param {Blob|File|string} source
+   * @param {Object} [options]
+   * @returns {Promise<Object>}
+   */
+  async preprocessReceipt(source, options = {}) {
+    return compressReceiptImage(source, {
+      preprocess: true,
+      ...options
+    });
   }
 }
 

@@ -42,6 +42,15 @@ export class ImportView {
   /** @type {Array<function(): void>} */
   #cleanupListeners = [];
 
+  /** @type {Array<function(): void>} */
+  #cleanups = [];
+
+  /** @type {Array<function(): void>} */
+  #ocrCleanups = [];
+
+  /** @type {boolean} */
+  #showOcrOverlay = true;
+
   /** @type {'ml-queue'|'statements'} */
   #activeSubTab = 'ml-queue';
 
@@ -142,10 +151,17 @@ export class ImportView {
    * @returns {void}
    */
   unmount() {
-    for (const cleanup of this.#cleanupListeners) {
-      cleanup();
+    this.#clearOcrOverlay();
+    const all = [...this.#cleanupListeners, ...this.#cleanups];
+    for (const cleanup of all) {
+      try {
+        cleanup();
+      } catch (err) {
+        console.warn('ImportView cleanup error:', err);
+      }
     }
     this.#cleanupListeners = [];
+    this.#cleanups = [];
   }
 
   // ==========================================================================
@@ -541,6 +557,21 @@ export class ImportView {
       item.currentPage++;
       this.#renderViewerDocument();
     });
+
+    const toggleOcrBtn = document.getElementById('btn-viewer-toggle-ocr');
+    if (toggleOcrBtn) {
+      const onToggleOcr = () => {
+        this.#showOcrOverlay = !this.#showOcrOverlay;
+        if (this.#showOcrOverlay) {
+          toggleOcrBtn.classList.add('active');
+        } else {
+          toggleOcrBtn.classList.remove('active');
+        }
+        this.#renderViewerDocument();
+      };
+      toggleOcrBtn.addEventListener('click', onToggleOcr);
+      this.#cleanups.push(() => toggleOcrBtn.removeEventListener('click', onToggleOcr));
+    }
   }
 
   #updateViewerTransform() {
@@ -914,6 +945,7 @@ export class ImportView {
       img?.classList.add('hidden');
       textPreview?.classList.add('hidden');
       pagination?.classList.add('hidden');
+      this.#clearOcrOverlay();
       return;
     }
 
@@ -933,8 +965,15 @@ export class ImportView {
       img.src = 'file:///' + item.filePath.replace(/\\/g, '/');
       img.classList.remove('hidden');
       textPreview?.classList.add('hidden');
+
+      if (this.#showOcrOverlay && (item.extractedData || item.editedData)) {
+        this.#renderMirageOcrOverlay(item);
+      } else {
+        this.#clearOcrOverlay();
+      }
     } else if (textPreview) {
       img?.classList.add('hidden');
+      this.#clearOcrOverlay();
       textPreview.classList.remove('hidden');
       const pageText =
         item.extractedData?.pages && item.extractedData.pages[item.currentPage - 1]
@@ -942,6 +981,122 @@ export class ImportView {
           : item.extractedData?.rawText || 'Text stream not available.';
       textPreview.textContent = pageText;
     }
+
+    this.#updateViewerTransform();
+  }
+
+  #clearOcrOverlay() {
+    for (const cleanup of this.#ocrCleanups) {
+      try {
+        cleanup();
+      } catch (err) {
+        console.warn('ImportView OCR cleanup error:', err);
+      }
+    }
+    this.#ocrCleanups = [];
+    const overlay = document.getElementById('ml-viewer-ocr-overlay');
+    if (overlay) {
+      overlay.innerHTML = '';
+      overlay.classList.add('hidden');
+    }
+  }
+
+  #renderMirageOcrOverlay(item) {
+    this.#clearOcrOverlay();
+    const overlay = document.getElementById('ml-viewer-ocr-overlay');
+    if (!overlay) return;
+
+    overlay.innerHTML = '';
+    overlay.classList.remove('hidden');
+
+    const ext = item.extractedData || {};
+    const edited = item.editedData || {};
+    const lowConfFields = Array.isArray(edited.lowConfidenceFields)
+      ? edited.lowConfidenceFields
+      : Array.isArray(ext.lowConfidenceFields)
+        ? ext.lowConfidenceFields
+        : [];
+
+    const defaultBoxes = {
+      merchant: { top: 10, left: 14, width: 72, height: 12 },
+      date: { top: 25, left: 20, width: 60, height: 8 },
+      tax: { top: 60, left: 25, width: 50, height: 8 },
+      total: { top: 72, left: 20, width: 60, height: 12 }
+    };
+
+    const fields = ['merchant', 'date', 'tax', 'total'];
+    fields.forEach(field => {
+      const val = edited[field] !== undefined ? edited[field] : ext[field];
+      if (val === undefined || val === null || val === '') return;
+
+      const customBox = ext.boundingBoxes?.[field];
+      const box = customBox || defaultBoxes[field];
+      if (!box) return;
+
+      const confVal = ext.fieldConfidence?.[field] ?? item.confidence ?? 0.85;
+      const confPct = Math.round(confVal * 100);
+      const isLowConf = lowConfFields.includes(field) || confVal < 0.75;
+
+      const boxEl = document.createElement('div');
+      boxEl.className = `ocr-bounding-box box-${field}${isLowConf ? ' ocr-box-low-conf' : ''}`;
+      boxEl.setAttribute('data-field', field);
+      boxEl.style.top = `${box.top}%`;
+      boxEl.style.left = `${box.left}%`;
+      boxEl.style.width = `${box.width}%`;
+      boxEl.style.height = `${box.height}%`;
+
+      const labelEl = document.createElement('span');
+      labelEl.className = 'ocr-box-label';
+      labelEl.textContent = `${field.toUpperCase()} ${confPct}%`;
+      boxEl.appendChild(labelEl);
+
+      // Bidirectional hover synchronizer
+      const inputEl = document.getElementById(`ml-form-${field}`);
+
+      const onBoxEnter = () => {
+        boxEl.classList.add('active-highlight');
+        inputEl?.classList.add('active-highlight');
+      };
+      const onBoxLeave = () => {
+        boxEl.classList.remove('active-highlight');
+        inputEl?.classList.remove('active-highlight');
+      };
+      const onBoxClick = () => {
+        inputEl?.focus();
+      };
+
+      boxEl.addEventListener('mouseenter', onBoxEnter);
+      boxEl.addEventListener('mouseleave', onBoxLeave);
+      boxEl.addEventListener('click', onBoxClick);
+
+      this.#ocrCleanups.push(() => {
+        boxEl.removeEventListener('mouseenter', onBoxEnter);
+        boxEl.removeEventListener('mouseleave', onBoxLeave);
+        boxEl.removeEventListener('click', onBoxClick);
+      });
+
+      if (inputEl) {
+        const onInputEnter = () => {
+          boxEl.classList.add('active-highlight');
+        };
+        const onInputLeave = () => {
+          boxEl.classList.remove('active-highlight');
+        };
+        inputEl.addEventListener('focus', onInputEnter);
+        inputEl.addEventListener('blur', onInputLeave);
+        inputEl.addEventListener('mouseenter', onInputEnter);
+        inputEl.addEventListener('mouseleave', onInputLeave);
+
+        this.#ocrCleanups.push(() => {
+          inputEl.removeEventListener('focus', onInputEnter);
+          inputEl.removeEventListener('blur', onInputLeave);
+          inputEl.removeEventListener('mouseenter', onInputEnter);
+          inputEl.removeEventListener('mouseleave', onInputLeave);
+        });
+      }
+
+      overlay.appendChild(boxEl);
+    });
 
     this.#updateViewerTransform();
   }

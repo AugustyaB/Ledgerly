@@ -108,6 +108,20 @@ export class AuthScreen {
   #currentUserId = null;
 
   /**
+   * Currently entered Quick PIN digits.
+   * @type {string}
+   * @private
+   */
+  #currentPin = '';
+
+  /**
+   * Whether Quick PIN keypad mode is currently active (vs Master Password form).
+   * @type {boolean}
+   * @private
+   */
+  #pinMode = true;
+
+  /**
    * Construct AuthScreen instance.
    * @param {Object} [options={}]
    * @param {any} [options.state] - Reactive state store adapter
@@ -172,6 +186,9 @@ export class AuthScreen {
     try {
       const status = await this.api.getAccountStatus();
       if (this.state) this.state.set('account', status);
+      if (status?.userId) {
+        this.#currentUserId = status.userId;
+      }
 
       if (!status.isConfigured) {
         this.showAuthScreen('signup');
@@ -243,6 +260,9 @@ export class AuthScreen {
 
     const greetingTitle = document.getElementById('auth-greeting-title');
     const greetingSubtitle = document.getElementById('auth-greeting-subtitle');
+    const toggleWrapper = document.getElementById('auth-mode-toggle-wrapper');
+    const pinSection = document.getElementById('auth-pin-section');
+    const authForm = document.getElementById('auth-form');
 
     if (mode === 'signup') {
       loginTab?.classList.remove('active');
@@ -250,22 +270,29 @@ export class AuthScreen {
       if (submitBtn) submitBtn.textContent = 'CREATE ACCOUNT';
       if (greetingTitle) greetingTitle.textContent = 'Welcome';
       if (greetingSubtitle) greetingSubtitle.textContent = 'Create your account to get started';
+      toggleWrapper?.classList.add('hidden');
+      pinSection?.classList.add('hidden');
+      authForm?.classList.remove('hidden');
     } else {
       signupTab?.classList.remove('active');
       loginTab?.classList.add('active');
       if (submitBtn) submitBtn.textContent = 'SIGN IN';
       if (greetingTitle) greetingTitle.textContent = 'Welcome Back';
       if (greetingSubtitle) greetingSubtitle.textContent = 'Sign in to access your workspaces';
+      toggleWrapper?.classList.remove('hidden');
+      this.#updateAuthModeDisplay();
     }
 
     // Auto-focus input when screen renders
     setTimeout(() => {
-      const userInput = document.getElementById('auth-input-userid');
-      if (userInput && !userInput.value.trim()) {
-        userInput.focus();
-      } else if (pwdInput) {
-        pwdInput.focus();
-        pwdInput.select();
+      if (mode === 'signup' || !this.#pinMode) {
+        const userInput = document.getElementById('auth-input-userid');
+        if (userInput && !userInput.value.trim()) {
+          userInput.focus();
+        } else if (pwdInput) {
+          pwdInput.focus();
+          pwdInput.select();
+        }
       }
     }, 50);
   }
@@ -346,6 +373,7 @@ export class AuthScreen {
     if (!grid) return;
 
     const activeProfile = this.state?.get('activeProfile');
+    const sym = this.state?.get('salaryConfig')?.currencySymbol || '₹';
 
     const cardsHtml = profiles
       .map((p, index) => {
@@ -360,6 +388,8 @@ export class AuthScreen {
         const activePillHtml = isActive
           ? `<span class="netflix-picker-active-pill">${safeIcon('check', 10)} Active</span>`
           : '';
+        const monthSpend = typeof p.currentMonthSpend === 'number' ? p.currentMonthSpend : 0;
+        const spendBadgeHtml = `<div class="netflix-picker-spend-badge">${escapeHTML(sym)}${monthSpend.toLocaleString('en-IN')} this month</div>`;
 
         return `
         <div class="netflix-picker-card${isActive ? ' is-active' : ''}" data-action="select-profile" data-id="${p.id}" tabindex="0" role="button" aria-label="Select profile ${escapeHTML(p.name)}">
@@ -370,6 +400,7 @@ export class AuthScreen {
           </div>
           <div class="netflix-picker-name">${escapeHTML(p.name)}</div>
           <div class="netflix-picker-badge">${count} ${count === 1 ? 'expense' : 'expenses'}</div>
+          ${spendBadgeHtml}
         </div>
       `;
       })
@@ -388,13 +419,19 @@ export class AuthScreen {
 
   /**
    * Switch into active profile and enter the main application cockpit.
-   * @param {string} profileId - ID of profile to activate
+   * @param {string|{ id: string }} profileId - ID or object of profile to activate
    * @returns {Promise<void>}
    */
   async enterUserDashboard(profileId) {
     if (!this.api?.switchProfile) return;
 
-    const res = await this.api.switchProfile(profileId);
+    const targetId = typeof profileId === 'object' && profileId !== null ? profileId.id : profileId;
+    if (!targetId || typeof targetId !== 'string') {
+      console.error('[AuthScreen] Cannot enter dashboard: Invalid profile ID', profileId);
+      return;
+    }
+
+    const res = await this.api.switchProfile(targetId);
     if (res?.success) {
       if (typeof document !== 'undefined') {
         document.getElementById('screen-profile-picker')?.classList.add('hidden');
@@ -428,6 +465,7 @@ export class AuthScreen {
     const modal = document.getElementById('person-modal');
     if (!modal) return;
 
+    const validId = typeof id === 'string' && id.trim().length > 0 ? id.trim() : null;
     const headingEl = document.getElementById('person-modal-heading');
     const idEl = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-id'));
     const nameEl = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-name'));
@@ -435,9 +473,12 @@ export class AuthScreen {
 
     const profiles = this.state?.get('profiles') || [];
 
-    if (id) {
-      const p = profiles.find(prof => prof.id === id);
-      if (!p) return;
+    if (validId) {
+      const p = profiles.find(prof => prof.id === validId);
+      if (!p) {
+        console.warn(`[AuthScreen] Cannot open person modal for non-existent profile: ${validId}`);
+        return;
+      }
 
       if (headingEl) headingEl.innerHTML = `${safeIcon('pencil', 18)} Edit Profile: ${escapeHTML(p.name)}`;
       if (idEl) idEl.value = p.id;
@@ -456,18 +497,34 @@ export class AuthScreen {
 
     this.updatePersonAvatarPreview();
     modal.classList.add('active');
+    modal.style.zIndex = '100010';
+
+    if (nameEl) {
+      nameEl.removeAttribute('disabled');
+      nameEl.removeAttribute('readonly');
+    }
     setTimeout(() => {
       nameEl?.focus();
       nameEl?.select();
-    }, 50);
+    }, 100);
   }
 
   /**
-   * Close person profile modal.
+   * Close person profile modal and reset form values.
    */
   closePersonModal() {
     if (typeof document === 'undefined') return;
-    document.getElementById('person-modal')?.classList.remove('active');
+    const modal = document.getElementById('person-modal');
+    if (modal) {
+      modal.classList.remove('active');
+      modal.style.zIndex = '';
+    }
+    const idEl = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-id'));
+    if (idEl) idEl.value = '';
+    const nameEl = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-name'));
+    if (nameEl) nameEl.value = '';
+    const avatarEl = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-avatar'));
+    if (avatarEl) avatarEl.value = '#D9822B';
   }
 
   /**
@@ -659,6 +716,9 @@ export class AuthScreen {
     if (this.api?.getAccountStatus) {
       const status = await this.api.getAccountStatus();
       if (this.state) this.state.set('account', status);
+      if (status?.userId) {
+        this.#currentUserId = status.userId;
+      }
     }
 
     showToast('Logged out of master account');
@@ -696,6 +756,13 @@ export class AuthScreen {
       pwdInput.focus();
       pwdInput.select();
     }
+
+    if (this.#pinMode) {
+      this.#renderPinDots(true);
+      setTimeout(() => {
+        this.#clearPin();
+      }, 400);
+    }
   }
 
   /**
@@ -717,11 +784,13 @@ export class AuthScreen {
     const userIdInput = /** @type {HTMLInputElement|null} */ (document.getElementById('auth-input-userid'));
     const pwdInput = /** @type {HTMLInputElement|null} */ (document.getElementById('auth-input-password'));
     const pwdToggle = /** @type {HTMLButtonElement|null} */ (document.getElementById('auth-pwd-toggle'));
+    const pinButtons = document.querySelectorAll('.pin-key-btn');
 
     if (submitBtn) submitBtn.disabled = true;
     if (userIdInput) userIdInput.disabled = true;
     if (pwdInput) pwdInput.disabled = true;
     if (pwdToggle) pwdToggle.disabled = true;
+    pinButtons.forEach(btn => btn.setAttribute('disabled', 'true'));
 
     if (this.#lockoutTimer) {
       clearInterval(this.#lockoutTimer);
@@ -767,18 +836,164 @@ export class AuthScreen {
           pwdInput.focus();
         }
         if (pwdToggle) pwdToggle.disabled = false;
+        pinButtons.forEach(btn => btn.removeAttribute('disabled'));
 
         errorBanner.classList.remove('lockout-active');
         errorBanner.classList.add('lockout-expired');
         errorBanner.innerHTML = `
           <div style="display:flex;align-items:center;gap:8px;">
-            ${safeIcon('check-circle', 16)} <strong>Lockout expired. You may now enter your password.</strong>
+            ${safeIcon('check-circle', 16)} <strong>Lockout expired. You may now enter your credentials.</strong>
           </div>
         `;
       } else {
         renderCountdown(seconds);
       }
     }, 1000);
+  }
+
+  // ==========================================================================
+  // QUICK PIN KEYPAD METHODS (Phase 1 Wave 2)
+  // ==========================================================================
+
+  /**
+   * Toggle between Quick PIN and Master Password modes.
+   */
+  togglePinMode() {
+    this.#pinMode = !this.#pinMode;
+    this.#clearPin();
+    this.#updateAuthModeDisplay();
+  }
+
+  /**
+   * Update display state between PIN and Master Password views.
+   * @private
+   */
+  #updateAuthModeDisplay() {
+    if (typeof document === 'undefined') return;
+
+    const pinSec = document.getElementById('auth-pin-section');
+    const formSec = document.getElementById('auth-form');
+    const toggleBtn = document.getElementById('auth-mode-toggle-btn');
+    const errorBanner = document.getElementById('auth-error-banner');
+
+    if (errorBanner && !this.#lockoutTimer) {
+      errorBanner.classList.add('hidden');
+      errorBanner.textContent = '';
+    }
+
+    if (this.#pinMode) {
+      pinSec?.classList.remove('hidden');
+      formSec?.classList.add('hidden');
+      if (toggleBtn) {
+        toggleBtn.innerHTML = `${safeIcon('lock', 13)} Use Master Password`;
+        toggleBtn.title = 'Switch to Master Password entry';
+      }
+      this.#renderPinDots();
+    } else {
+      pinSec?.classList.add('hidden');
+      formSec?.classList.remove('hidden');
+      if (toggleBtn) {
+        toggleBtn.innerHTML = `${safeIcon('key-round', 13)} Use Quick PIN`;
+        toggleBtn.title = 'Switch to 4-digit Quick PIN entry';
+      }
+      const pwdInput = document.getElementById('auth-input-password');
+      if (pwdInput) {
+        pwdInput.focus();
+      }
+    }
+  }
+
+  /**
+   * Render active / filled state of 4 PIN indicator dots.
+   * @param {boolean} [isError=false]
+   * @private
+   */
+  #renderPinDots(isError = false) {
+    if (typeof document === 'undefined') return;
+    const dots = document.querySelectorAll('#auth-pin-dots .pin-dot');
+    dots.forEach((dot, index) => {
+      dot.classList.toggle('filled', index < this.#currentPin.length);
+      dot.classList.toggle('error', isError);
+    });
+  }
+
+  /**
+   * Append a single numeric digit (0-9) to PIN.
+   * Triggers verification immediately on 4th digit.
+   * @param {string} digit
+   * @private
+   */
+  #appendPinDigit(digit) {
+    if (this.#currentPin.length >= 4) return;
+    if (this.#lockoutTimer) return;
+
+    this.#currentPin += digit;
+    this.#renderPinDots();
+
+    if (this.#currentPin.length === 4) {
+      setTimeout(() => this.#submitPinAuth(), 80);
+    }
+  }
+
+  /**
+   * Delete the last entered PIN digit.
+   * @private
+   */
+  #deletePinDigit() {
+    if (this.#lockoutTimer) return;
+    if (this.#currentPin.length > 0) {
+      this.#currentPin = this.#currentPin.slice(0, -1);
+      this.#renderPinDots();
+    }
+  }
+
+  /**
+   * Clear all entered PIN digits.
+   * @private
+   */
+  #clearPin() {
+    this.#currentPin = '';
+    this.#renderPinDots();
+  }
+
+  /**
+   * Verify entered 4-digit PIN against backend.
+   * @private
+   */
+  async #submitPinAuth() {
+    const pin = this.#currentPin;
+    if (pin.length !== 4) return;
+
+    const account = this.state?.get('account');
+    const userInput = /** @type {HTMLInputElement|null} */ (document.getElementById('auth-input-userid'));
+    const userId = account?.userId || this.#currentUserId || userInput?.value.trim() || 'admin';
+    const rememberMe = true;
+
+    try {
+      const res = await this.api?.loginAccount({ userId, password: pin, rememberMe });
+      if (!res?.success) {
+        if (
+          res?.locked ||
+          (res?.error && (res.error.toLowerCase().includes('wait') || res.error.toLowerCase().includes('locked')))
+        ) {
+          this.#handleLockoutCooldown(res.error || 'Locked for 30 seconds.');
+        } else {
+          this.#triggerAuthShake(res?.error || 'Incorrect security PIN');
+        }
+        return;
+      }
+
+      if (this.api?.getAccountStatus) {
+        const status = await this.api.getAccountStatus();
+        if (this.state) this.state.set('account', status);
+      }
+
+      this.#clearPin();
+      showToast(`Welcome back, ${userId}!`);
+      await this.showProfilePickerScreen();
+    } catch (err) {
+      this.#triggerAuthShake(err.message || 'Verification error');
+    }
   }
 
   // ==========================================================================
@@ -800,6 +1015,55 @@ export class AuthScreen {
 
     bindEl('auth-tab-login', 'click', () => this.showAuthScreen('login'));
     bindEl('auth-tab-signup', 'click', () => this.showAuthScreen('signup'));
+    bindEl('auth-mode-toggle-btn', 'click', () => this.togglePinMode());
+
+    // Keypad numeric and functional button clicks
+    const keypad = document.getElementById('auth-pin-keypad');
+    if (keypad) {
+      const unbindKeypad = delegateEvent(keypad, 'click', '.pin-key-btn', (event, target) => {
+        const key = target.getAttribute('data-key');
+        if (!key) return;
+        if (/^[0-9]$/.test(key)) {
+          this.#appendPinDigit(key);
+        } else if (key === 'del') {
+          this.#deletePinDigit();
+        } else if (key === 'clear') {
+          this.#clearPin();
+        }
+      });
+      this.#cleanups.push(unbindKeypad);
+    }
+
+    // Physical keyboard numpad listeners
+    const pinKeyboardHandler = e => {
+      const authScreen = document.getElementById('screen-auth');
+      if (!authScreen || authScreen.classList.contains('hidden') || !this.#pinMode) return;
+      if (document.querySelector('.modal-overlay.active')) return;
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        this.#appendPinDigit(e.key);
+        const btn = document.querySelector(`.pin-key-btn[data-key="${e.key}"]`);
+        if (btn) {
+          btn.classList.add('is-pressed');
+          setTimeout(() => btn.classList.remove('is-pressed'), 120);
+        }
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        this.#deletePinDigit();
+        const btn = document.querySelector(`.pin-key-btn[data-key="del"]`);
+        if (btn) {
+          btn.classList.add('is-pressed');
+          setTimeout(() => btn.classList.remove('is-pressed'), 120);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        this.#clearPin();
+      }
+    };
+    window.addEventListener('keydown', pinKeyboardHandler);
+    this.#cleanups.push(() => window.removeEventListener('keydown', pinKeyboardHandler));
 
     // Password visibility toggle
     const pwdToggle = document.getElementById('auth-pwd-toggle');
@@ -1035,7 +1299,7 @@ export class AuthScreen {
 
     bindEl('person-form', 'submit', async e => {
       e.preventDefault();
-      const id = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-id'))?.value;
+      const id = (/** @type {HTMLInputElement|null} */ (document.getElementById('person-form-id'))?.value || '').trim();
       const name = /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-name'))?.value.trim();
       const avatar =
         /** @type {HTMLInputElement|null} */ (document.getElementById('person-form-avatar'))?.value || '#D9822B';
@@ -1052,10 +1316,11 @@ export class AuthScreen {
         }
       } else {
         const res = await this.api?.createProfile({ name, color, avatar });
-        if (res?.success && res.profile) {
+        const newProfile = res?.profile || res?.data?.profile || (res?.id ? res : null);
+        if (res?.success && newProfile?.id) {
           showToast(`Welcome, ${name}! Profile created.`);
           this.closePersonModal();
-          await this.enterUserDashboard(res.profile.id);
+          await this.enterUserDashboard(newProfile.id);
           return;
         } else {
           if (typeof alert === 'function') alert(res?.error || 'Failed to create profile');

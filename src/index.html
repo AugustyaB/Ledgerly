@@ -49,6 +49,9 @@
           <div class="auth-showcase-overlay"></div>
           <div class="auth-showcase-content">
             <div class="auth-showcase-header">
+              <div class="auth-eyebrow-tag">
+                <i data-icon="shield-check" data-icon-size="12"></i> Local AES-256 Vault • Zero Cloud Footprint
+              </div>
               <h1 class="auth-showcase-title">Ledgerly<span class="title-accent-dot">.</span></h1>
               <div class="auth-title-accent-bar"></div>
               <p class="auth-showcase-subtitle">
@@ -60,6 +63,8 @@
               <span>Offline Desktop Edition</span>
               <span>•</span>
               <span>Local Private Storage</span>
+              <span>•</span>
+              <span>AES-256-GCM Vault</span>
             </div>
           </div>
         </div>
@@ -78,7 +83,41 @@
 
           <div id="auth-error-banner" class="auth-error-banner hidden"></div>
 
-          <form id="auth-form" class="auth-form-body">
+          <!-- Mode Switch Toggle: Quick PIN ⟷ Master Password -->
+          <div class="auth-mode-toggle-wrapper" id="auth-mode-toggle-wrapper">
+            <button type="button" class="auth-mode-toggle-link" id="auth-mode-toggle-btn">
+              <i data-icon="lock" data-icon-size="13"></i> Use Master Password
+            </button>
+          </div>
+
+          <!-- Tactile 4-Digit Quick PIN Keypad Section -->
+          <div id="auth-pin-section" class="auth-pin-section">
+            <div class="pin-instruction-text" id="pin-instruction-text">Enter your 4-digit security PIN</div>
+            <div class="pin-dots-container" id="auth-pin-dots" aria-label="4-digit PIN indicators">
+              <div class="pin-dot" data-index="0"></div>
+              <div class="pin-dot" data-index="1"></div>
+              <div class="pin-dot" data-index="2"></div>
+              <div class="pin-dot" data-index="3"></div>
+            </div>
+
+            <div class="pin-keypad-grid" id="auth-pin-keypad">
+              <button type="button" class="pin-key-btn" data-key="1">1</button>
+              <button type="button" class="pin-key-btn" data-key="2">2</button>
+              <button type="button" class="pin-key-btn" data-key="3">3</button>
+              <button type="button" class="pin-key-btn" data-key="4">4</button>
+              <button type="button" class="pin-key-btn" data-key="5">5</button>
+              <button type="button" class="pin-key-btn" data-key="6">6</button>
+              <button type="button" class="pin-key-btn" data-key="7">7</button>
+              <button type="button" class="pin-key-btn" data-key="8">8</button>
+              <button type="button" class="pin-key-btn" data-key="9">9</button>
+              <button type="button" class="pin-key-btn pin-key-fn" data-key="clear" title="Clear All">Clear</button>
+              <button type="button" class="pin-key-btn" data-key="0">0</button>
+              <button type="button" class="pin-key-btn pin-key-fn" data-key="del" title="Delete">Del</button>
+            </div>
+          </div>
+
+          <!-- Master Password Form (toggled via Quick PIN switch or during sign up) -->
+          <form id="auth-form" class="auth-form-body hidden">
             <div class="auth-input-group">
               <label for="auth-input-userid" id="auth-label-userid">Your User ID or Email</label>
               <input
@@ -503,128 +542,111 @@
           <!-- Proactive Recurring Bill Due Banner (Phase 7) -->
           <div id="dashboard-due-bills-banner" class="hidden"></div>
 
-          <!-- Row 1 & 2: Executive 8-KPI Grid (Two Balanced 4-Card Rows) -->
-          <section class="metrics-grid">
-            <!-- Card 1: Total Outflow -->
-            <div class="metric-card" id="card-total-spent">
-              <div class="metric-header">
-                <span>Total Outflow</span>
-                <div class="metric-icon-box icon-amber"><i data-icon="wallet" data-icon-size="16"></i></div>
-              </div>
-              <div class="metric-value" id="metric-total-spent">₹0.00</div>
-              <div class="metric-footer" id="metric-spent-subtitle">This month</div>
-            </div>
-
-            <!-- Card 2: Discretionary Remaining -->
-            <div class="metric-card" id="card-budget-remaining">
-              <div class="metric-header">
-                <span>Remaining Buffer</span>
-                <div class="metric-icon-box icon-emerald"><i data-icon="shield-check" data-icon-size="16"></i></div>
-              </div>
-              <div class="metric-value" id="metric-budget-remaining">₹0.00</div>
-              <div class="metric-footer" id="metric-budget-subtitle">Safe buffer</div>
-            </div>
-
-            <!-- Card 3: Daily Budget Health -->
-            <div class="metric-card" id="card-daily-pace" style="position: relative; cursor: help">
-              <div class="metric-header">
-                <span>Daily Pace</span>
-                <div class="metric-icon-box icon-blue"><i data-icon="calendar" data-icon-size="16"></i></div>
-              </div>
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                <div>
-                  <div class="metric-value" id="daily-pace-metric-val">
-                    ₹0.00<span style="font-size: 13px; font-weight: 500; color: var(--text-muted)">/day</span>
+          <!-- Row 1: Executive Anchor & Horizon Fold -->
+          <section class="anchor-horizon-fold">
+            <!-- Safe-to-Spend Anchor Hero -->
+            <div class="dashboard-anchor-hero" id="dashboard-anchor-hero">
+              <div class="anchor-hero-content">
+                <div class="anchor-hero-tag">
+                  <i data-icon="shield-check" data-icon-size="14"></i>
+                  <span>Safe-to-Spend Allowance</span>
+                </div>
+                <div class="anchor-hero-figure-row">
+                  <div class="anchor-hero-value" id="daily-pace-metric-val">
+                    ₹0.00<span class="anchor-hero-unit">/day</span>
                   </div>
-                  <div class="metric-footer" id="daily-pace-metric-subtitle">
-                    <span class="pace-badge badge-emerald" id="daily-pace-badge">On Track</span>
+                  <span class="pace-badge badge-emerald" id="daily-pace-badge">On Track</span>
+                </div>
+                <div class="anchor-hero-sub" id="daily-pace-metric-subtitle">
+                  Daily allowance based on remaining discretionary buffer
+                </div>
+                <!-- Interactive Rollover Calculation Explainer Tooltip -->
+                <div class="rollover-tooltip-box" id="rollover-tooltip-box">
+                  <div class="tooltip-title" style="display: flex; align-items: center; gap: 6px">
+                    <i data-icon="lightbulb" data-icon-size="14"></i> Calculation Breakdown
+                  </div>
+                  <div class="tooltip-body" id="rollover-tooltip-body">
+                    Allowed spend to date: ₹0.00. You spent ₹0.00.
                   </div>
                 </div>
-                <!-- Dynamic Circular Pace Ring -->
+              </div>
+
+              <!-- Circular Pace Ring Gauge in Hero -->
+              <div class="anchor-hero-gauge-col" id="card-daily-pace">
                 <div class="pace-ring-wrapper" id="pace-indicator-ring" title="Daily Pace: Today's Spend vs Safe Daily Limit">
-                  <svg class="pace-ring-svg" width="46" height="46" viewBox="0 0 46 46">
+                  <svg class="pace-ring-svg" width="60" height="60" viewBox="0 0 46 46">
                     <circle class="pace-ring-bg" cx="23" cy="23" r="18" stroke-width="4"></circle>
                     <circle class="pace-ring-progress" id="pace-ring-progress-circle" cx="23" cy="23" r="18" stroke-width="4"></circle>
                   </svg>
                   <span class="pace-ring-text" id="pace-ring-percentage">0%</span>
                 </div>
+                <div class="anchor-gauge-label">Pace Today</div>
               </div>
-              <!-- Interactive Rollover Calculation Explainer Tooltip -->
-              <div class="rollover-tooltip-box" id="rollover-tooltip-box">
-                <div class="tooltip-title" style="display: flex; align-items: center; gap: 6px">
-                  <i data-icon="lightbulb" data-icon-size="14"></i> Calculation Breakdown
+            </div>
+
+            <!-- Horizon Accounting Ruler -->
+            <div class="horizon-accounting-ruler" id="horizon-accounting-ruler">
+              <!-- Item 1: Total Outflow -->
+              <div class="horizon-stat-item" id="horizon-total-outflow">
+                <div class="horizon-stat-label">
+                  <i data-icon="wallet" data-icon-size="13"></i> Total Outflow
                 </div>
-                <div class="tooltip-body" id="rollover-tooltip-body">
-                  Allowed spend to date: ₹0.00. You spent ₹0.00.
+                <div class="horizon-stat-value" id="metric-total-spent">₹0.00</div>
+                <div class="horizon-stat-footer" id="metric-spent-subtitle">This month</div>
+              </div>
+
+              <!-- Item 2: Remaining Buffer -->
+              <div class="horizon-stat-item" id="horizon-buffer-remaining">
+                <div class="horizon-stat-label">
+                  <i data-icon="shield-check" data-icon-size="13"></i> Remaining Buffer
                 </div>
+                <div class="horizon-stat-value" id="metric-budget-remaining">₹0.00</div>
+                <div class="horizon-stat-footer" id="metric-budget-subtitle">Safe buffer</div>
               </div>
-            </div>
 
-            <!-- Card 4: Projected Month-End Forecast -->
-            <div class="metric-card" id="card-projected-balance">
-              <div class="metric-header">
-                <span>Forecast</span>
-                <div class="metric-icon-box icon-cyan"><i data-icon="trending-up" data-icon-size="16"></i></div>
-              </div>
-              <div class="metric-value" id="metric-projected-val">₹0.00</div>
-              <div class="metric-footer" id="metric-projected-subtitle">
-                <span class="pace-badge badge-emerald" id="metric-projected-badge">Surplus</span>
-              </div>
-            </div>
-
-            <!-- Card 5: Days Until Payday Countdown -->
-            <div class="metric-card" id="card-payday-countdown">
-              <div class="metric-header">
-                <span>Payday Clock</span>
-                <div class="metric-icon-box icon-indigo"><i data-icon="clock" data-icon-size="16"></i></div>
-              </div>
-              <div class="metric-value" id="metric-payday-countdown-val">— Days</div>
-              <div class="metric-footer" id="metric-payday-subtitle">
-                <div class="payday-mini-track">
-                  <div class="payday-mini-bar" id="metric-payday-progress-bar" style="width: 50%"></div>
+              <!-- Item 3: Payday Clock -->
+              <div class="horizon-stat-item" id="horizon-payday-clock">
+                <div class="horizon-stat-label">
+                  <i data-icon="clock" data-icon-size="13"></i> Payday Clock
                 </div>
-                <span id="metric-payday-cycle-label">Active cycle</span>
-              </div>
-            </div>
-
-            <!-- Card 6: Primary Expense Driver -->
-            <div class="metric-card" id="card-top-category">
-              <div class="metric-header">
-                <span>Top Category</span>
-                <div class="metric-icon-box icon-rose"><i data-icon="pie-chart" data-icon-size="16"></i></div>
-              </div>
-              <div
-                class="metric-value"
-                id="metric-top-category-name"
-                style="font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
-              >
-                —
-              </div>
-              <div class="metric-footer" id="metric-top-category-subtitle">—</div>
-            </div>
-
-            <!-- Card 7: Savings Protection Meter -->
-            <div class="metric-card" id="card-savings-meter">
-              <div class="metric-header">
-                <span>Savings Goal</span>
-                <div class="metric-icon-box icon-emerald"><i data-icon="shield" data-icon-size="16"></i></div>
-              </div>
-              <div class="metric-value" id="metric-savings-meter-val">₹0.00</div>
-              <div class="metric-footer" id="metric-savings-meter-subtitle">
-                <span class="pace-badge badge-emerald" id="metric-savings-meter-badge">100% Intact</span>
-              </div>
-            </div>
-
-            <!-- Card 8: Contextual (Household Net vs Solo Velocity) -->
-            <div class="metric-card" id="card-contextual-metric">
-              <div class="metric-header">
-                <span id="metric-contextual-title">Household Balance</span>
-                <div class="metric-icon-box icon-purple" id="metric-contextual-icon-box">
-                  <i data-icon="users" data-icon-size="16" id="metric-contextual-icon"></i>
+                <div class="horizon-stat-value" id="metric-payday-countdown-val">— Days</div>
+                <div class="horizon-stat-footer" id="metric-payday-subtitle">
+                  <div class="payday-mini-track">
+                    <div class="payday-mini-bar" id="metric-payday-progress-bar" style="width: 50%"></div>
+                  </div>
+                  <span id="metric-payday-cycle-label">Active cycle</span>
                 </div>
               </div>
-              <div class="metric-value" id="metric-contextual-val" style="font-size: 20px">—</div>
-              <div class="metric-footer" id="metric-contextual-subtitle">Checking status...</div>
+
+              <!-- Item 4: Integrated Household Status -->
+              <div class="horizon-stat-item horizon-stat-household" id="horizon-household-col">
+                <div class="horizon-stat-label">
+                  <i data-icon="users" data-icon-size="13"></i> Household Stream
+                </div>
+                <div class="horizon-household-badge" id="horizon-household-badge">
+                  <span id="horizon-household-status" class="household-settled-pill">Checking status...</span>
+                </div>
+                <div class="horizon-stat-footer" id="metric-contextual-subtitle">Settlement status</div>
+                <span id="metric-contextual-title" class="hidden">Household Balance</span>
+                <span id="metric-contextual-val" class="hidden">—</span>
+                <span id="metric-contextual-icon" class="hidden"></span>
+                <span id="metric-contextual-icon-box" class="hidden"></span>
+              </div>
+
+              <!-- Item 5: Forecast -->
+              <div class="horizon-stat-item" id="horizon-forecast-val">
+                <div class="horizon-stat-label">
+                  <i data-icon="trending-up" data-icon-size="13"></i> Forecast
+                </div>
+                <div class="horizon-stat-value" id="metric-projected-val">₹0.00</div>
+                <div class="horizon-stat-footer" id="metric-projected-subtitle">
+                  <span class="pace-badge badge-emerald" id="metric-projected-badge">Surplus</span>
+                </div>
+                <span id="metric-top-category-name" class="hidden">—</span>
+                <span id="metric-top-category-subtitle" class="hidden">—</span>
+                <span id="metric-savings-meter-val" class="hidden">₹0.00</span>
+                <span id="metric-savings-meter-subtitle" class="hidden"><span class="pace-badge badge-emerald" id="metric-savings-meter-badge">100% Intact</span></span>
+              </div>
             </div>
           </section>
 
@@ -716,6 +738,92 @@
             </div>
           </section>
 
+          <!-- Cash Runway Fuel Tank & Three Envelopes Waterfall (Sec 2) -->
+          <section class="cash-runway-card" id="cash-runway-fuel-tank">
+            <div class="cash-runway-header">
+              <div class="cash-runway-title-group">
+                <div class="cash-runway-title">
+                  <i data-icon="fuel" data-icon-size="16" style="color: var(--accent-primary)"></i>
+                  <span>Cash Runway & Daily Fuel Tank</span>
+                </div>
+                <div class="fuel-tank-ceiling-subtext" id="fuel-tank-ceiling-text">
+                  Daily Safe Ceiling: ₹0/day
+                </div>
+              </div>
+              <button type="button" class="btn btn-secondary whatif-trigger-btn" id="btn-open-whatif-lightbox" title="Simulate spending impact (Alt+W)">
+                <i data-icon="zap" data-icon-size="14" style="color: var(--accent-amber)"></i>
+                <span>Simulate Purchase (Alt+W)</span>
+              </button>
+            </div>
+
+            <!-- Fuel Tank Progress Track -->
+            <div class="fuel-tank-container">
+              <div class="fuel-tank-track">
+                <div class="fuel-tank-fill" id="fuel-tank-bar" style="width: 0%"></div>
+              </div>
+              <div class="fuel-tank-meta-strip">
+                <div class="fuel-tank-meta-left">
+                  <span class="fuel-tank-pill" id="fuel-tank-remaining-pill">Remaining Today: ₹0</span>
+                  <span class="fuel-tank-badge" id="fuel-tank-rollover-badge">Rollover: +₹0</span>
+                </div>
+                <div class="fuel-tank-meta-right">
+                  <span class="fuel-tank-status-label" id="fuel-tank-status-label">Tank Healthy</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Three Envelopes Macro Waterfall -->
+            <div class="envelopes-waterfall-grid" id="three-envelopes-waterfall">
+              <div class="envelope-card envelope-fixed">
+                <div class="envelope-header">
+                  <div class="envelope-icon-box">
+                    <i data-icon="lock" data-icon-size="14"></i>
+                  </div>
+                  <div class="envelope-meta">
+                    <span class="envelope-label">Fixed Bills Vault</span>
+                    <span class="envelope-sub">Rent, EMI, Utilities</span>
+                  </div>
+                </div>
+                <div class="envelope-value-wrap">
+                  <span class="envelope-value" id="envelope-fixed-bills-val">₹0</span>
+                  <span class="envelope-status-badge badge-locked">Locked</span>
+                </div>
+              </div>
+
+              <div class="envelope-card envelope-savings">
+                <div class="envelope-header">
+                  <div class="envelope-icon-box">
+                    <i data-icon="shield-check" data-icon-size="14"></i>
+                  </div>
+                  <div class="envelope-meta">
+                    <span class="envelope-label">Savings Shield</span>
+                    <span class="envelope-sub">Untouchable Buffer</span>
+                  </div>
+                </div>
+                <div class="envelope-value-wrap">
+                  <span class="envelope-value" id="envelope-savings-shield-val">₹0</span>
+                  <span class="envelope-status-badge badge-shield">Protected</span>
+                </div>
+              </div>
+
+              <div class="envelope-card envelope-active">
+                <div class="envelope-header">
+                  <div class="envelope-icon-box">
+                    <i data-icon="sparkles" data-icon-size="14"></i>
+                  </div>
+                  <div class="envelope-meta">
+                    <span class="envelope-label">Daybook Active Pool</span>
+                    <span class="envelope-sub">Discretionary Spend</span>
+                  </div>
+                </div>
+                <div class="envelope-value-wrap">
+                  <span class="envelope-value" id="envelope-daybook-pool-val">₹0</span>
+                  <span class="envelope-status-badge badge-active">Available</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- Row 2: Deep-Dive Financial Analytics (60% / 40% Grid) -->
           <section class="charts-two-col-grid">
             <!-- Cash Flow & Daily Spending Trends (60%) -->
@@ -763,17 +871,52 @@
                 </div>
               </div>
 
+              <!-- Daybook Tally Line (Instant Columnar Snap Entry) -->
+              <div class="daybook-tally-line" id="daybook-tally-line">
+                <div class="daybook-snap-cell daybook-cell-date">
+                  <input type="date" id="daybook-input-date" class="daybook-input" title="Transaction Date" />
+                </div>
+                <div class="daybook-snap-cell daybook-cell-title">
+                  <input type="text" id="daybook-input-title" class="daybook-input" placeholder="Payee or expense title..." required />
+                </div>
+                <div class="daybook-snap-cell daybook-cell-category">
+                  <select id="daybook-select-category" class="daybook-select" title="Category">
+                    <option value="Food & Dining">Food & Dining</option>
+                    <option value="Groceries">Groceries</option>
+                    <option value="Shopping">Shopping</option>
+                    <option value="Utilities">Utilities</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Health">Health</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="Miscellaneous">Miscellaneous</option>
+                  </select>
+                </div>
+                <div class="daybook-snap-cell daybook-cell-amount">
+                  <input type="number" step="0.01" min="0.01" id="daybook-input-amount" class="daybook-input" placeholder="0.00" required />
+                </div>
+                <div class="daybook-snap-cell daybook-cell-split">
+                  <button type="button" class="daybook-split-btn" id="daybook-btn-split" data-split="personal" title="Toggle Personal / Shared 50/50">
+                    <i data-icon="user" data-icon-size="12"></i> <span>Personal</span>
+                  </button>
+                </div>
+                <div class="daybook-snap-cell daybook-cell-action">
+                  <button type="button" class="daybook-commit-btn" id="daybook-btn-commit" title="Commit to ledger (Enter)">
+                    <i data-icon="plus" data-icon-size="13"></i> <span>Commit</span>
+                  </button>
+                </div>
+              </div>
+
               <div class="data-table-wrapper">
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th>Date</th>
-                      <th>Title</th>
-                      <th>Category</th>
-                      <th>Member / Split</th>
-                      <th>Amount (₹)</th>
-                      <th>Receipt</th>
-                      <th>Actions</th>
+                      <th style="width: 100px;">Date</th>
+                      <th>Description</th>
+                      <th style="width: 120px;">Category</th>
+                      <th style="width: 120px;">Split</th>
+                      <th style="width: 110px; text-align: right;">Debit (-)</th>
+                      <th style="width: 110px; text-align: right;">Credit (+)</th>
+                      <th style="width: 100px;">Actions</th>
                     </tr>
                   </thead>
                   <tbody id="expense-table-body">
@@ -842,14 +985,14 @@
             </div>
           </section>
 
-          <!-- Row 2: Pairwise Settlement Flow Streams ("Who Owes Whom") -->
+          <!-- Row 2: Pairwise Settlement Vector Streams ("Who Owes Whom") -->
           <section class="table-card">
             <div class="split-widget-header">
               <div class="split-widget-title-group">
                 <div class="split-widget-heading" style="display: flex; align-items: center; gap: 8px">
-                  <i data-icon="banknote" data-icon-size="16"></i> Pairwise Settlement Streams ("Who Owes Whom")
+                  <i data-icon="banknote" data-icon-size="16"></i> Pairwise Settlement Vector Streams ("Who Owes Whom")
                 </div>
-                <div class="split-widget-sub">Optimal minimal-transaction pairwise debt clearing</div>
+                <div class="split-widget-sub">Directional cash transfer vectors & optimal minimal-transaction debt clearing</div>
               </div>
               <div style="display: flex; gap: 8px">
                 <button type="button" class="btn btn-secondary" id="btn-open-manage-members-hub">
@@ -863,14 +1006,14 @@
             </div>
           </section>
 
-          <!-- Row 3: Recurring Household Utilities & Shared Bills -->
+          <!-- Row 3: Recurring Household Utilities & Countdown Deck -->
           <section class="table-card">
             <div class="split-widget-header">
               <div class="split-widget-title-group">
                 <div class="split-widget-heading" style="display: flex; align-items: center; gap: 8px">
-                  <i data-icon="zap" data-icon-size="16"></i> Recurring Utilities & Shared Household Bills
+                  <i data-icon="zap" data-icon-size="16"></i> Recurring Household Utilities & Countdown Deck
                 </div>
-                <div class="split-widget-sub">Automated monthly cycles, countdown reminder pills & 1-click split</div>
+                <div class="split-widget-sub">Automated monthly cycles, countdown progress rails & per-member split allocation</div>
               </div>
               <button type="button" class="btn btn-primary" id="btn-open-add-recurring-bill">
                 <i data-icon="plus" data-icon-size="14"></i> Add Recurring Bill
@@ -2563,6 +2706,14 @@
                       </button>
                     </div>
 
+                    <!-- Mirage OCR Amber Bounding Boxes Toggle (Phase 4 Sec 3) -->
+                    <div class="ml-toolbar-group">
+                      <button type="button" class="ml-viewer-btn active" id="btn-viewer-toggle-ocr" title="Toggle Amber OCR Bounding Boxes">
+                        <i data-icon="eye" data-icon-size="14"></i>
+                        <span style="font-size: 11px; margin-left: 4px">OCR Boxes</span>
+                      </button>
+                    </div>
+
                     <!-- Pagination for Multi-Page PDFs -->
                     <div class="ml-toolbar-group ml-pagination-group hidden" id="ml-viewer-pagination">
                       <button type="button" class="ml-viewer-btn" id="btn-viewer-prev-page" title="Previous Page">
@@ -2582,7 +2733,10 @@
                         <i data-icon="file-image" data-icon-size="48"></i>
                         <span>Select a document from the queue to inspect</span>
                       </div>
-                      <img id="ml-viewer-image" class="ml-viewer-img hidden" alt="Scanned Document Preview" />
+                      <div id="ml-viewer-stage-wrapper" class="ml-viewer-stage-wrapper" style="position: relative; display: inline-block;">
+                        <img id="ml-viewer-image" class="ml-viewer-img hidden" alt="Scanned Document Preview" />
+                        <div id="ml-viewer-ocr-overlay" class="ocr-bounding-stage hidden"></div>
+                      </div>
                       <div id="ml-viewer-text-preview" class="ml-viewer-text hidden"></div>
                     </div>
                   </div>
@@ -2875,6 +3029,159 @@
           </section>
         </div>
       </main>
+    </div>
+
+    <!-- What-If Purchase Impact Lightbox Modal (Phase 3 Sec 2) -->
+    <div class="modal-overlay" id="modal-whatif-lightbox">
+      <div class="modal-card whatif-modal-card">
+        <div class="modal-header">
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px">
+            <i data-icon="zap" data-icon-size="18" style="color: var(--accent-amber)"></i>
+            <span>What-If Purchase Impact Simulator</span>
+          </div>
+          <button type="button" class="titlebar-btn" id="whatif-modal-close-btn" title="Close (Esc)">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px">
+            Simulate a potential purchase to instantly observe its mathematical friction against your safe daily limit and monthly runway.
+          </p>
+
+          <div class="form-group" style="margin-bottom: 18px">
+            <label for="whatif-input-amount" style="font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between">
+              <span>Proposed Purchase Amount (₹)</span>
+              <span class="whatif-hotkey-hint">Hotkey: Alt+W</span>
+            </label>
+            <div class="whatif-input-wrap">
+              <span class="whatif-currency-prefix">₹</span>
+              <input
+                type="number"
+                id="whatif-input-amount"
+                class="whatif-amount-field"
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+
+          <!-- Instant calculation breakdown card -->
+          <div class="whatif-breakdown-card">
+            <div class="whatif-card-header">
+              <span class="whatif-breakdown-title">Runway & Pace Impact Analysis</span>
+              <span class="whatif-risk-badge risk-safe" id="whatif-risk-badge">SAFE</span>
+            </div>
+
+            <div class="whatif-stats-grid">
+              <!-- Current Safe Daily Pace vs Projected Daily Pace -->
+              <div class="whatif-stat-tile">
+                <span class="whatif-stat-label">Daily Pace Shift</span>
+                <span class="whatif-stat-val" id="whatif-pace-comparison">₹0 → ₹0/day</span>
+                <span class="whatif-stat-sub">Safe Daily Allowance</span>
+              </div>
+
+              <!-- Daily Breathing Room Drop Percentage -->
+              <div class="whatif-stat-tile">
+                <span class="whatif-stat-label">Breathing Room Drop</span>
+                <span class="whatif-stat-val" id="whatif-drop-percentage">0%</span>
+                <span class="whatif-stat-sub">Daily reduction</span>
+              </div>
+
+              <!-- Cash Runway Impact Days -->
+              <div class="whatif-stat-tile">
+                <span class="whatif-stat-label">Runway Delta</span>
+                <span class="whatif-stat-val" id="whatif-runway-impact">0 Days</span>
+                <span class="whatif-stat-sub">Cycle cushion lost</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center">
+          <button type="button" class="btn btn-secondary" id="whatif-btn-cancel">Cancel / Esc</button>
+          <button type="button" class="btn btn-primary" id="whatif-btn-commit">
+            <i data-icon="plus" data-icon-size="14"></i>
+            <span>Log as Planned Expense</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Highlighted Voucher Lightbox Modal (Phase 4 Sec 3) -->
+    <div class="modal-overlay voucher-lightbox-overlay" id="voucher-lightbox-modal">
+      <div class="modal-card voucher-lightbox-card">
+        <!-- Header Metadata Strip -->
+        <div class="voucher-lightbox-header">
+          <div class="voucher-lightbox-meta-left">
+            <div class="voucher-lightbox-title-group">
+              <span class="voucher-lightbox-title" id="voucher-lightbox-title">Voucher Inspection</span>
+              <span class="voucher-lightbox-category category-pill" id="voucher-lightbox-category">Receipt</span>
+            </div>
+            <span class="voucher-lightbox-amount" id="voucher-lightbox-amount">₹0.00</span>
+            <span class="voucher-lightbox-date" id="voucher-lightbox-date">2026-11-21</span>
+          </div>
+          <div class="voucher-lightbox-meta-right">
+            <span class="voucher-lightbox-filename" id="voucher-lightbox-filename">receipt.jpg</span>
+            <span class="voucher-lightbox-confidence" id="voucher-lightbox-confidence">OCR: 95%</span>
+            <button type="button" class="titlebar-btn" id="voucher-lightbox-close-btn" title="Close Lightbox (Esc)">✕</button>
+          </div>
+        </div>
+
+        <!-- Lightbox Toolbar -->
+        <div class="voucher-lightbox-toolbar">
+          <div class="voucher-toolbar-group">
+            <button type="button" class="voucher-tool-btn" id="btn-voucher-zoom-in" title="Zoom In (+)">
+              <i data-icon="zoom-in" data-icon-size="14"></i>
+            </button>
+            <button type="button" class="voucher-tool-btn" id="btn-voucher-zoom-out" title="Zoom Out (-)">
+              <i data-icon="zoom-out" data-icon-size="14"></i>
+            </button>
+            <button type="button" class="voucher-tool-btn" id="btn-voucher-reset-zoom" title="Reset Zoom (100%)">
+              <span id="voucher-zoom-percentage">100%</span>
+            </button>
+          </div>
+
+          <div class="voucher-toolbar-group">
+            <button type="button" class="voucher-tool-btn" id="btn-voucher-rot-ccw" title="Rotate 90° CCW">
+              <i data-icon="rotate-ccw" data-icon-size="14"></i>
+            </button>
+            <button type="button" class="voucher-tool-btn" id="btn-voucher-rot-cw" title="Rotate 90° CW">
+              <i data-icon="rotate-cw" data-icon-size="14"></i>
+            </button>
+          </div>
+
+          <div class="voucher-toolbar-group">
+            <button type="button" class="voucher-tool-btn active" id="btn-voucher-toggle-ocr" title="Toggle Amber OCR Bounding Boxes (B)">
+              <i data-icon="eye" data-icon-size="14"></i>
+              <span style="font-size: 11px; margin-left: 5px;">👁️ Toggle Amber Bounding Boxes</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Viewport Stage -->
+        <div class="voucher-lightbox-viewport" id="voucher-lightbox-viewport">
+          <div class="voucher-lightbox-stage" id="voucher-lightbox-stage">
+            <img id="voucher-lightbox-img" class="voucher-lightbox-img" alt="Voucher Receipt Attachment" />
+            <div id="voucher-lightbox-bounding-stage" class="ocr-bounding-stage"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Historical Voucher Popover (Phase 4 Sec 3) -->
+    <div class="voucher-preview-popover hidden" id="voucher-preview-popover">
+      <div class="voucher-popover-thumb" id="voucher-popover-thumb">
+        <img id="voucher-popover-img" class="voucher-popover-img" alt="Voucher Thumbnail" />
+      </div>
+      <div class="voucher-popover-body">
+        <div class="voucher-popover-merchant" id="voucher-popover-merchant">Merchant Name</div>
+        <div class="voucher-popover-row">
+          <span class="voucher-popover-amount" id="voucher-popover-amount">₹0.00</span>
+          <span class="voucher-popover-date" id="voucher-popover-date">2026-11-21</span>
+        </div>
+        <div class="voucher-popover-hint">Click to expand Voucher Lightbox (Esc to dismiss)</div>
+      </div>
     </div>
 
     <!-- Add / Edit Expense Modal Dialog -->
@@ -3831,13 +4138,25 @@
       </div>
     </div>
 
+    <!-- Frosted Privacy Veil & Ambient Stealth Mode (Phase 7 Sec 6) -->
+    <div id="privacy-veil" class="privacy-veil hidden" aria-hidden="true">
+      <div class="privacy-veil-card">
+        <div class="privacy-veil-badge">
+          <i data-icon="lock" data-icon-size="16"></i>
+          <span>Stealth Privacy Mode Active</span>
+          <kbd>P</kbd>
+        </div>
+        <p class="privacy-veil-hint">Click anywhere or press <kbd>P</kbd> to restore ledger visibility</p>
+      </div>
+    </div>
+
     <!-- Interactive Product Walkthrough Guide Modal (Raycast/Linear Style) -->
     <div class="modal-overlay walkthrough-modal-overlay" id="walkthrough-guide-modal">
       <div class="modal-card walkthrough-card">
         <!-- Top Navigation Bar -->
         <div class="walkthrough-header">
           <div class="walkthrough-header-left">
-            <span class="walkthrough-step-counter" id="walkthrough-step-counter">Step 1 of 7</span>
+            <span class="walkthrough-step-counter" id="walkthrough-step-counter">Step 1 of 8</span>
             <span class="walkthrough-step-badge" id="walkthrough-step-badge">SPEED &amp; SIMPLICITY</span>
           </div>
           <div class="walkthrough-dots" id="walkthrough-dots-container">
@@ -3863,6 +4182,9 @@
         <div class="walkthrough-points-list" id="walkthrough-points-list">
           <!-- Dynamically populated points -->
         </div>
+
+        <!-- Optional Action Row for step actions (e.g. Open Sync Radar) -->
+        <div class="walkthrough-action-row" id="walkthrough-action-row" style="display: none;"></div>
 
         <!-- Quick Hotkey / Tip Box -->
         <div class="walkthrough-tip-box">

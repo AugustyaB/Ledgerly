@@ -134,14 +134,29 @@ class ReceiptTier3RegionalEngine {
   }
 
   /**
-   * Checks if Omni-Regional Perception Engine is ready for inference.
-   * Built-in 100% offline heuristic and statutory intelligence is always ready.
+   * Checks if Tier 3 model weights exist and are ready for inference.
    *
-   * @param {string} [_specialistId='omni-regional-engine']
-   * @returns {boolean} True unconditionally
+   * @param {string} [specialistId='tier3-regional-in']
+   * @returns {boolean}
    */
-  isModelReady(_specialistId = 'omni-regional-engine') {
-    return true;
+  isModelReady(specialistId = 'tier3-regional-in') {
+    if (specialistId === 'omni-regional-engine' || specialistId === 'tier3-regional-omni') {
+      return true;
+    }
+    const filenameMap = {
+      'tier3-regional-in': 'tier3-regional-in.bin',
+      'tier3-regional-us': 'tier3-regional-us.bin',
+      'tier3-regional-eu': 'tier3-regional-eu.bin',
+      'tier3-regional-apac': 'tier3-regional-apac.bin'
+    };
+    const filename = filenameMap[specialistId] || `${specialistId}.bin`;
+    const binPathInModelDir = path.join(this.modelDir, filename);
+    const binPathInSubDir = this.modelsRoot ? path.join(this.modelsRoot, specialistId, filename) : null;
+
+    return (
+      (fs.existsSync(binPathInModelDir) && fs.statSync(binPathInModelDir).size > 0) ||
+      (binPathInSubDir && fs.existsSync(binPathInSubDir) && fs.statSync(binPathInSubDir).size > 0)
+    );
   }
 
   /**

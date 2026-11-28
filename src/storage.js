@@ -32,8 +32,20 @@ const NotesService = require('./services/NotesService');
 const NotificationEngine = require('./services/NotificationEngine');
 const BackupMirrorService = require('./services/BackupMirrorService');
 const ReceiptLearningService = require('./services/ReceiptLearningService');
+const ReceiptEngine = require('./services/ReceiptEngine');
+const DatabaseAuditor = require('./services/DatabaseAuditor');
+const AggregationRollupService = require('./services/AggregationRollupService');
+const StatementReconciliationService = require('./services/StatementReconciliationService');
 const FinancialIntelligenceFacade = require('./services/FinancialIntelligenceFacade');
 const SubscriptionHunterService = require('./services/SubscriptionHunterService');
+const ForesightEngine = require('./foresightEngine');
+const {
+  validateReconciliationBatchInput,
+  validateReconciliationSingleInput,
+  validateApplyReconciliationInput,
+  validateSubscriptionDetectInput,
+  validateForesightForecastInput
+} = require('./validation/schemaValidator');
 
 class ExpenseStorage {
   constructor(customPath) {
@@ -52,6 +64,18 @@ class ExpenseStorage {
     );
     this.mirror = new BackupMirrorService({ db: this.db });
     this.receiptLearning = new ReceiptLearningService({ db: this.db });
+    this.receiptEngine = new ReceiptEngine({ receiptLearning: this.receiptLearning });
+    this.databaseAuditor = DatabaseAuditor;
+    this.auditor = DatabaseAuditor;
+    this.rollup = new AggregationRollupService({ db: this.db });
+    this.rollups = this.rollup;
+    this.foresight = ForesightEngine;
+    this.reconciliation = new StatementReconciliationService({
+      db: this.db,
+      expenses: this.expenses,
+      receiptLearning: this.receiptLearning,
+      receiptEngine: this.receiptEngine
+    });
     this.subscriptionHunter = new SubscriptionHunterService({
       db: this.db,
       expenses: this.expenses
@@ -62,11 +86,22 @@ class ExpenseStorage {
       profiles: this.profiles,
       budget: this.budget,
       receiptLearning: this.receiptLearning,
-      subscriptionHunter: this.subscriptionHunter
+      subscriptionHunter: this.subscriptionHunter,
+      reconciliation: this.reconciliation,
+      rollups: this.rollup,
+      auditor: this.databaseAuditor
     });
     this.notifications.setIntelligence(this.intelligence);
+    this.notifications.setDomainServices({
+      storage: this,
+      intelligence: this.intelligence,
+      hunter: this.subscriptionHunter,
+      rollups: this.rollups,
+      budget: this.budget
+    });
     this.db.setOnDidWrite(() => {
       this.mirror.notifyChange();
+      this.rollups.invalidateCache();
       this.intelligence.invalidateRollupCache();
     });
     this.filePath = this.db.getFilePath();
@@ -512,6 +547,11 @@ class ExpenseStorage {
     return DatabaseAuditor.rollAgedExpenses(this.db, cutoffDays);
   }
 
+  auditDatabase() {
+    const DatabaseAuditor = require('./services/DatabaseAuditor');
+    return DatabaseAuditor.auditAndRepair(this.db);
+  }
+
   generateDiagnosticReport(appVersion = '0.4.7') {
     const DiagnosticExporter = require('./services/DiagnosticExporter');
     return DiagnosticExporter.generateReport(this.db, appVersion);
@@ -658,34 +698,227 @@ class ExpenseStorage {
   }
 
   // ==========================================================================
+  // Longitudinal Accuracy Telemetry & Self-Learning (Phase 1.3.0)
+  // ==========================================================================
+
+  learnFromCorrection(correction) {
+    if (!this.receiptLearning) return { success: false, error: 'ReceiptLearningService not initialized' };
+    return this.receiptLearning.learnFromCorrection(correction);
+  }
+
+  getReceiptAccuracyScoreboard(referenceDate) {
+    if (!this.receiptLearning) return null;
+    return this.receiptLearning.getAccuracyScoreboard(referenceDate);
+  }
+
+  recordReceiptAccuracyEvent(event) {
+    if (!this.receiptLearning) return { success: false, error: 'ReceiptLearningService not initialized' };
+    return this.receiptLearning.recordReceiptEvent(event);
+  }
+
+  clearReceiptAccuracyTelemetry() {
+    if (!this.receiptLearning) return { success: false, error: 'ReceiptLearningService not initialized' };
+    return this.receiptLearning.clearTelemetry();
+  }
+
+  // ==========================================================================
   // EDA & Financial Intelligence Foundation (Phase 0.8.2)
   // ==========================================================================
 
-  auditLedgerQuality(options) {
-    return this.intelligence.auditLedgerQuality(options);
+  // ==========================================================================
+  // Helper: In-Memory / Target Ledger Resolution
+  // ==========================================================================
+
+  _resolveExpenses(options = {}) {
+    if (options && Array.isArray(options.expenses)) {
+      return options.expenses;
+    }
+    if (this.expenses && typeof this.expenses.getAll === 'function') {
+      return this.expenses.getAll({ includeArchive: options && options.includeArchive === true });
+    }
+    return [];
   }
 
-  sanitizeLedgerQuality(options) {
-    return this.intelligence.sanitizeLedgerQuality(options);
+  // ==========================================================================
+  // EDA & Financial Intelligence Foundation (Milestone v1.2.0 Direct Domain Routing)
+  // ==========================================================================
+
+  auditLedgerQuality(options = {}) {
+    try {
+      const expenses = this._resolveExpenses(options);
+      const report = this.auditor.auditDataset(expenses, options);
+      return {
+        success: true,
+        data: report
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: `Ledger quality audit failed: ${err.message}`
+      };
+    }
   }
 
-  getAggregationRollup(timeframe, options) {
-    return this.intelligence.getAggregationRollup(timeframe, options);
+  sanitizeLedgerQuality(options = {}) {
+    try {
+      const expenses = this._resolveExpenses(options);
+      const result = this.auditor.sanitizeExpenseList(expenses, options);
+
+      if (options && options.applyToDb === true && this.profiles && typeof this.profiles.getActiveData === 'function') {
+        const activeData = this.profiles.getActiveData();
+        activeData.expenses = result.sanitizedExpenses;
+        this.profiles.saveActiveData(activeData);
+        if (this.rollups) this.rollups.invalidateCache();
+        if (this.intelligence) this.intelligence.invalidateRollupCache();
+      }
+
+      return {
+        success: true,
+        data: result
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: `Ledger sanitization failed: ${err.message}`
+      };
+    }
   }
 
-  getCategoryRollup(period, options) {
-    return this.intelligence.getCategoryRollup(period, options);
+  getAggregationRollup(timeframe = 'daily', options = {}) {
+    try {
+      const expenses = this._resolveExpenses(options);
+      const rollup = this.rollups.getRollup(timeframe, expenses, options);
+      return {
+        success: true,
+        data: rollup
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: `Rollup computation failed: ${err.message}`
+      };
+    }
   }
 
-  getVelocityMetrics(options) {
-    return this.intelligence.getVelocityMetrics(options);
+  getCategoryRollup(period, options = {}) {
+    try {
+      const expenses = this._resolveExpenses(options);
+      const combinedOptions = { ...options, period: period || (options && options.period) };
+      const rollup = this.rollups.getCategoryRollup(expenses, combinedOptions);
+      return {
+        success: true,
+        data: rollup
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: `Category rollup failed: ${err.message}`
+      };
+    }
   }
 
-  getSafeToSpend(targetDate, options) {
-    return this.intelligence.getSafeToSpend(targetDate, options);
+  getVelocityMetrics(options = {}) {
+    try {
+      const expenses = this._resolveExpenses(options);
+      const metrics = this.rollups.getVelocityMetrics(expenses, options);
+      return {
+        success: true,
+        data: metrics
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: `Velocity calculation failed: ${err.message}`
+      };
+    }
   }
 
-  detectAnomalies(options) {
+  getSafeToSpend(targetDate = new Date(), options = {}) {
+    try {
+      const d = targetDate instanceof Date ? targetDate : new Date(targetDate);
+      const targetDateIso = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+      let salaryConfig = {
+        monthlyIncome: 50000,
+        fixedBills: 15000,
+        savingsGoal: 10000,
+        currencySymbol: '₹'
+      };
+
+      if (this.budget && typeof this.budget.getSalaryConfig === 'function') {
+        salaryConfig = this.budget.getSalaryConfig();
+      }
+
+      const expenses = this._resolveExpenses(options);
+      const velocity = this.rollups.getVelocityMetrics(expenses, { referenceDate: targetDateIso });
+
+      const income = Math.max(0, parseFloat(salaryConfig.monthlyIncome) || 0);
+      const bills = Math.max(0, parseFloat(salaryConfig.fixedBills) || 0);
+      const savings = Math.max(0, parseFloat(salaryConfig.savingsGoal) || 0);
+      const discretionaryPool = Math.max(0, income - bills - savings);
+
+      // Current month bounds
+      const [yearStr, monthStr, dayStr] = targetDateIso.split('-');
+      const y = parseInt(yearStr, 10);
+      const m = parseInt(monthStr, 10);
+      const dayOfMonth = parseInt(dayStr, 10);
+      const daysInMonth = AggregationRollupService.getDaysInMonth(y, m);
+      const daysRemaining = Math.max(1, daysInMonth - dayOfMonth + 1);
+
+      // Sum spent month-to-date
+      const currentMonthPrefix = `${yearStr}-${monthStr}`;
+      let spentMTD = 0;
+      for (let i = 0; i < expenses.length; i++) {
+        const exp = expenses[i];
+        if (exp && typeof exp.date === 'string' && exp.date.startsWith(currentMonthPrefix) && exp.date <= targetDateIso) {
+          const amt = typeof exp.amount === 'number' ? exp.amount : parseFloat(exp.amount);
+          if (!isNaN(amt) && isFinite(amt)) spentMTD += Math.max(0, amt);
+        }
+      }
+
+      const remainingDiscretionary = Math.max(0, discretionaryPool - spentMTD);
+      const unadjustedDaily = daysRemaining > 0 ? remainingDiscretionary / daysRemaining : 0;
+
+      // Modulate by 7-day velocity
+      let velocityAdjustment = 1.0;
+      if (velocity.velocity7d > 0 && unadjustedDaily > 0) {
+        if (velocity.velocity7d > unadjustedDaily * 1.3) {
+          velocityAdjustment = 0.85; // Tighten allowance if recently overspending
+        } else if (velocity.velocity7d < unadjustedDaily * 0.7) {
+          velocityAdjustment = 1.1; // Loosen slightly if recently frugal
+        }
+      }
+
+      const safeDailyAllowance = Math.round(unadjustedDaily * velocityAdjustment * 100) / 100;
+
+      let pacingStatus = 'healthy';
+      if (remainingDiscretionary <= 0 || safeDailyAllowance <= 0) {
+        pacingStatus = 'critical';
+      } else if (safeDailyAllowance < (discretionaryPool / daysInMonth) * 0.5) {
+        pacingStatus = 'caution';
+      }
+
+      return {
+        success: true,
+        data: {
+          targetDate: targetDateIso,
+          safeDailyAllowance,
+          remainingDiscretionary: Math.round(remainingDiscretionary * 100) / 100,
+          daysRemaining,
+          velocityAdjustment: Math.round(velocityAdjustment * 100) / 100,
+          pacingStatus,
+          currencySymbol: salaryConfig.currencySymbol || '₹'
+        }
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: `Safe to spend calculation failed: ${err.message}`
+      };
+    }
+  }
+
+  detectAnomalies(options = {}) {
     return this.intelligence.detectAnomalies(options);
   }
 
@@ -709,24 +942,69 @@ class ExpenseStorage {
   // Statement Reconciliation & Fuzzy Deduplication (Phase 0.8.3)
   // ==========================================================================
 
-  reconcileStatementBatch(incomingTransactions, options) {
-    return this.intelligence.reconcileStatementBatch(incomingTransactions, options);
+  reconcileStatementBatch(incomingTransactions, options = {}) {
+    const val = validateReconciliationBatchInput(incomingTransactions, options);
+    if (!val.valid) {
+      return { success: false, error: `Invalid reconciliation batch input: ${val.errors.join(' ')}` };
+    }
+
+    try {
+      const ledgerExpenses = this._resolveExpenses(options);
+      const result = this.reconciliation.reconcileBatch(incomingTransactions, ledgerExpenses, options);
+      return { success: true, data: result };
+    } catch (err) {
+      return { success: false, error: `Batch reconciliation failed: ${err.message}` };
+    }
   }
 
-  reconcileStatementSingle(incomingTransaction, options) {
-    return this.intelligence.reconcileStatementSingle(incomingTransaction, options);
+  reconcileStatementSingle(incomingTransaction, options = {}) {
+    const val = validateReconciliationSingleInput(incomingTransaction, options);
+    if (!val.valid) {
+      return { success: false, error: `Invalid reconciliation single input: ${val.errors.join(' ')}` };
+    }
+
+    try {
+      const ledgerExpenses = this._resolveExpenses(options);
+      const result = this.reconciliation.reconcileSingle(incomingTransaction, ledgerExpenses, options);
+      return { success: true, data: result };
+    } catch (err) {
+      return { success: false, error: `Single reconciliation failed: ${err.message}` };
+    }
   }
 
-  applyReconciliation(resolutions) {
-    return this.intelligence.applyReconciliation(resolutions);
+  applyReconciliation(resolutions, options = {}) {
+    const val = validateApplyReconciliationInput(resolutions);
+    if (!val.valid) {
+      return { success: false, error: `Invalid apply reconciliation input: ${val.errors.join(' ')}` };
+    }
+
+    try {
+      const result = typeof this.reconciliation.applyResolutions === 'function'
+        ? this.reconciliation.applyResolutions(resolutions, options)
+        : this.reconciliation.applyReconciliation(resolutions, options);
+      return { success: true, data: result };
+    } catch (err) {
+      return { success: false, error: `Apply reconciliation failed: ${err.message}` };
+    }
   }
 
   // ==========================================================================
   // Smart Insights, Foresight Forecasting & Subscriptions (Phase 0.8.4)
   // ==========================================================================
 
-  detectSubscriptions(options) {
-    return this.intelligence.detectSubscriptions(options);
+  detectSubscriptions(options = {}) {
+    const val = validateSubscriptionDetectInput(options);
+    if (!val.valid) {
+      return { success: false, error: `Invalid subscription detect input: ${val.errors.join(' ')}` };
+    }
+
+    try {
+      const expenses = this._resolveExpenses(options);
+      const result = this.subscriptionHunter.detectSubscriptions(expenses, options);
+      return { success: true, data: result };
+    } catch (err) {
+      return { success: false, error: `Subscription detection failed: ${err.message}` };
+    }
   }
 
   /**
@@ -800,12 +1078,64 @@ class ExpenseStorage {
     return { success: true, dismissedId: subscriptionId };
   }
 
-  getForesightForecast(extraAmount, options) {
-    return this.intelligence.getForesightForecast(extraAmount, options);
+  getForesightForecast(extraAmount, options = {}) {
+    const val = validateForesightForecastInput(extraAmount, options);
+    if (!val.valid) {
+      return { success: false, error: `Invalid foresight forecast input: ${val.errors.join(' ')}` };
+    }
+
+    try {
+      const salaryConfig = (options && options.salaryConfig) ||
+        (this.budget && typeof this.budget.getSalaryConfig === 'function'
+          ? this.budget.getSalaryConfig()
+          : {
+              monthlyIncome: 50000,
+              fixedBills: 15000,
+              savingsGoal: 10000,
+              currencySymbol: '₹'
+            });
+      const expenses = this._resolveExpenses(options);
+      const sim = ForesightEngine.forecast(extraAmount, options, { salaryConfig, expenses });
+      return { success: true, data: sim };
+    } catch (err) {
+      return { success: false, error: `Foresight forecast failed: ${err.message}` };
+    }
   }
 
-  getPacingInsights(options) {
-    return this.intelligence.getPacingInsights(options);
+  getPacingInsights(options = {}) {
+    try {
+      const safeRes = this.getSafeToSpend(new Date(), options);
+      if (!safeRes.success || !safeRes.data) {
+        return safeRes;
+      }
+
+      const d = safeRes.data;
+      const sym = d.currencySymbol || '₹';
+      let headline = 'Pacing On Track';
+      let message = `You have ${sym}${Math.round(d.safeDailyAllowance)} safe to spend today (${d.daysRemaining} days remaining). Great pacing discipline!`;
+
+      if (d.pacingStatus === 'caution') {
+        headline = 'Spending Tightening';
+        message = `Daily breathing room is narrowing to ${sym}${Math.round(d.safeDailyAllowance)}/day with ${d.daysRemaining} days left. Stick to essential spends.`;
+      } else if (d.pacingStatus === 'critical') {
+        headline = 'Budget Exhaustion Alert';
+        message = `Discretionary budget is depleted (${sym}0 remaining). Avoid non-essential expenses for the next ${d.daysRemaining} days.`;
+      }
+
+      return {
+        success: true,
+        data: {
+          title: headline,
+          message,
+          safeDailyAllowance: d.safeDailyAllowance,
+          daysRemaining: d.daysRemaining,
+          pacingStatus: d.pacingStatus,
+          currencySymbol: sym
+        }
+      };
+    } catch (err) {
+      return { success: false, error: `Pacing insight generation failed: ${err.message}` };
+    }
   }
 }
 

@@ -162,62 +162,16 @@ This document serves as the persistent registry of long-term ideas, feature pros
     - Release certification gates (ensuring zero unresolved P0/P1 blockers before pushing public binary updates).
     - Asynchronous multi-agent defect triage and regression verification.
 
-### 13. 🛡️ Code Hardening, Anti-Decompilation & Reverse-Engineering Defense
-- [ ] **V8 Bytecode Compilation (`bytenode`)**:
-  - Compile the Electron main process (`src/main.js`, `src/services/`, `src/storage.js`) into V8 native bytecode (`.jsc`) prior to packaging into `app.asar`.
-  - Eliminates human-readable JavaScript source text, comments, and standard AST structures from release bundles, neutralizing automated ASAR extractors and LLM-driven reverse-engineering suites (e.g. REA / AI decoders).
-- [ ] **AST Control-Flow Flattening & Obfuscation (`javascript-obfuscator`)**:
-  - Integrate an automated obfuscation pipeline in production builds with control-flow flattening (converting linear functions into state-machine graphs), dead-code injection, and encrypted string arrays (RC4/Base64).
-  - Disrupts token-flow linearity and pattern recognition models, rendering automated AI de-obfuscation and static analysis tools economically unviable.
-- [ ] **Native C++ / Rust Node-API Addons (`.node`)**:
-  - Extract proprietary core algorithms (such as regional receipt heuristics, offline financial math engines, or future commercial licensing validators) into native Rust (`napi-rs`) or C++ (Node-API) compiled binaries.
-  - Requires low-level machine assembly disassembly (Ghidra / IDA Pro) rather than high-level script decompilation.
-- [ ] **Runtime Integrity, Anti-Tampering & DevTools Lockout**:
-  - Enforce `webPreferences.devTools = false` in production builds and disable debugging startup arguments (`--inspect`, `--remote-debugging-port`).
-  - Completely strip `.map` source maps from production packaging.
-  - Runtime SHA-256 bundle hash self-check to detect modified, unpacked, or tampered executables before initializing storage.
-- [ ] **Cryptographic Code Signing (Windows Authenticode & Android Keystore)**:
-  - Sign Windows desktop executables and NSIS installers with an Authenticode Code Signing Certificate.
-
-### 14. 🧹 Code Cohesion & Subsystem Consolidation (Anti-Overengineering Diet)
-- [ ] **Unified Receipt Perception Engine Consolidation**:
-  - Consolidate the 7 fragmented receipt services (`ReceiptTier1Engine.js`, `ReceiptTier2VisionEngine.js`, `ReceiptTier3RegionalEngine.js`, `DocumentIntelligenceService.js`, `DocumentNormalizer.js`, `ReceiptLearningService.js`, and `SmartDocumentAnalyzer.js`) into a clean, unified `ReceiptEngine.js` (supported by a pure helper `receiptNormalizer.js`).
-  - Preserves 100% of omni-regional extraction capabilities (net vs. gross worth, DACH VAT, Indian GSTIN, confidence scoring) while eliminating cross-service coordination hops and vastly improving code readability.
-- [ ] **Database Integrity & Diagnostics Unification**:
-  - Merge `DataQualityAuditor.js` (data sanitization, schema version migration) directly into `DatabaseAuditor.js` (startup integrity, file repair, orphaned note cleaning, `.bak` snapshotting).
-  - Eliminates duplicate audit passes and establishes a single, comprehensive source of truth for all database self-healing and schema audits.
-- [ ] **Redundant Facade & Wrapper Elimination**:
-  - Streamline `FinancialIntelligenceFacade.js` and route all UI/IPC queries straight through the domain services via `storage.js`.
-  - Removes unnecessary middleman abstraction layers that wrap services without adding domain logic.
-- [ ] **Micro-Optimization & Cache Layer Simplification**:
-  - Audit `AggregationRollupService.js` and replace premature LRU/rollup cache invalidation machinery with clean, direct V8 reductions unless real-world profiling demonstrates a perceptible UI bottleneck.
-  - Eliminates state synchronization risks and simplifies computational reasoning.
-
-### 15. 📋 Distributor UX & OS Gatekeeper Guidance (Next README Polish)
-- [ ] **Windows SmartScreen Walkthrough**:
+### 13. 📋 Distributor UX & OS Gatekeeper Guidance (README Polish)
+- [x] **Windows SmartScreen Walkthrough**:
   - Add explicit guide note in README.md for first-time Windows downloaders explaining the blue 'Windows protected your PC' banner and how to click 'More info' -> 'Run anyway' (standard for non-EV signed indie software).
-- [ ] **macOS Gatekeeper & Architecture Clarification**:
+- [x] **macOS Gatekeeper & Architecture Clarification**:
   - Ensure the right-click -> Open -> Open flow is prominent, and clearly label the current automated build as Apple Silicon (arm64), providing zero-install dev mode instructions for Intel Mac users.
-- [ ] **Android APK Sideloading Instructions**:
+- [x] **Android APK Sideloading Instructions**:
   - Add note regarding the 'Allow from this source' security toggle required when installing GitHub APK downloads outside Google Play.
-- [ ] **Release Asset Label Synchronization**:
-  - Synchronize the README.md download table label from app-debug.apk to match the exact CI release asset name: Ledgerly-Android-Companion.apk (6.60 MB).
-
-### 16. 🏛️ Dual-Licensing, Open-Core & Commercial Transition Strategy (v2.0 / v3.0 Roadmap)
-- [ ] **Preservation of v1.x MIT Commons**:
-  - Guarantee that all existing releases (v0.1 through v1.0.0) remain permanently free, unencumbered, and open source under the MIT license in perpetuity.
-- [ ] **Commercial Transition Models Evaluated**:
-  - **Open-Core Model (Recommended)**: Core offline ledger remains free and open; proprietary closed-source plugins/tiers are introduced for premium features (e.g. encrypted cloud sync, enterprise multi-user vaults, premium OCR/AI models).
-  - **Source-Available License (FSL / BSL 1.1)**: Transition v2.0+ to Functional Source License or Business Source License, making source code readable and free for personal use while restricting commercial reproduction, converting back to MIT after a 2-year window.
-  - **Proprietary Commercial Release (v2.0+ Branch Split)**: Fork development into a private repository for v2.0+ with standard commercial EULA and closed-source binary distribution while retaining v1.0 as a public open-source archive.
-- [ ] **Contributor IP Hygiene & CLA Gate**:
-  - Prior to merging any community pull requests, require a lightweight Contributor License Agreement (CLA) or Developer Certificate of Origin (DCO) to preserve the author's unilateral right to re-license or release future versions commercially without copyright disputes.
-- [ ] **Public/Private Repository Security Firewall & Airgap Protocol**:
-  - **Push-Disabled Upstream**: Configure `git remote set-url --push upstream DISABLE` in the private repository to physically prevent any accidental git push of proprietary code, roadmap plans, or commercial features to the public GitHub repo.
-  - **Zero Secrets in Git History**: Asymmetric licensing private keys, payment webhook secrets, and commercial signing certificates must never exist inside any git commit (public or private), maintained strictly in encrypted vaults or injected at build-time.
-  - **One-Way Architectural Isolation**: Public generic improvements (e.g. receipt regex, UI fixes) flow downstream into private via cherry-picks/merges, but private proprietary logic (licensing validation, advanced modules) remains strictly airgapped in dedicated unshared namespaces or native binaries, preventing public code from weakening private security.
-  - **Pre-Push Secret Scanning**: Implement pre-push git hooks with high-entropy regex scans to intercept sensitive data before commits leave local workstations.
+- [x] **Release Asset Label Synchronization**:
+  - Synchronize the README.md download table label from app-debug.apk to match the exact CI release asset name: Ledgerly-Android-Companion.apk.
 
 ---
 
-*Last Updated: 2026-10-29*
+*Last Updated: 2026-11-28*

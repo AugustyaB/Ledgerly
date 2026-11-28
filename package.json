@@ -1,6 +1,6 @@
 {
   "name": "ledgerly",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Ledgerly — A friction-free, 100% offline desktop expense & budget tracker",
   "main": "src/main.js",
   "workspaces": [
@@ -35,6 +35,8 @@
     "test:ci-workflow": "node scripts/check-ci-workflow.js",
     "test:resilience-audit": "node scratch/test_phase6_6_resilience_and_fallbacks.js",
     "test:v0.6-unified": "node scripts/run-all-v0.6-tests.js",
+    "test:v1.1-unified": "node scripts/run-all-v1.1-tests.js",
+    "test:v1.2-unified": "node scripts/run-all-v1.2-tests.js",
     "test:partitioned-storage": "node scratch/test_phase7_1_partitioned_storage.js",
     "test:phase7-2": "node scratch/test_phase7_2_european_parsing.js",
     "test:mirroring": "node scratch/test_phase7_3_mirroring.js",
@@ -62,6 +64,7 @@
     "reset:dev": "node scripts/reset-dev-data.js",
     "check": "node scripts/check-syntax.js && node scripts/check-architecture-layers.js",
     "check:layers": "node scripts/check-architecture-layers.js",
+    "build:bundle": "node scripts/build-bundle.js",
     "dist:win": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never",
     "dist:linux": "electron-builder --linux --publish never",
@@ -75,6 +78,7 @@
     "directories": {
       "output": "dist"
     },
+    "afterPack": "scripts/after-pack-fuses.js",
     "win": {
       "target": [
         "nsis"
@@ -107,8 +111,11 @@
       "category": "Finance",
       "maintainer": "Ledgerly Team <support@ledgerly.local>"
     },
+    "extraMetadata": {
+      "main": "dist-app/main.cjs"
+    },
     "files": [
-      "src/**/*",
+      "dist-app/**/*",
       "assets/**/*",
       "package.json"
     ]
@@ -124,9 +131,11 @@
   "author": "Ledgerly Team",
   "license": "MIT",
   "devDependencies": {
+    "@electron/fuses": "^2.1.3",
     "@eslint/js": "^10.0.1",
     "electron": "^33.2.0",
     "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
     "eslint": "^10.10.0",
     "playwright": "^1.62.1",
     "prettier": "^3.9.6"

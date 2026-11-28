@@ -7,7 +7,8 @@ const DocumentNormalizer = require('./services/DocumentNormalizer');
 class FileImporter {
   constructor(options = {}) {
     this._normalizer = options.normalizer || new DocumentNormalizer();
-    this._tier1Engine = options.tier1Engine || null;
+    this._receiptEngine = options.receiptEngine || null;
+    this._tier1Engine = options.tier1Engine || options.receiptEngine || null;
     // Defined aliases based on specifications (including European/DACH region bank formats)
     this.aliases = {
       date: ['date', 'transaction date', 'posted date', 'trans date', 'posting date', 'datum', 'buchungstag', 'valuta'],
@@ -616,12 +617,14 @@ class FileImporter {
 
   async _parseReceiptImage(filePath) {
     try {
-      if (!this._tier1Engine) {
-        const ReceiptTier1Engine = require('./services/ReceiptTier1Engine');
-        this._tier1Engine = new ReceiptTier1Engine({ normalizer: this._normalizer });
+      if (!this._receiptEngine && !this._tier1Engine) {
+        const ReceiptEngine = require('./services/ReceiptEngine');
+        this._receiptEngine = new ReceiptEngine({ normalizer: this._normalizer });
+        this._tier1Engine = this._receiptEngine;
       }
 
-      const scanResult = await this._tier1Engine.processDocument(filePath);
+      const engine = this._receiptEngine || this._tier1Engine;
+      const scanResult = await engine.processDocument(filePath);
       if (!scanResult.success || !scanResult.data) {
         return this._errorResponse(scanResult.error || 'Failed to scan receipt image.', 'receipt_image');
       }

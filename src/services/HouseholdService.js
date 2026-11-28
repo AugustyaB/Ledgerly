@@ -307,7 +307,10 @@ class HouseholdService {
     };
 
     root.settlements.unshift(newSettlement);
-    this._db.write(root);
+    const saveRes = this._db.write(root);
+    if (saveRes && saveRes.success === false) {
+      return { success: false, error: saveRes.error || 'Failed to persist settlement' };
+    }
 
     return { success: true, settlement: newSettlement };
   }
@@ -326,7 +329,10 @@ class HouseholdService {
     root.settlements = root.settlements.filter(s => s.id !== id);
 
     if (root.settlements.length !== initialLen) {
-      this._db.write(root);
+      const saveRes = this._db.write(root);
+      if (saveRes && saveRes.success === false) {
+        return { success: false, error: saveRes.error || 'Failed to persist settlement deletion' };
+      }
       return { success: true };
     }
 
@@ -435,7 +441,10 @@ class HouseholdService {
       root.recurringBills.push(newBill);
     }
 
-    this._db.write(root);
+    const saveRes = this._db.write(root);
+    if (saveRes && saveRes.success === false) {
+      return { success: false, error: saveRes.error || 'Failed to persist recurring bill' };
+    }
     return { success: true, bills: root.recurringBills };
   }
 
@@ -450,7 +459,10 @@ class HouseholdService {
     this._ensureRecurringBills(root);
 
     root.recurringBills = root.recurringBills.filter(b => b.id !== id);
-    this._db.write(root);
+    const saveRes = this._db.write(root);
+    if (saveRes && saveRes.success === false) {
+      return { success: false, error: saveRes.error || 'Failed to persist recurring bill deletion' };
+    }
 
     return { success: true, bills: root.recurringBills };
   }
@@ -474,7 +486,10 @@ class HouseholdService {
 
     const todayStr = new Date().toISOString().split('T')[0];
     bill.lastPaidDate = todayStr;
-    this._db.write(root);
+    const saveRes = this._db.write(root);
+    if (saveRes && saveRes.success === false) {
+      return { success: false, error: saveRes.error || 'Failed to persist recurring bill payment status' };
+    }
 
     // Automatically record as shared expense in the active profile's ledger
     if (bill.autoSplit !== false) {

@@ -6,7 +6,7 @@
  * @fileoverview
  * High-performance, offline mathematical aggregation engine for ledger data.
  * Computes pre-aggregated daily, weekly, monthly, category, and velocity rollups
- * using single-pass streaming algorithms and in-memory memoization (Phase 0.8.2).
+ * using single-pass streaming algorithms and in-memory memoization (Phase 0.8.2 / v1.2.0).
  *
  * ARCHITECTURAL PRINCIPLES:
  * - Sub-5ms Performance at Scale: Processes >10,000 transactions in <3ms via O(N) single-pass.
@@ -18,6 +18,24 @@
 'use strict';
 
 const _ISO_WEEK_CACHE = new Map();
+const _datasetIds = new WeakMap();
+let _nextDatasetId = 1;
+
+/**
+ * Returns a stable, lightweight identifier for an array reference.
+ *
+ * @param {any[]} arr
+ * @returns {number}
+ */
+function getDatasetId(arr) {
+  if (!arr || typeof arr !== 'object') return 0;
+  let id = _datasetIds.get(arr);
+  if (!id) {
+    id = _nextDatasetId++;
+    _datasetIds.set(arr, id);
+  }
+  return id;
+}
 
 class AggregationRollupService {
   /**
@@ -54,7 +72,8 @@ class AggregationRollupService {
   }
 
   /**
-   * Generates a lightweight, high-performance dataset fingerprint key.
+   * Generates a lightweight, high-performance dataset fingerprint key
+   * using dataset reference identity, length, mutation version, and option filters.
    *
    * @private
    * @param {any[]} expenses
@@ -66,13 +85,18 @@ class AggregationRollupService {
     const len = Array.isArray(expenses) ? expenses.length : 0;
     if (len === 0) return `${rollupType}_0_empty_v${this._mutationVersion}`;
 
-    const first = expenses[0];
-    const last = expenses[len - 1];
-    const firstId = (first && first.id) || '';
-    const lastId = (last && last.id) || '';
-    const extraStr = extraOptions.period || extraOptions.category || '';
+    const dsId = getDatasetId(expenses);
+    let optStr = '';
+    if (extraOptions && typeof extraOptions === 'object') {
+      const p = extraOptions.period || '';
+      const c = extraOptions.category || '';
+      const r = extraOptions.referenceDate || '';
+      if (p || c || r) {
+        optStr = `${p}|${c}|${r}`;
+      }
+    }
 
-    return `${rollupType}_${len}_${firstId}_${lastId}_${extraStr}_v${this._mutationVersion}`;
+    return `${rollupType}_${dsId}_${len}_v${this._mutationVersion}_${optStr}`;
   }
 
   // ==========================================================================
@@ -90,20 +114,31 @@ class AggregationRollupService {
     if (!dateStr || typeof dateStr !== 'string') {
       return { weekKey: 'unknown-W01', year: 2026, week: 1 };
     }
-    const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    const cleanDate = (dateStr.length > 10 && dateStr.includes('T'))
+      ? dateStr.slice(0, 10)
+      : (dateStr.length === 10 ? dateStr : (dateStr.includes('T') ? dateStr.split('T')[0] : dateStr));
+
     const cached = _ISO_WEEK_CACHE.get(cleanDate);
     if (cached) {
       return cached;
     }
 
-    const parts = cleanDate.split('-');
-    if (parts.length < 3) {
-      return { weekKey: 'unknown-W01', year: 2026, week: 1 };
+    let y;
+    let m;
+    let d;
+    if (cleanDate.length === 10 && cleanDate.charCodeAt(4) === 45 && cleanDate.charCodeAt(7) === 45) {
+      y = +cleanDate.slice(0, 4);
+      m = +cleanDate.slice(5, 7) - 1;
+      d = +cleanDate.slice(8, 10);
+    } else {
+      const parts = cleanDate.split('-');
+      if (parts.length < 3) {
+        return { weekKey: 'unknown-W01', year: 2026, week: 1 };
+      }
+      y = parseInt(parts[0], 10);
+      m = parseInt(parts[1], 10) - 1;
+      d = parseInt(parts[2], 10);
     }
-
-    const y = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10) - 1;
-    const d = parseInt(parts[2], 10);
 
     const target = new Date(Date.UTC(y, m, d));
     // ISO-8601: Day 1 is Monday, Day 7 is Sunday
@@ -138,6 +173,15 @@ class AggregationRollupService {
    * @returns {number}
    */
   static getDaysInMonth(year, month) {
+    if (month === 2) {
+      return (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)) ? 29 : 28;
+    }
+    if (month === 4 || month === 6 || month === 9 || month === 11) {
+      return 30;
+    }
+    if (month >= 1 && month <= 12) {
+      return 31;
+    }
     return new Date(Date.UTC(year, month, 0)).getUTCDate();
   }
 
@@ -183,7 +227,10 @@ class AggregationRollupService {
       const category = exp.category || 'Uncategorized';
       const paymentMethod = exp.paymentMethod || 'Cash';
 
-      let date = (exp.date && exp.date.length === 10) ? exp.date : '1970-01-01';
+      const rawDate = exp.date;
+      const date = (typeof rawDate === 'string' && rawDate.length >= 10)
+        ? (rawDate.length === 10 ? rawDate : rawDate.slice(0, 10))
+        : '1970-01-01';
 
       totalSpend += amount;
       totalCount++;
@@ -269,7 +316,9 @@ class AggregationRollupService {
       }
       monthBucket.total += dayObj.total;
       monthBucket.count += dayObj.count;
-      for (const catName of Object.keys(dayObj.categoryBreakdown)) {
+      const catKeys = Object.keys(dayObj.categoryBreakdown);
+      for (let c = 0; c < catKeys.length; c++) {
+        const catName = catKeys[c];
         monthBucket.categoryBreakdown[catName] = (monthBucket.categoryBreakdown[catName] || 0) + dayObj.categoryBreakdown[catName];
       }
     }
@@ -278,39 +327,50 @@ class AggregationRollupService {
     totalSpend = Math.round(totalSpend * 100) / 100;
 
     // Normalize monthly averages
-    for (const mKey of Object.keys(monthly)) {
+    const monthKeys = Object.keys(monthly);
+    for (let m = 0; m < monthKeys.length; m++) {
+      const mKey = monthKeys[m];
       const b = monthly[mKey];
       b.total = Math.round(b.total * 100) / 100;
-      const [yStr, mStr] = mKey.split('-');
-      const daysCount = AggregationRollupService.getDaysInMonth(parseInt(yStr, 10), parseInt(mStr, 10));
+      const y = +mKey.slice(0, 4);
+      const mon = +mKey.slice(5, 7);
+      const daysCount = AggregationRollupService.getDaysInMonth(y, mon);
       b.averagePerDay = daysCount > 0 ? Math.round((b.total / daysCount) * 100) / 100 : 0;
-      for (const catKey of Object.keys(b.categoryBreakdown)) {
+      const mCatKeys = Object.keys(b.categoryBreakdown);
+      for (let c = 0; c < mCatKeys.length; c++) {
+        const catKey = mCatKeys[c];
         b.categoryBreakdown[catKey] = Math.round(b.categoryBreakdown[catKey] * 100) / 100;
       }
     }
 
     // Normalize weekly averages
-    for (const wKey of Object.keys(weekly)) {
-      const b = weekly[wKey];
+    const wKeys = Object.keys(weekly);
+    for (let w = 0; w < wKeys.length; w++) {
+      const b = weekly[wKeys[w]];
       b.total = Math.round(b.total * 100) / 100;
       b.averageDaily = Math.round((b.total / 7) * 100) / 100;
     }
 
     // Normalize daily totals
-    for (const dKey of Object.keys(daily)) {
-      const b = daily[dKey];
+    for (let d = 0; d < dayKeys.length; d++) {
+      const b = daily[dayKeys[d]];
       b.total = Math.round(b.total * 100) / 100;
-      for (const catKey of Object.keys(b.categoryBreakdown)) {
+      const dCatKeys = Object.keys(b.categoryBreakdown);
+      for (let c = 0; c < dCatKeys.length; c++) {
+        const catKey = dCatKeys[c];
         b.categoryBreakdown[catKey] = Math.round(b.categoryBreakdown[catKey] * 100) / 100;
       }
-      for (const pKey of Object.keys(b.paymentBreakdown)) {
+      const dPayKeys = Object.keys(b.paymentBreakdown);
+      for (let p = 0; p < dPayKeys.length; p++) {
+        const pKey = dPayKeys[p];
         b.paymentBreakdown[pKey] = Math.round(b.paymentBreakdown[pKey] * 100) / 100;
       }
     }
 
     // Normalize category percentages and averages
-    for (const cKey of Object.keys(categories)) {
-      const b = categories[cKey];
+    const catKeys = Object.keys(categories);
+    for (let k = 0; k < catKeys.length; k++) {
+      const b = categories[catKeys[k]];
       b.total = Math.round(b.total * 100) / 100;
       b.minTransaction = Math.round(b.minTransaction * 100) / 100;
       b.maxTransaction = Math.round(b.maxTransaction * 100) / 100;
@@ -328,6 +388,23 @@ class AggregationRollupService {
       minDate,
       maxDate
     };
+  }
+
+  /**
+   * Internal helper to retrieve or compute the full rollup pipeline from memoized slot.
+   *
+   * @private
+   * @param {any[]} expenses
+   * @returns {ReturnType<AggregationRollupService['computeFullRollupPipeline']>}
+   */
+  _getOrComputePipeline(expenses) {
+    const pipelineKey = this._computeFingerprint(expenses, '__pipeline__');
+    let compiled = this._cache.get(pipelineKey);
+    if (!compiled) {
+      compiled = this.computeFullRollupPipeline(expenses);
+      this._cache.set(pipelineKey, compiled);
+    }
+    return compiled;
   }
 
   // ==========================================================================
@@ -352,7 +429,7 @@ class AggregationRollupService {
       return this._cache.get(key);
     }
 
-    const compiled = this.computeFullRollupPipeline(expenses);
+    const compiled = this._getOrComputePipeline(expenses);
     const result = {
       days: compiled.daily,
       totalSpend: compiled.totalSpend,
@@ -381,7 +458,7 @@ class AggregationRollupService {
       return this._cache.get(key);
     }
 
-    const compiled = this.computeFullRollupPipeline(expenses);
+    const compiled = this._getOrComputePipeline(expenses);
     const result = {
       weeks: compiled.weekly,
       totalSpend: compiled.totalSpend,
@@ -409,7 +486,7 @@ class AggregationRollupService {
       return this._cache.get(key);
     }
 
-    const compiled = this.computeFullRollupPipeline(expenses);
+    const compiled = this._getOrComputePipeline(expenses);
     const result = {
       months: compiled.monthly,
       totalSpend: compiled.totalSpend,
@@ -444,13 +521,16 @@ class AggregationRollupService {
     let totalSpend = 0;
     let totalCount = 0;
 
-    for (let i = 0; i < expenses.length; i++) {
-      const exp = expenses[i];
+    const list = Array.isArray(expenses) ? expenses : [];
+    for (let i = 0; i < list.length; i++) {
+      const exp = list[i];
       if (!exp || typeof exp !== 'object') continue;
       if (prefix && (!exp.date || !exp.date.startsWith(prefix))) continue;
 
       const rawAmount = exp.amount;
-      const amount = typeof rawAmount === 'number' ? (rawAmount > 0 ? rawAmount : 0) : (+rawAmount > 0 ? +rawAmount : 0);
+      const amount = typeof rawAmount === 'number'
+        ? (rawAmount > 0 && Number.isFinite(rawAmount) ? rawAmount : 0)
+        : (+rawAmount > 0 && Number.isFinite(+rawAmount) ? +rawAmount : 0);
       const category = exp.category || 'Uncategorized';
 
       totalSpend += amount;
@@ -479,7 +559,9 @@ class AggregationRollupService {
     let highestSpend = -1;
     totalSpend = Math.round(totalSpend * 100) / 100;
 
-    for (const catName of Object.keys(categories)) {
+    const catKeys = Object.keys(categories);
+    for (let k = 0; k < catKeys.length; k++) {
+      const catName = catKeys[k];
       const b = categories[catName];
       b.total = Math.round(b.total * 100) / 100;
       b.minTransaction = Math.round(b.minTransaction * 100) / 100;

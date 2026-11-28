@@ -217,7 +217,7 @@ class JsonDatabase {
       const partitionedArchive = path.join(this.dataDir, 'data', 'legacy_archive.json');
 
       // 1. If target file does not exist, check if legacy partitioned files can be migrated
-      if (!fs.existsSync(this.filePath)) {
+      if (!fs.existsSync(this.filePath) || fs.statSync(this.filePath).size === 0) {
         let sourcePath = null;
         if (fs.existsSync(partitionedActive)) {
           sourcePath = partitionedActive;
@@ -262,7 +262,12 @@ class JsonDatabase {
             if (archiveParsed && archiveParsed.profiles && Object.keys(archiveParsed.profiles).length > 0) {
               try {
                 const rootRaw = fs.readFileSync(this.filePath, 'utf-8');
-                const root = this._sanitizeRootStructure(JSON.parse(rootRaw));
+                const parsedRoot = JSON.parse(rootRaw);
+                if (this.vaultCipher.isVaultEnvelope(parsedRoot)) {
+                  console.warn('Active ledger is encrypted vault; deferring legacy archive fold until unlocked');
+                  continue;
+                }
+                const root = this._sanitizeRootStructure(parsedRoot);
                 if (root && !root.isLockedVault) {
                   const mergedCount = this._mergeArchiveIntoRoot(root, archiveParsed);
                   if (mergedCount > 0) {
@@ -366,15 +371,38 @@ class JsonDatabase {
       // 2. Parse JSON, with fallback to .bak if primary is corrupt
       let parsed;
       try {
+        if (!raw || raw.trim().length === 0) {
+          throw new SyntaxError('Empty database file on disk');
+        }
         parsed = JSON.parse(raw);
-      } catch (jsonErr) {
+      } catch {
         const bakPath = `${this.activeFilePath}.bak`;
-        if (fs.existsSync(bakPath)) {
+        if (fs.existsSync(bakPath) && fs.statSync(bakPath).size > 0) {
           console.warn('Active database JSON corrupt, recovering from backup (.bak)');
-          raw = fs.readFileSync(bakPath, 'utf-8');
-          parsed = JSON.parse(raw);
-        } else {
-          throw jsonErr;
+          try {
+            raw = fs.readFileSync(bakPath, 'utf-8');
+            parsed = JSON.parse(raw);
+          } catch (bakParseErr) {
+            console.error('Backup (.bak) also corrupt:', bakParseErr.message);
+          }
+        }
+        
+        if (!parsed) {
+          console.warn('Recovering from empty/corrupt database by preserving quarantine snapshot and initializing default schema');
+          if (fs.existsSync(this.activeFilePath)) {
+            try {
+              const quarantinePath = `${this.activeFilePath}.corrupt-${Date.now()}.bak`;
+              const staticQuarantinePath = `${this.activeFilePath}.corrupt.bak`;
+              fs.copyFileSync(this.activeFilePath, quarantinePath);
+              fs.copyFileSync(this.activeFilePath, staticQuarantinePath);
+              console.warn(`Preserved corrupt ledger snapshot at: ${quarantinePath} and ${staticQuarantinePath}`);
+            } catch (qErr) {
+              console.error('Failed to create quarantine snapshot:', qErr.message);
+            }
+          }
+          const defaultSchema = this._createDefaultRootSchema();
+          this.write(defaultSchema);
+          return defaultSchema;
         }
       }
 

@@ -157,7 +157,10 @@ class ExpenseService {
             : expList[targetIndex].isHouseholdExpense
       };
 
-      this._db.write(root);
+      const writeRes = this._db.write(root);
+      if (writeRes && !writeRes.success) {
+        return { success: false, error: writeRes.error || 'Failed to update expense', isArchived: false };
+      }
       return { success: true, expense: expList[targetIndex], isArchived: false };
     }
 
@@ -183,7 +186,10 @@ class ExpenseService {
       const idx = active.data.expenses.findIndex(e => e.id === id);
       if (idx !== -1) {
         active.data.expenses.splice(idx, 1);
-        this._db.write(root);
+        const writeRes = this._db.write(root);
+        if (writeRes && !writeRes.success) {
+          return { success: false, error: writeRes.error || 'Failed to delete expense', isArchived: false };
+        }
         return { success: true, id, isArchived: false };
       }
     }
@@ -194,7 +200,10 @@ class ExpenseService {
         const idx = p.data.expenses.findIndex(e => e.id === id);
         if (idx !== -1) {
           p.data.expenses.splice(idx, 1);
-          this._db.write(root);
+          const writeRes = this._db.write(root);
+          if (writeRes && !writeRes.success) {
+            return { success: false, error: writeRes.error || 'Failed to delete expense', isArchived: false };
+          }
           return { success: true, id, isArchived: false };
         }
       }
@@ -213,7 +222,10 @@ class ExpenseService {
     const data = this._profiles.getActiveData();
     const clearedCount = (data.expenses || []).length;
     data.expenses = [];
-    this._profiles.saveActiveData(data);
+    const saveRes = this._profiles.saveActiveData(data);
+    if (saveRes && !saveRes.success) {
+      return { success: false, error: saveRes.error || 'Failed to clear expenses', clearedCount: 0 };
+    }
 
     return { success: true, clearedCount };
   }
@@ -377,7 +389,15 @@ class ExpenseService {
       }
     });
 
-    this._profiles.saveActiveData(data);
+    const saveRes = this._profiles.saveActiveData(data);
+    if (saveRes && !saveRes.success) {
+      return {
+        success: false,
+        imported: 0,
+        addedExpenses: [],
+        errors: [saveRes.error || 'Failed to save bulk expenses']
+      };
+    }
     return { success: imported > 0, imported, addedExpenses, errors };
   }
 
@@ -411,7 +431,16 @@ class ExpenseService {
     }
 
     if (deletedIds.length > 0) {
-      this._db.write(root);
+      const writeRes = this._db.write(root);
+      if (writeRes && !writeRes.success) {
+        return {
+          success: false,
+          deletedCount: 0,
+          deletedIds: [],
+          deletedExpenses: [],
+          error: writeRes.error || 'Failed to persist bulk delete'
+        };
+      }
     }
 
     return {
@@ -456,7 +485,10 @@ class ExpenseService {
 
     if (!data.categories.includes(trimmed)) {
       data.categories.push(trimmed);
-      this._profiles.saveActiveData(data);
+      const saveRes = this._profiles.saveActiveData(data);
+      if (saveRes && !saveRes.success) {
+        return { success: false, error: saveRes.error || 'Failed to save category' };
+      }
       return { success: true, categories: data.categories };
     }
 
@@ -479,7 +511,10 @@ class ExpenseService {
     data.categories = data.categories.filter(c => c.toLowerCase() !== categoryName.toLowerCase());
 
     if (data.categories.length !== initialLen) {
-      this._profiles.saveActiveData(data);
+      const saveRes = this._profiles.saveActiveData(data);
+      if (saveRes && !saveRes.success) {
+        return { success: false, error: saveRes.error || 'Failed to delete category' };
+      }
       return { success: true, categories: data.categories };
     }
 
@@ -522,7 +557,10 @@ class ExpenseService {
     };
 
     data.presets.push(newPreset);
-    this._profiles.saveActiveData(data);
+    const saveRes = this._profiles.saveActiveData(data);
+    if (saveRes && !saveRes.success) {
+      return { success: false, error: saveRes.error || 'Failed to save preset' };
+    }
 
     return { success: true, preset: newPreset, presets: data.presets };
   }
@@ -550,7 +588,10 @@ class ExpenseService {
             : data.presets[index].amount
       };
 
-      this._profiles.saveActiveData(data);
+      const saveRes = this._profiles.saveActiveData(data);
+      if (saveRes && !saveRes.success) {
+        return { success: false, error: saveRes.error || 'Failed to update preset' };
+      }
       return { success: true, preset: data.presets[index], presets: data.presets };
     }
 
@@ -572,7 +613,10 @@ class ExpenseService {
     const filtered = data.presets.filter(p => p.id !== id);
     if (filtered.length !== data.presets.length) {
       data.presets = filtered;
-      this._profiles.saveActiveData(data);
+      const saveRes = this._profiles.saveActiveData(data);
+      if (saveRes && !saveRes.success) {
+        return { success: false, error: saveRes.error || 'Failed to delete preset' };
+      }
       return { success: true, presets: data.presets };
     }
 

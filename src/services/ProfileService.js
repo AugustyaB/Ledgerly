@@ -105,11 +105,37 @@ class ProfileService {
   saveActiveData(data) {
     const root = this._db.read();
     const idx = root.profiles.findIndex(p => p.id === root.activeProfileId);
+    const targetIdx = idx !== -1 ? idx : root.profiles.length > 0 ? 0 : -1;
 
-    if (idx !== -1) {
-      root.profiles[idx].data = data;
-    } else if (root.profiles.length > 0) {
-      root.profiles[0].data = data;
+    if (targetIdx !== -1) {
+      const existingData = root.profiles[targetIdx].data || {};
+
+      // Smart Sub-Array Reconciliation: preserve expenses and notes added since snapshot
+      if (
+        Array.isArray(existingData.expenses) &&
+        Array.isArray(data.expenses) &&
+        existingData.expenses !== data.expenses
+      ) {
+        const incomingIds = new Set(data.expenses.map(e => e && e.id).filter(Boolean));
+        const newlyAddedExpenses = existingData.expenses.filter(e => e && e.id && !incomingIds.has(e.id));
+        if (newlyAddedExpenses.length > 0) {
+          data.expenses = [...newlyAddedExpenses, ...data.expenses];
+        }
+      }
+
+      if (
+        Array.isArray(existingData.notes) &&
+        Array.isArray(data.notes) &&
+        existingData.notes !== data.notes
+      ) {
+        const incomingIds = new Set(data.notes.map(n => n && n.id).filter(Boolean));
+        const newlyAddedNotes = existingData.notes.filter(n => n && n.id && !incomingIds.has(n.id));
+        if (newlyAddedNotes.length > 0) {
+          data.notes = [...newlyAddedNotes, ...data.notes];
+        }
+      }
+
+      root.profiles[targetIdx].data = data;
     }
 
     return this._db.write(root);
@@ -186,12 +212,42 @@ class ProfileService {
   // ==========================================================================
 
   /**
+   * Aggregates total spend for the current calendar month across an expense array.
+   *
+   * @private
+   * @param {import('../types').Expense[]} [expenses=[]]
+   * @param {string} [monthPrefix] - Optional YYYY-MM prefix.
+   * @returns {number}
+   */
+  _calculateCurrentMonthSpend(expenses, monthPrefix) {
+    if (!Array.isArray(expenses) || expenses.length === 0) return 0;
+    const prefix =
+      monthPrefix ||
+      (() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      })();
+    let total = 0;
+    for (let i = 0; i < expenses.length; i++) {
+      const exp = expenses[i];
+      if (exp && typeof exp.date === 'string' && exp.date.startsWith(prefix)) {
+        const amt = typeof exp.amount === 'number' ? exp.amount : parseFloat(exp.amount);
+        if (!isNaN(amt) && isFinite(amt)) total += Math.max(0, amt);
+      }
+    }
+    return Math.round(total * 100) / 100;
+  }
+
+  /**
    * Retrieves summary descriptors for all profiles in the system.
    *
    * @returns {import('../types').ProfileSummary[]} List of profiles.
    */
   getAll() {
     const root = this._db.read();
+    const now = new Date();
+    const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
     return root.profiles.map(p => ({
       id: p.id,
       name: p.name,
@@ -199,6 +255,7 @@ class ProfileService {
       color: p.color || '#D9822B',
       createdAt: p.createdAt,
       expenseCount: Array.isArray(p.data?.expenses) ? p.data.expenses.length : 0,
+      currentMonthSpend: this._calculateCurrentMonthSpend(p.data?.expenses, currentMonthPrefix),
       isActive: p.id === root.activeProfileId
     }));
   }
@@ -228,6 +285,7 @@ class ProfileService {
       color: active.color || '#D9822B',
       createdAt: active.createdAt,
       expenseCount: Array.isArray(active.data?.expenses) ? active.data.expenses.length : 0,
+      currentMonthSpend: this._calculateCurrentMonthSpend(active.data?.expenses),
       isActive: true
     };
   }
@@ -256,7 +314,10 @@ class ProfileService {
     }
 
     root.activeProfileId = profileId;
-    this._db.write(root);
+    const saveRes = this._db.write(root);
+    if (saveRes && saveRes.success === false) {
+      return { success: false, error: saveRes.error || 'Failed to persist active profile switch' };
+    }
 
     return {
       success: true,
@@ -267,6 +328,7 @@ class ProfileService {
         color: target.color || '#D9822B',
         createdAt: target.createdAt,
         expenseCount: Array.isArray(target.data?.expenses) ? target.data.expenses.length : 0,
+        currentMonthSpend: this._calculateCurrentMonthSpend(target.data?.expenses),
         isActive: true
       }
     };
@@ -299,7 +361,10 @@ class ProfileService {
 
     root.profiles.push(newProfile);
     root.activeProfileId = newId;
-    this._db.write(root);
+    const saveRes = this._db.write(root);
+    if (saveRes && saveRes.success === false) {
+      return { success: false, error: saveRes.error || 'Failed to persist profile creation' };
+    }
 
     const summary = {
       id: newProfile.id,
@@ -308,6 +373,7 @@ class ProfileService {
       color: newProfile.color,
       createdAt: newProfile.createdAt,
       expenseCount: 0,
+      currentMonthSpend: 0,
       isActive: true
     };
 
@@ -356,7 +422,10 @@ class ProfileService {
       target.color = input.color;
     }
 
-    this._db.write(root);
+    const saveRes = this._db.write(root);
+    if (saveRes && saveRes.success === false) {
+      return { success: false, error: saveRes.error || 'Failed to persist profile update' };
+    }
 
     return {
       success: true,
@@ -367,6 +436,7 @@ class ProfileService {
         color: target.color,
         createdAt: target.createdAt,
         expenseCount: Array.isArray(target.data?.expenses) ? target.data.expenses.length : 0,
+        currentMonthSpend: this._calculateCurrentMonthSpend(target.data?.expenses),
         isActive: target.id === root.activeProfileId
       }
     };
@@ -390,12 +460,37 @@ class ProfileService {
       return { success: false, error: 'Profile not found' };
     }
 
+    const target = root.profiles[index];
+    const targetName = target ? target.name : null;
+
     root.profiles.splice(index, 1);
     if (root.activeProfileId === profileId) {
       root.activeProfileId = root.profiles[0].id;
     }
 
-    this._db.write(root);
+    // Cascading integrity cleanup for foreign keys across household entities
+    if (Array.isArray(root.settlements) && targetName) {
+      root.settlements = root.settlements.filter(
+        s => s.from !== targetName && s.to !== targetName && s.from !== profileId && s.to !== profileId
+      );
+    }
+
+    if (Array.isArray(root.recurringBills) && targetName) {
+      const fallbackName = root.profiles[0]?.name || 'Self';
+      root.recurringBills.forEach(b => {
+        if (b.paidBy === targetName || b.paidBy === profileId) {
+          b.paidBy = fallbackName;
+        }
+        if (Array.isArray(b.splitWith)) {
+          b.splitWith = b.splitWith.filter(name => name !== targetName && name !== profileId);
+        }
+      });
+    }
+
+    const saveRes = this._db.write(root);
+    if (saveRes && saveRes.success === false) {
+      return { success: false, error: saveRes.error || 'Failed to persist profile deletion' };
+    }
 
     return {
       success: true,

@@ -12,6 +12,7 @@ export class CaptureView {
   constructor() {
     this.container = null;
     this.currentPendingCapture = null;
+    this.extractedValues = null;
   }
 
   mount(parentEl) {
@@ -181,8 +182,26 @@ export class CaptureView {
       const sizeKb = Math.round(captureData.fileSize / 1024);
       badgeSpec.textContent = `${sizeKb} KB • ${captureData.width}×${captureData.height}`;
     }
-    if (amountInput) amountInput.value = '';
-    if (merchantInput) merchantInput.value = '';
+
+    // Capture initial extracted drafts to detect and log user edits
+    const extractedAmount = captureData.draftAmount !== undefined && captureData.draftAmount !== null
+      ? Number(captureData.draftAmount)
+      : (captureData.extracted?.amount !== undefined ? Number(captureData.extracted.amount) : null);
+    const extractedMerchant = (captureData.draftMerchant || captureData.extracted?.merchant || '').trim();
+    const extractedDate = captureData.draftDate || captureData.extracted?.date || new Date().toISOString().slice(0, 10);
+    const confidence = typeof captureData.confidence === 'number'
+      ? captureData.confidence
+      : (typeof captureData.extracted?.confidence === 'number' ? captureData.extracted.confidence : 0.85);
+
+    this.extractedValues = {
+      amount: extractedAmount,
+      merchant: extractedMerchant,
+      date: extractedDate,
+      confidence
+    };
+
+    if (amountInput) amountInput.value = extractedAmount !== null ? String(extractedAmount) : '';
+    if (merchantInput) merchantInput.value = extractedMerchant || '';
 
     backdrop?.classList.add('open');
   }
@@ -191,6 +210,27 @@ export class CaptureView {
     const backdrop = this.container.querySelector('#review-sheet-backdrop');
     backdrop?.classList.remove('open');
     this.currentPendingCapture = null;
+    this.extractedValues = null;
+  }
+
+  /**
+   * Logs a user correction to extracted drafts into IndexedDB Private Correction Ledger.
+   * @param {Object} params
+   * @param {string} [params.receiptId]
+   * @param {string} params.fieldName
+   * @param {any} [params.originalValue]
+   * @param {any} [params.correctedValue]
+   * @param {number} [params.confidence=0.85]
+   * @returns {Promise<Object>}
+   */
+  async logDraftCorrection({ receiptId, fieldName, originalValue, correctedValue, confidence = 0.85 }) {
+    return await indexedDbQueue.logCorrection({
+      receiptId,
+      fieldName,
+      originalValue,
+      correctedValue,
+      confidence
+    });
   }
 
   async savePendingReceipt() {
@@ -227,6 +267,41 @@ export class CaptureView {
       };
 
       await indexedDbQueue.enqueueReceipt(item);
+
+      // Private Correction Ledger: Log user corrections to IndexedDB if extracted draft was edited
+      if (this.extractedValues) {
+        const conf = typeof this.extractedValues.confidence === 'number' ? this.extractedValues.confidence : 0.85;
+
+        // 1. Amount correction check
+        if (
+          this.extractedValues.amount !== null &&
+          draftAmountVal !== null &&
+          Number(this.extractedValues.amount) !== Number(draftAmountVal)
+        ) {
+          await this.logDraftCorrection({
+            receiptId: id,
+            fieldName: 'amount',
+            originalValue: this.extractedValues.amount,
+            correctedValue: draftAmountVal,
+            confidence: conf
+          });
+        }
+
+        // 2. Merchant correction check
+        if (
+          this.extractedValues.merchant &&
+          draftMerchantVal &&
+          this.extractedValues.merchant.toLowerCase() !== draftMerchantVal.toLowerCase()
+        ) {
+          await this.logDraftCorrection({
+            receiptId: id,
+            fieldName: 'merchant',
+            originalValue: this.extractedValues.merchant,
+            correctedValue: draftMerchantVal,
+            confidence: conf
+          });
+        }
+      }
 
       if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
       this.closeReviewSheet();

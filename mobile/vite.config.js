@@ -12,6 +12,8 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     target: 'es2022',
+    sourcemap: false,
+    minify: 'esbuild',
     assetsInlineLimit: 4096,
     chunkSizeWarningLimit: 1000,
     commonjsOptions: {

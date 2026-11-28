@@ -148,6 +148,15 @@ export class DashboardView {
     this.#bindDashboardFilters();
     this.#bindSalaryModal();
     this.#bindExportModal();
+    this.#bindDaybookTallyLine();
+    this.#bindWhatIfLightbox();
+  }
+
+  /**
+   * Alias for unmount to satisfy standard lifecycle destroy protocol.
+   */
+  destroy() {
+    this.unmount();
   }
 
   /**
@@ -487,12 +496,13 @@ export class DashboardView {
       }
     }
 
-    // 8. Card 8: Contextual (Household Balance vs Solo Velocity)
+    // 8. Card 8: Contextual (Household Balance vs Solo Velocity) & Horizon Household Status
     const contextTitle = document.getElementById('metric-contextual-title');
     const contextVal = document.getElementById('metric-contextual-val');
     const contextSub = document.getElementById('metric-contextual-subtitle');
     const contextIcon = document.getElementById('metric-contextual-icon');
     const contextIconBox = document.getElementById('metric-contextual-icon-box');
+    const horizonHouseholdStatus = document.getElementById('horizon-household-status') || document.getElementById('horizon-household-badge');
 
     if (workspaceMode === 'solo') {
       if (contextTitle) contextTitle.textContent = 'Solo Velocity';
@@ -501,6 +511,9 @@ export class DashboardView {
       if (contextVal)
         contextVal.innerHTML = `<span style="font-size: 20px; font-weight: 800;">${scoped.length} Logs</span>`;
       if (contextSub) contextSub.textContent = 'Personal mode';
+      if (horizonHouseholdStatus) {
+        horizonHouseholdStatus.innerHTML = '<span class="household-settled-pill">Solo Mode ✓</span>';
+      }
     } else {
       if (contextTitle) contextTitle.textContent = 'Household Balance';
       if (contextIconBox) contextIconBox.className = 'metric-icon-box icon-blue';
@@ -510,6 +523,22 @@ export class DashboardView {
         const settlement = await this.api?.getHouseholdSettlement();
         const activeName = activeProfile ? activeProfile.name : 'Self';
         const userNet = settlement?.balances ? settlement.balances[activeName] || 0 : 0;
+        const settlementsList = settlement?.settlements || [];
+
+        if (horizonHouseholdStatus) {
+          if (settlementsList.length > 0) {
+            const s = settlementsList[0];
+            const direction =
+              s.from === activeName
+                ? `You owe ${s.to}`
+                : s.to === activeName
+                  ? `${s.from} owes you`
+                  : `${s.from} ➔ ${s.to}`;
+            horizonHouseholdStatus.innerHTML = `<span class="household-pending-pill" title="${settlementsList.length} shared balance(s)">${escapeHTML(direction)} ${formatCurrency(s.amount)} • ${settlementsList.length} shared</span>`;
+          } else {
+            horizonHouseholdStatus.innerHTML = '<span class="household-settled-pill">Fully settled ✓</span>';
+          }
+        }
 
         if (contextVal) {
           if (userNet > 0.01) {
@@ -524,15 +553,83 @@ export class DashboardView {
           }
         }
       } catch {
+        if (horizonHouseholdStatus) {
+          horizonHouseholdStatus.innerHTML = '<span class="household-settled-pill">Fully settled ✓</span>';
+        }
         if (contextVal) contextVal.textContent = 'Balanced';
         if (contextSub) contextSub.textContent = 'All settled';
       }
     }
 
-    // 9. Sidebar Dynamic Budget Breakdown
+    // 9. Cash Runway Fuel Tank & Three Envelopes Waterfall (Sec 2)
+    const monthlyIncome = parseFloat(salaryConfig.monthlyIncome) || 0;
+    const fixedBills = parseFloat(salaryConfig.fixedBills) || 0;
+    const savingsGoalVal = parseFloat(salaryConfig.savingsGoal) || 0;
+    const daybookPool = Math.max(0, monthlyIncome - fixedBills - savingsGoalVal);
+
+    const envFixedEl = document.getElementById('envelope-fixed-bills-val');
+    const envSavingsEl = document.getElementById('envelope-savings-shield-val');
+    const envDaybookEl = document.getElementById('envelope-daybook-pool-val');
+
+    if (envFixedEl) envFixedEl.textContent = formatCurrency(fixedBills);
+    if (envSavingsEl) envSavingsEl.textContent = formatCurrency(savingsGoalVal);
+    if (envDaybookEl) envDaybookEl.textContent = formatCurrency(daybookPool);
+
+    // Fuel Tank fill percentage (todaySpent / safeDailyLimit), capped between 0% and 100%
+    const fuelRatio = safeDailyLimit > 0 ? todaySpent / safeDailyLimit : (todaySpent > 0 ? 1 : 0);
+    const fuelPct = Math.min(100, Math.max(0, Math.round(fuelRatio * 100)));
+    const fuelTankBar = document.getElementById('fuel-tank-bar');
+    if (fuelTankBar) {
+      fuelTankBar.style.width = `${fuelPct}%`;
+      if (fuelPct > 90) {
+        fuelTankBar.style.background = 'linear-gradient(90deg, #F59E0B 0%, #F43F5E 100%)';
+      } else if (fuelPct > 70) {
+        fuelTankBar.style.background = 'linear-gradient(90deg, #10B981 0%, #F59E0B 100%)';
+      } else {
+        fuelTankBar.style.background = 'linear-gradient(90deg, #10B981 0%, #34D399 100%)';
+      }
+    }
+
+    const fuelCeilingEl = document.getElementById('fuel-tank-ceiling-text');
+    if (fuelCeilingEl) {
+      fuelCeilingEl.textContent = `Daily Safe Ceiling: ${formatCurrency(safeDailyLimit)}/day`;
+    }
+
+    const rolloverBadge = document.getElementById('fuel-tank-rollover-badge');
+    if (rolloverBadge) {
+      if (rollover >= 0) {
+        rolloverBadge.textContent = `Rollover Surplus: +${formatCurrency(rollover)}`;
+        rolloverBadge.className = 'fuel-tank-badge';
+      } else {
+        rolloverBadge.textContent = `Rollover Deficit: -${formatCurrency(Math.abs(rollover))}`;
+        rolloverBadge.className = 'fuel-tank-badge badge-rose';
+      }
+    }
+
+    const remainingPill = document.getElementById('fuel-tank-remaining-pill');
+    if (remainingPill) {
+      const todayRemaining = Math.max(0, safeDailyLimit - todaySpent);
+      remainingPill.textContent = `Remaining Today: ${formatCurrency(todayRemaining)}`;
+    }
+
+    const fuelStatusLabel = document.getElementById('fuel-tank-status-label');
+    if (fuelStatusLabel) {
+      if (fuelPct >= 100) {
+        fuelStatusLabel.textContent = 'Ceiling Reached';
+        fuelStatusLabel.style.color = 'var(--accent-rose)';
+      } else if (fuelPct >= 75) {
+        fuelStatusLabel.textContent = 'Fuel Caution';
+        fuelStatusLabel.style.color = 'var(--accent-amber)';
+      } else {
+        fuelStatusLabel.textContent = 'Tank Healthy';
+        fuelStatusLabel.style.color = 'var(--accent-emerald)';
+      }
+    }
+
+    // 10. Sidebar Dynamic Budget Breakdown
     this.renderSidebarBudget(totalSpent, budgetPercent);
 
-    // 10. Financial Health Mood State
+    // 11. Financial Health Mood State
     document.body.classList.remove('mood-safe', 'mood-caution', 'mood-overpace');
     const brandIconEl = document.getElementById('dashboard-brand-icon');
 
@@ -858,6 +955,15 @@ export class DashboardView {
         const expenseNotes = notes.filter(n => n.relation === 'transaction' && n.relationId === item.id);
         const hasNotes = expenseNotes.length > 0;
         const isShared = Boolean(item.isHouseholdExpense);
+        const isCredit = Boolean(
+          item.isCredit ||
+          item.type === 'credit' ||
+          item.type === 'income' ||
+          item.category === 'Income' ||
+          item.category === 'Refund' ||
+          (parseFloat(item.amount) || 0) < 0
+        );
+        const absAmount = Math.abs(parseFloat(item.amount) || 0);
 
         return `
         <tr>
@@ -873,19 +979,22 @@ export class DashboardView {
               ${isShared ? `<span style="font-size: 10px; background: rgba(217, 130, 43, 0.15); color: var(--accent-primary); padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">${safeIcon('users', 11)} Shared</span>` : '<span style="font-size: 10px; background: #1E212A; color: var(--text-muted); padding: 2px 6px; border-radius: 4px;">Personal</span>'}
             </div>
           </td>
-          <td class="amount-text">-${formatCurrency(parseFloat(item.amount) || 0)}</td>
-          <td>
+          <td class="amount-text amount-debit" style="text-align: right; font-family: var(--font-mono); font-weight: 700; color: ${isCredit ? 'var(--text-muted)' : 'var(--accent-rose, #FB7185)'};">
+            ${isCredit ? '—' : `-${formatCurrency(absAmount)}`}
+          </td>
+          <td class="amount-text amount-credit" style="text-align: right; font-family: var(--font-mono); font-weight: 700; color: ${isCredit ? 'var(--accent-emerald, #10B981)' : 'var(--text-muted)'};">
+            ${isCredit ? `+${formatCurrency(absAmount)}` : '—'}
+          </td>
+          <td class="actions-cell">
             ${
               item.receiptFilename
                 ? `
               <button type="button" class="action-btn" data-action="view-receipt" data-filename="${escapeHTML(item.receiptFilename)}" title="View Receipt Image">
-                ${safeIcon('camera', 13)} Receipt
+                ${safeIcon('camera', 13)}
               </button>
             `
-                : '<span style="color:var(--text-dim); font-size:11px;">—</span>'
+                : ''
             }
-          </td>
-          <td class="actions-cell">
             <button type="button" class="action-btn note-indicator-btn ${hasNotes ? 'has-notes' : ''}"
                     data-action="open-note"
                     data-id="${escapeHTML(item.id)}"
@@ -1897,6 +2006,358 @@ export class DashboardView {
         showToast(`Exported all-time ${pendingExportType.toUpperCase()} file!`);
       } else if (res && !res.canceled) {
         showToast(`Export Failed: ${res.error || 'Unknown error'}`);
+      }
+    });
+  }
+
+  /**
+   * Bind event listeners for the Daybook Tally Line (instant columnar snap entry).
+   * @private
+   */
+  #bindDaybookTallyLine() {
+    const tallyLine = document.getElementById('daybook-tally-line');
+    if (!tallyLine) return;
+
+    const dateInput = /** @type {HTMLInputElement|null} */ (document.getElementById('daybook-input-date'));
+    const titleInput = /** @type {HTMLInputElement|null} */ (document.getElementById('daybook-input-title'));
+    const catSelect = /** @type {HTMLSelectElement|null} */ (document.getElementById('daybook-select-category'));
+    const amountInput = /** @type {HTMLInputElement|null} */ (document.getElementById('daybook-input-amount'));
+    const splitBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById('daybook-btn-split'));
+    const commitBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById('daybook-btn-commit'));
+
+    // Set default date to today
+    if (dateInput && !dateInput.value) {
+      dateInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    // Split Toggle: Personal ⟷ Shared 50/50
+    if (splitBtn) {
+      const splitHandler = () => {
+        const currentSplit = splitBtn.getAttribute('data-split') || 'personal';
+        if (currentSplit === 'personal') {
+          splitBtn.setAttribute('data-split', 'shared');
+          splitBtn.classList.add('is-shared');
+          splitBtn.innerHTML = `${safeIcon('users', 12)} <span>Shared</span>`;
+          splitBtn.title = 'Shared 50/50 (Click for Personal)';
+        } else {
+          splitBtn.setAttribute('data-split', 'personal');
+          splitBtn.classList.remove('is-shared');
+          splitBtn.innerHTML = `${safeIcon('user', 12)} <span>Personal</span>`;
+          splitBtn.title = 'Personal (Click for Shared 50/50)';
+        }
+      };
+      splitBtn.addEventListener('click', splitHandler);
+      this.#cleanups.push(() => splitBtn.removeEventListener('click', splitHandler));
+    }
+
+    // Commit Action
+    const commitHandler = async () => {
+      const title = titleInput?.value.trim();
+      const rawAmount = parseFloat(amountInput?.value || '');
+
+      if (!title) {
+        showToast('Please enter an expense title or payee');
+        titleInput?.focus();
+        return;
+      }
+
+      if (!rawAmount || isNaN(rawAmount) || rawAmount <= 0) {
+        showToast('Please enter a valid amount greater than 0');
+        amountInput?.focus();
+        return;
+      }
+
+      const activeProfile = this.state?.get('activeProfile');
+      const isShared = splitBtn?.getAttribute('data-split') === 'shared';
+      const members = this.state?.get('householdMembers') || [];
+      const dateVal = dateInput?.value || new Date().toISOString().split('T')[0];
+      const categoryVal = catSelect?.value || 'Food & Dining';
+
+      const splitWith = isShared
+        ? members
+            .filter(m => !activeProfile || (m.name !== activeProfile.name && m.id !== activeProfile.id))
+            .map(m => m.name || m)
+        : [];
+
+      const expenseData = {
+        title,
+        amount: rawAmount,
+        category: categoryVal,
+        date: dateVal,
+        paymentMethod: 'UPI / GPay',
+        paidBy: activeProfile ? activeProfile.name : 'Self',
+        isHouseholdExpense: isShared,
+        splitWith: isShared ? (splitWith.length > 0 ? splitWith : ['Partner']) : [],
+        description: 'Logged via Daybook Tally Line'
+      };
+
+      try {
+        const res = this.api?.createExpense
+          ? await this.api.createExpense(expenseData)
+          : await this.api?.addExpense?.(expenseData);
+
+        const addedId = res?.id || res?.expense?.id || expenseData.id;
+        if (typeof this.state?.pushUndoAction === 'function') {
+          this.state.pushUndoAction({
+            type: 'ADD_EXPENSE',
+            description: `Daybook: Logged "${expenseData.title}"`,
+            payload: res?.expense || { ...expenseData, id: addedId },
+            undo: async () => {
+              if (addedId && this.api?.deleteExpense) await this.api.deleteExpense(addedId);
+              if (this.onDataChanged) await this.onDataChanged();
+              await this.render();
+            }
+          });
+        }
+
+        // Reset inputs
+        if (titleInput) titleInput.value = '';
+        if (amountInput) amountInput.value = '';
+        if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+
+        // Visual feedback
+        tallyLine.classList.add('daybook-success-pulse');
+        setTimeout(() => tallyLine.classList.remove('daybook-success-pulse'), 350);
+        titleInput?.focus();
+
+        showActionToast({
+          icon: 'plus',
+          title: `Logged "${expenseData.title}"`,
+          amount: expenseData.amount,
+          category: expenseData.category,
+          subtext: `${expenseData.category} • Daybook Entry (Ctrl+Z to undo)`
+        });
+
+        if (this.onDataChanged) await this.onDataChanged();
+        await this.render();
+      } catch (err) {
+        console.error('[DashboardView] Daybook commit failed:', err);
+        showToast('Failed to save transaction');
+      }
+    };
+
+    if (commitBtn) {
+      commitBtn.addEventListener('click', commitHandler);
+      this.#cleanups.push(() => commitBtn.removeEventListener('click', commitHandler));
+    }
+
+    // Keyboard Enter trigger on title and amount inputs
+    const keyHandler = async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        await commitHandler();
+      }
+    };
+
+    if (titleInput) {
+      titleInput.addEventListener('keydown', keyHandler);
+      this.#cleanups.push(() => titleInput.removeEventListener('keydown', keyHandler));
+    }
+    if (amountInput) {
+      amountInput.addEventListener('keydown', keyHandler);
+      this.#cleanups.push(() => amountInput.removeEventListener('keydown', keyHandler));
+    }
+  }
+
+  // ==========================================================================
+  // WHAT-IF PURCHASE IMPACT LIGHTBOX CONTROLLER (SEC 2)
+  // ==========================================================================
+
+  /**
+   * Open the What-If Purchase Impact Lightbox modal.
+   */
+  openWhatIfLightbox() {
+    if (typeof document === 'undefined') return;
+    const modal = document.getElementById('modal-whatif-lightbox');
+    if (!modal) return;
+    modal.classList.add('active');
+    const input = /** @type {HTMLInputElement|null} */ (document.getElementById('whatif-input-amount'));
+    if (input) {
+      input.focus();
+      const testVal = parseFloat(input.value) || 0;
+      this.runWhatIfSimulation(testVal);
+    }
+  }
+
+  /**
+   * Close the What-If Purchase Impact Lightbox modal.
+   */
+  closeWhatIfLightbox() {
+    if (typeof document === 'undefined') return;
+    const modal = document.getElementById('modal-whatif-lightbox');
+    if (modal) {
+      modal.classList.remove('active');
+    }
+  }
+
+  /**
+   * Run What-If simulation calculation and update DOM metrics.
+   * @param {number} testAmount
+   */
+  async runWhatIfSimulation(testAmount) {
+    if (typeof document === 'undefined') return;
+
+    const paceCompEl = document.getElementById('whatif-pace-comparison');
+    const dropPctEl = document.getElementById('whatif-drop-percentage');
+    const runwayImpactEl = document.getElementById('whatif-runway-impact');
+    const riskBadgeEl = document.getElementById('whatif-risk-badge');
+
+    try {
+      let sim = null;
+      if (this.api?.simulateWhatIf) {
+        const res = await this.api.simulateWhatIf(testAmount);
+        sim = res && typeof res === 'object' && 'data' in res ? res.data : res;
+      }
+
+      if (!sim) {
+        // Fallback computation using current active budget state
+        const budgetGoal = parseFloat(this.state?.get('budgetGoal')) || 30000;
+        const scoped = this.getScopedExpenses();
+        const totalSpent = scoped.reduce((a, c) => a + (parseFloat(c.amount) || 0), 0);
+        const now = new Date();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const remainingDays = Math.max(1, daysInMonth - now.getDate() + 1);
+        const subsequentDays = Math.max(1, remainingDays - 1);
+        const remainingDiscretionary = Math.max(0, budgetGoal - totalSpent);
+        const currentPace = remainingDays > 0 ? remainingDiscretionary / remainingDays : 0;
+        const simulatedRemaining = Math.max(0, remainingDiscretionary - testAmount);
+        const projectedPace = subsequentDays > 0 ? simulatedRemaining / subsequentDays : 0;
+        const dailyDrop = Math.max(0, currentPace - projectedPace);
+        const dropPercentage = currentPace > 0 ? (dailyDrop / currentPace) * 100 : 0;
+
+        let riskLevel = 'SAFE';
+        if (testAmount > remainingDiscretionary || dropPercentage > 40) {
+          riskLevel = 'CRITICAL';
+        } else if (dropPercentage > 15) {
+          riskLevel = 'CAUTION';
+        }
+
+        const runwayDrop =
+          currentPace > 0 && testAmount > 0 ? Math.round((testAmount / currentPace) * 10) / 10 : 0;
+
+        sim = {
+          currentPace,
+          projectedPace,
+          dailyDrop,
+          dropPercentage,
+          riskLevel,
+          runwayDrop
+        };
+      }
+
+      const currPace = sim.currentPace !== undefined ? sim.currentPace : 0;
+      const projPace = sim.projectedPace !== undefined ? sim.projectedPace : 0;
+      const dropPct = sim.dropPercentage !== undefined ? Math.round(sim.dropPercentage) : 0;
+      const runwayDays =
+        sim.runwayDrop !== undefined
+          ? sim.runwayDrop
+          : (currPace > 0 && testAmount > 0 ? (testAmount / currPace).toFixed(1) : 0);
+      const risk = (sim.riskLevel || 'SAFE').toUpperCase();
+
+      if (paceCompEl) {
+        paceCompEl.textContent = `${formatCurrency(currPace)} → ${formatCurrency(projPace)}/day`;
+      }
+      if (dropPctEl) {
+        dropPctEl.textContent = dropPct > 0 ? `-${dropPct}%` : '0%';
+        dropPctEl.style.color =
+          dropPct > 40 ? 'var(--accent-rose)' : dropPct > 15 ? 'var(--accent-amber)' : 'var(--text-main)';
+      }
+      if (runwayImpactEl) {
+        runwayImpactEl.textContent = Number(runwayDays) > 0 ? `-${runwayDays} Days` : '0 Days';
+        runwayImpactEl.style.color =
+          Number(runwayDays) > 3 ? 'var(--accent-rose)' : Number(runwayDays) > 1 ? 'var(--accent-amber)' : 'var(--text-main)';
+      }
+      if (riskBadgeEl) {
+        riskBadgeEl.textContent = risk;
+        riskBadgeEl.className = 'whatif-risk-badge';
+        if (risk === 'CRITICAL') {
+          riskBadgeEl.classList.add('risk-critical');
+        } else if (risk === 'CAUTION') {
+          riskBadgeEl.classList.add('risk-caution');
+        } else {
+          riskBadgeEl.classList.add('risk-safe');
+        }
+      }
+    } catch (err) {
+      console.warn('[DashboardView] What-If simulation error:', err);
+    }
+  }
+
+  /**
+   * Bind What-If Lightbox modal hotkeys, trigger buttons, and inputs.
+   * @private
+   */
+  #bindWhatIfLightbox() {
+    const bindEl = (id, event, handler) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener(event, handler);
+        this.#cleanups.push(() => el.removeEventListener(event, handler));
+      }
+    };
+
+    // Open from quick button on Fuel Tank
+    bindEl('btn-open-whatif-lightbox', 'click', () => this.openWhatIfLightbox());
+
+    // Close buttons
+    bindEl('whatif-modal-close-btn', 'click', () => this.closeWhatIfLightbox());
+    bindEl('whatif-btn-cancel', 'click', () => this.closeWhatIfLightbox());
+
+    // Modal overlay backdrop click
+    const modalEl = document.getElementById('modal-whatif-lightbox');
+    if (modalEl) {
+      const overlayHandler = e => {
+        if (e.target === modalEl) this.closeWhatIfLightbox();
+      };
+      modalEl.addEventListener('click', overlayHandler);
+      this.#cleanups.push(() => modalEl.removeEventListener('click', overlayHandler));
+    }
+
+    // Global Alt+W hotkey and Esc key
+    const keyHandler = e => {
+      if (e.altKey && (e.key === 'w' || e.key === 'W')) {
+        e.preventDefault();
+        this.openWhatIfLightbox();
+      } else if (e.key === 'Escape' && modalEl && modalEl.classList.contains('active')) {
+        this.closeWhatIfLightbox();
+      }
+    };
+    window.addEventListener('keydown', keyHandler);
+    this.#cleanups.push(() => window.removeEventListener('keydown', keyHandler));
+
+    // Debounced test amount input
+    const inputEl = /** @type {HTMLInputElement|null} */ (document.getElementById('whatif-input-amount'));
+    if (inputEl) {
+      let debounceTimer = null;
+      const inputHandler = () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+          const val = parseFloat(inputEl.value) || 0;
+          await this.runWhatIfSimulation(val);
+        }, 100);
+      };
+      inputEl.addEventListener('input', inputHandler);
+      this.#cleanups.push(() => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        inputEl.removeEventListener('input', inputHandler);
+      });
+    }
+
+    // Commit button: "Log as Planned Expense"
+    bindEl('whatif-btn-commit', 'click', () => {
+      const val = parseFloat(inputEl?.value || '') || 0;
+      this.closeWhatIfLightbox();
+      if (this.onOpenExpenseModal) {
+        this.onOpenExpenseModal();
+        const formAmt = /** @type {HTMLInputElement|null} */ (document.getElementById('form-amount'));
+        if (formAmt && val > 0) {
+          formAmt.value = val.toFixed(2);
+        }
+        const formTitle = /** @type {HTMLInputElement|null} */ (document.getElementById('form-title'));
+        if (formTitle && !formTitle.value) {
+          formTitle.value = 'Planned Expense';
+          formTitle.focus();
+        }
       }
     });
   }

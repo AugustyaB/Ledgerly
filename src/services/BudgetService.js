@@ -86,7 +86,15 @@ class BudgetService {
     // Synchronize discretionary budget to budgetGoal
     data.budgetGoal = Math.max(0, monthlyIncome - fixedBills - savingsGoal);
 
-    this._profiles.saveActiveData(data);
+    const saveRes = this._profiles.saveActiveData(data);
+    if (saveRes && !saveRes.success) {
+      return {
+        success: false,
+        error: saveRes.error || 'Failed to persist salary configuration',
+        salaryConfig: data.salaryConfig,
+        budgetGoal: data.budgetGoal
+      };
+    }
 
     return {
       success: true,
@@ -104,7 +112,14 @@ class BudgetService {
   setBudgetGoal(amount) {
     const data = this._profiles.getActiveData();
     data.budgetGoal = parseFloat(String(amount)) || 0;
-    this._profiles.saveActiveData(data);
+    const saveRes = this._profiles.saveActiveData(data);
+    if (saveRes && !saveRes.success) {
+      return {
+        success: false,
+        error: saveRes.error || 'Failed to persist budget goal',
+        budgetGoal: data.budgetGoal
+      };
+    }
 
     return {
       success: true,

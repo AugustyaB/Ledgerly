@@ -235,6 +235,8 @@ class ReceiptLearningService {
 
     const updated = {
       ...existing,
+      canonicalMerchant: layoutData.canonicalMerchant || existing.canonicalMerchant || null,
+      taxId: layoutData.taxId || existing.taxId || null,
       totalAnchor: layoutData.totalAnchor || existing.totalAnchor || null,
       datePattern: layoutData.datePattern || existing.datePattern || null,
       taxType: layoutData.taxType || existing.taxType || null,
@@ -264,8 +266,336 @@ class ReceiptLearningService {
     return { success: true };
   }
 
+  /**
+   * Wires corrected merchant names and tax IDs into local layout memory and alias mappings.
+   * Enables 100% repeat accuracy on recurring vendors by binding tax IDs (GSTIN/VAT)
+   * and raw OCR merchant text to canonical merchant names and preferred structural anchors.
+   *
+   * @param {object} correction
+   * @param {string} [correction.rawMerchant] - Extracted or OCR raw merchant string
+   * @param {string} [correction.originalMerchant] - Alias for rawMerchant
+   * @param {string} [correction.canonicalMerchant] - User-corrected canonical merchant name
+   * @param {string} [correction.correctedMerchant] - Alias for canonicalMerchant
+   * @param {string} [correction.taxId] - Vendor GSTIN, VAT ID or tax identification number
+   * @param {string} [correction.gstin] - Alias for taxId
+   * @param {string} [correction.vatId] - Alias for taxId
+   * @param {string} [correction.totalAnchor] - Preferred anchor keyword for total extraction
+   * @param {string} [correction.datePattern] - Preferred date formatting pattern
+   * @param {string} [correction.taxType] - Tax structure ('GST', 'VAT', 'SALES_TAX')
+   * @returns {{ success: boolean, key?: string, aliasLearned: boolean, layoutLearned: boolean, layout: object|null }}
+   */
+  learnFromCorrection(correction = {}) {
+    const raw = (correction.rawMerchant || correction.originalMerchant || '').trim();
+    const canonical = (correction.canonicalMerchant || correction.correctedMerchant || '').trim();
+    const taxId = (correction.taxId || correction.gstin || correction.vatId || '').trim();
+    const totalAnchor = correction.totalAnchor || null;
+    const datePattern = correction.datePattern || null;
+    const taxType = correction.taxType || (taxId ? (taxId.length === 15 ? 'GST' : 'TAX') : null);
+
+    let aliasLearned = false;
+    if (raw && canonical && raw.toLowerCase() !== canonical.toLowerCase()) {
+      const aliasRes = this.learnAlias(raw, canonical);
+      aliasLearned = !!aliasRes.success;
+    }
+
+    const layoutData = {
+      canonicalMerchant: canonical || raw,
+      taxId: taxId || null,
+      totalAnchor,
+      datePattern,
+      taxType
+    };
+
+    let layoutLearned = false;
+    let mainLayout = null;
+
+    // 1. Wire taxId into layout memory if present
+    if (taxId) {
+      const taxRes = this.learnLayout(taxId, layoutData);
+      if (taxRes.success) {
+        layoutLearned = true;
+        mainLayout = taxRes.layout;
+      }
+    }
+
+    // 2. Wire canonical merchant name into layout memory
+    if (canonical) {
+      const canRes = this.learnLayout(canonical, layoutData);
+      if (canRes.success) {
+        layoutLearned = true;
+        if (!mainLayout) mainLayout = canRes.layout;
+      }
+    }
+
+    // 3. Wire raw merchant into layout memory if different
+    if (raw && raw !== canonical) {
+      const rawRes = this.learnLayout(raw, layoutData);
+      if (rawRes.success) {
+        layoutLearned = true;
+        if (!mainLayout) mainLayout = rawRes.layout;
+      }
+    }
+
+    return {
+      success: aliasLearned || layoutLearned,
+      aliasLearned,
+      layoutLearned,
+      layout: mainLayout
+    };
+  }
+
+  /**
+   * Resolves a vendor identifier or raw merchant name using learned aliases and layout memory.
+   * Checks tax ID in layout memory (highest fidelity: 100% exact match), then alias dictionary, then raw merchant in layout memory.
+   *
+   * @param {string} rawMerchant - Raw merchant string
+   * @param {string} [taxId] - Optional vendor GSTIN/VAT/Tax ID
+   * @returns {{ resolved: boolean, name: string, confidence: number, source: string, layout: object|null }}
+   */
+  resolveMerchantWithLayout(rawMerchant, taxId = null) {
+    // 1. If Tax ID is present, check layout memory (highest fidelity: 100% exact match)
+    if (taxId) {
+      const taxLayout = this.getLayout(taxId);
+      if (taxLayout && taxLayout.canonicalMerchant) {
+        return {
+          resolved: true,
+          name: taxLayout.canonicalMerchant,
+          confidence: 1.0,
+          source: 'layout_tax_id',
+          layout: taxLayout
+        };
+      }
+    }
+
+    // 2. Check alias dictionary
+    if (rawMerchant) {
+      const aliasRes = this.resolveAlias(rawMerchant);
+      if (aliasRes.resolved) {
+        const layout = this.getLayout(aliasRes.name) || (taxId ? this.getLayout(taxId) : null);
+        return {
+          resolved: true,
+          name: aliasRes.name,
+          confidence: 1.0,
+          source: 'alias_dictionary',
+          layout
+        };
+      }
+    }
+
+    // 3. Check layout memory by raw merchant key
+    if (rawMerchant) {
+      const merchantLayout = this.getLayout(rawMerchant);
+      if (merchantLayout && merchantLayout.canonicalMerchant) {
+        return {
+          resolved: true,
+          name: merchantLayout.canonicalMerchant,
+          confidence: 1.0,
+          source: 'layout_merchant_key',
+          layout: merchantLayout
+        };
+      }
+    }
+
+    return {
+      resolved: false,
+      name: rawMerchant || '',
+      confidence: 0.0,
+      source: 'none',
+      layout: null
+    };
+  }
+
   // ==========================================================================
-  // 3. Persistent Storage Engine (expenses_config.json)
+  // 3. Longitudinal Accuracy Telemetry & Scoreboard Math (Phase 1.3.0)
+  // ==========================================================================
+
+  /**
+   * Records a receipt perception audit event into the longitudinal telemetry log.
+   *
+   * @param {object} event
+   * @param {string} [event.receiptId]
+   * @param {boolean} [event.firstPassSuccess=true] - Whether receipt was accepted without user edits
+   * @param {boolean} [event.edited=false] - Whether user corrected any field
+   * @param {string} [event.timestamp] - ISO date string
+   * @param {string[]} [event.fieldsEdited=[]] - Fields edited by user (e.g. ['amount', 'merchant'])
+   * @param {object} [event.originalValues={}]
+   * @param {object} [event.correctedValues={}]
+   * @returns {object} Recorded event payload
+   */
+  recordReceiptEvent(event = {}) {
+    this._ensureConfig();
+
+    const isEdited = event.edited !== undefined ? Boolean(event.edited) : !event.firstPassSuccess;
+    const isFirstPass = event.firstPassSuccess !== undefined ? Boolean(event.firstPassSuccess) : !isEdited;
+
+    const payload = {
+      id: event.id || `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      receiptId: event.receiptId || null,
+      firstPassSuccess: isFirstPass,
+      edited: isEdited,
+      timestamp: event.timestamp || new Date().toISOString(),
+      fieldsEdited: Array.isArray(event.fieldsEdited) ? event.fieldsEdited : [],
+      originalValues: event.originalValues || {},
+      correctedValues: event.correctedValues || {}
+    };
+
+    this._config.accuracyTelemetry.events.push(payload);
+
+    // Keep events trimmed to last 1000 entries
+    if (this._config.accuracyTelemetry.events.length > 1000) {
+      this._config.accuracyTelemetry.events = this._config.accuracyTelemetry.events.slice(-1000);
+    }
+
+    // Update cumulative summary
+    const summary = this._config.accuracyTelemetry.summary;
+    summary.totalProcessed = (summary.totalProcessed || 0) + 1;
+    if (isFirstPass) {
+      summary.firstPassSuccessCount = (summary.firstPassSuccessCount || 0) + 1;
+    }
+    if (isEdited) {
+      summary.totalCorrected = (summary.totalCorrected || 0) + 1;
+    }
+
+    this._saveConfig();
+    return payload;
+  }
+
+  /**
+   * Records a user correction and triggers alias and layout learning.
+   *
+   * @param {object} correction
+   * @returns {{ success: boolean, event?: object, learning?: object }}
+   */
+  recordCorrection(correction = {}) {
+    this._ensureConfig();
+
+    const learningRes = this.learnFromCorrection(correction);
+
+    const eventPayload = this.recordReceiptEvent({
+      receiptId: correction.receiptId || null,
+      firstPassSuccess: false,
+      edited: true,
+      timestamp: correction.timestamp || new Date().toISOString(),
+      fieldsEdited: correction.fieldsEdited || (correction.fieldName ? [correction.fieldName] : ['merchant']),
+      originalValues: correction.originalValues || { merchant: correction.rawMerchant },
+      correctedValues: correction.correctedValues || { merchant: correction.canonicalMerchant }
+    });
+
+    return {
+      success: true,
+      event: eventPayload,
+      learning: learningRes
+    };
+  }
+
+  /**
+   * Computes the Longitudinal Accuracy Scoreboard displaying rolling 30-day
+   * and 90-day first-pass accuracy and edit rates.
+   *
+   * @param {Date|string|number} [referenceDate=new Date()] - Reference point for time window calculations
+   * @returns {{
+   *   rolling30: { totalProcessed: number, firstPassCount: number, editedCount: number, firstPassAccuracy: number, editRate: number },
+   *   rolling90: { totalProcessed: number, firstPassCount: number, editedCount: number, firstPassAccuracy: number, editRate: number },
+   *   allTime: { totalProcessed: number, firstPassSuccessCount: number, totalCorrected: number, firstPassAccuracy: number, editRate: number, aliasCount: number, layoutCount: number }
+   * }}
+   */
+  getAccuracyScoreboard(referenceDate = new Date()) {
+    this._ensureConfig();
+
+    const refTime = new Date(referenceDate).getTime();
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const window30Cutoff = refTime - 30 * MS_PER_DAY;
+    const window90Cutoff = refTime - 90 * MS_PER_DAY;
+
+    const events = this._config.accuracyTelemetry.events || [];
+
+    let count30 = 0;
+    let fp30 = 0;
+    let ed30 = 0;
+
+    let count90 = 0;
+    let fp90 = 0;
+    let ed90 = 0;
+
+    for (const evt of events) {
+      const evtTime = new Date(evt.timestamp).getTime();
+      if (isNaN(evtTime)) continue;
+
+      if (evtTime >= window90Cutoff && evtTime <= refTime) {
+        count90++;
+        if (evt.firstPassSuccess) fp90++;
+        if (evt.edited) ed90++;
+
+        if (evtTime >= window30Cutoff) {
+          count30++;
+          if (evt.firstPassSuccess) fp30++;
+          if (evt.edited) ed30++;
+        }
+      }
+    }
+
+    // Mathematical calculations with exact 1-decimal percentage formatting
+    const acc30 = count30 > 0 ? Number(((fp30 / count30) * 100).toFixed(1)) : 100.0;
+    const editRate30 = count30 > 0 ? Number(((ed30 / count30) * 100).toFixed(1)) : 0.0;
+
+    const acc90 = count90 > 0 ? Number(((fp90 / count90) * 100).toFixed(1)) : 100.0;
+    const editRate90 = count90 > 0 ? Number(((ed90 / count90) * 100).toFixed(1)) : 0.0;
+
+    const totalAll = this._config.accuracyTelemetry.summary.totalProcessed || events.length;
+    const fpAll = this._config.accuracyTelemetry.summary.firstPassSuccessCount || events.filter(e => e.firstPassSuccess).length;
+    const edAll = this._config.accuracyTelemetry.summary.totalCorrected || events.filter(e => e.edited).length;
+
+    const allAcc = totalAll > 0 ? Number(((fpAll / totalAll) * 100).toFixed(1)) : 100.0;
+    const allEditRate = totalAll > 0 ? Number(((edAll / totalAll) * 100).toFixed(1)) : 0.0;
+
+    return {
+      rolling30: {
+        totalProcessed: count30,
+        firstPassCount: fp30,
+        editedCount: ed30,
+        firstPassAccuracy: acc30,
+        editRate: editRate30
+      },
+      rolling90: {
+        totalProcessed: count90,
+        firstPassCount: fp90,
+        editedCount: ed90,
+        firstPassAccuracy: acc90,
+        editRate: editRate90
+      },
+      allTime: {
+        totalProcessed: totalAll,
+        firstPassSuccessCount: fpAll,
+        totalCorrected: edAll,
+        firstPassAccuracy: allAcc,
+        editRate: allEditRate,
+        aliasCount: Object.keys(this._config.merchantAliases || {}).length,
+        layoutCount: Object.keys(this._config.merchantLayouts || {}).length
+      }
+    };
+  }
+
+  /**
+   * Resets all telemetry events and summary counters.
+   *
+   * @returns {{ success: boolean }}
+   */
+  clearTelemetry() {
+    this._ensureConfig();
+    this._config.accuracyTelemetry = {
+      events: [],
+      summary: {
+        totalProcessed: 0,
+        totalCorrected: 0,
+        firstPassSuccessCount: 0
+      }
+    };
+    this._saveConfig();
+    return { success: true };
+  }
+
+  // ==========================================================================
+  // 4. Persistent Storage Engine (expenses_config.json)
   // ==========================================================================
 
   /**
@@ -283,6 +613,16 @@ class ReceiptLearningService {
     if (!this._config.merchantLayouts || typeof this._config.merchantLayouts !== 'object') {
       this._config.merchantLayouts = {};
     }
+    if (!this._config.accuracyTelemetry || typeof this._config.accuracyTelemetry !== 'object') {
+      this._config.accuracyTelemetry = {
+        events: [],
+        summary: {
+          totalProcessed: 0,
+          totalCorrected: 0,
+          firstPassSuccessCount: 0
+        }
+      };
+    }
   }
 
   /**
@@ -299,6 +639,10 @@ class ReceiptLearningService {
         if (parsed && typeof parsed === 'object') {
           parsed.merchantAliases = parsed.merchantAliases || {};
           parsed.merchantLayouts = parsed.merchantLayouts || {};
+          parsed.accuracyTelemetry = parsed.accuracyTelemetry || {
+            events: [],
+            summary: { totalProcessed: 0, totalCorrected: 0, firstPassSuccessCount: 0 }
+          };
           return parsed;
         }
       }
@@ -309,7 +653,11 @@ class ReceiptLearningService {
     return {
       version: 1,
       merchantAliases: {},
-      merchantLayouts: {}
+      merchantLayouts: {},
+      accuracyTelemetry: {
+        events: [],
+        summary: { totalProcessed: 0, totalCorrected: 0, firstPassSuccessCount: 0 }
+      }
     };
   }
 
@@ -339,7 +687,11 @@ class ReceiptLearningService {
         ...currentOnDisk,
         ...this._config,
         merchantAliases: this._config.merchantAliases || {},
-        merchantLayouts: this._config.merchantLayouts || {}
+        merchantLayouts: this._config.merchantLayouts || {},
+        accuracyTelemetry: this._config.accuracyTelemetry || {
+          events: [],
+          summary: { totalProcessed: 0, totalCorrected: 0, firstPassSuccessCount: 0 }
+        }
       };
 
       const tmpPath = `${this._configPath}.tmp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;

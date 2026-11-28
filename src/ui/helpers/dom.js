@@ -51,9 +51,10 @@ export function delegateEvent(container, handlers, actionAttribute = 'data-actio
   // Support signature: delegateEvent(container, eventType, selector, callback)
   if (typeof actionAttribute === 'function' || typeof maybeCallback === 'function') {
     const callback = typeof maybeCallback === 'function' ? maybeCallback : actionAttribute;
+    const selector = typeof maybeCallback === 'function' ? actionAttribute : '[data-action]';
     const eventType = typeof handlers === 'string' ? handlers : 'click';
     const listener = async event => {
-      const target = event.target.closest('[data-action]');
+      const target = event.target.closest(selector);
       if (!target || !container.contains(target)) return;
       await callback(event, target);
     };

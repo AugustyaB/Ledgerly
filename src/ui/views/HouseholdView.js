@@ -285,30 +285,46 @@ export class HouseholdView {
         <div class="stream-flow-visual">
           <div class="stream-person-node">
             <div class="stream-avatar-box">${safeMonogram(s.from, 36)}</div>
-            <span class="stream-person-name">${escapeHTML(s.from)}</span>
+            <span class="stream-person-name" title="${escapeHTML(s.from)}">${escapeHTML(s.from)}</span>
+            <span class="stream-role-badge role-debtor">Owes</span>
           </div>
 
           <div class="stream-flow-track">
             <span class="stream-amount-tag">${formatCurrency(s.amount)}</span>
-            <div class="stream-arrow-line"></div>
-            <span style="font-size: 10.5px; color: var(--text-muted);">Direct Repayment</span>
+            <div class="stream-vector-rail" title="${escapeHTML(s.from)} ──▶ ${escapeHTML(s.to)}: ${formatCurrency(s.amount)}">
+              <div class="stream-vector-line"></div>
+              <div class="stream-vector-pulse"></div>
+              <span class="stream-vector-arrow">▶</span>
+            </div>
+            <span style="font-size: 10.5px; color: var(--text-muted);">Direct Transfer Stream</span>
           </div>
 
           <div class="stream-person-node">
             <div class="stream-avatar-box">${safeMonogram(s.to, 36)}</div>
-            <span class="stream-person-name">${escapeHTML(s.to)}</span>
+            <span class="stream-person-name" title="${escapeHTML(s.to)}">${escapeHTML(s.to)}</span>
+            <span class="stream-role-badge role-creditor">Receives</span>
           </div>
         </div>
 
         <div class="stream-actions-row">
-          <span class="stream-status-sub">Pending debt</span>
-          <button type="button" class="btn btn-primary btn-sm"
-                  data-action="open-settle"
-                  data-from="${escapeHTML(s.from)}"
-                  data-to="${escapeHTML(s.to)}"
-                  data-amount="${s.amount}">
-            ${safeIcon('credit-card', 13)} Settle Up
-          </button>
+          <span class="stream-status-sub">Pending debt balance</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="btn-fast-settle"
+                    data-action="fast-settle"
+                    data-from="${escapeHTML(s.from)}"
+                    data-to="${escapeHTML(s.to)}"
+                    data-amount="${s.amount}"
+                    title="1-Click Quick Settle (UPI / Direct)">
+              ${safeIcon('zap', 12)} Quick Settle
+            </button>
+            <button type="button" class="btn btn-primary btn-sm"
+                    data-action="open-settle"
+                    data-from="${escapeHTML(s.from)}"
+                    data-to="${escapeHTML(s.to)}"
+                    data-amount="${s.amount}">
+              ${safeIcon('credit-card', 13)} Settle Up
+            </button>
+          </div>
         </div>
       </div>
     `
@@ -337,35 +353,46 @@ export class HouseholdView {
 
     const today = new Date();
     const currentDay = today.getDate();
+    const members = this.getMergedMemberList();
+    const memberCount = Math.max(1, members.length);
 
     billsContainer.innerHTML = bills
       .map(b => {
         const daysDiff = b.dueDay - currentDay;
-        let statusClass = 'status-due-soon';
-        let statusStyle =
-          'background: rgba(56, 189, 248, 0.15); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.3);';
-        let statusText = `Due in ${daysDiff} days`;
+        let statusClass;
+        let barClass;
+        let statusText;
+        let cyclePercent = Math.max(5, Math.min(100, Math.round(((30 - Math.max(0, daysDiff)) / 30) * 100)));
 
-        if (b.lastPaidDate && b.lastPaidDate.startsWith(today.toISOString().substring(0, 7))) {
+        const isPaidThisMonth = b.lastPaidDate && b.lastPaidDate.startsWith(today.toISOString().substring(0, 7));
+
+        if (isPaidThisMonth) {
           statusClass = 'status-paid';
-          statusStyle =
-            'background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3);';
+          barClass = 'bar-paid';
           statusText = `${safeIcon('check', 12)} Paid for Month`;
+          cyclePercent = 100;
         } else if (daysDiff < 0) {
           statusClass = 'status-overdue';
-          statusStyle = 'background: rgba(225, 29, 72, 0.2); color: #FB7185; border: 1px solid rgba(225, 29, 72, 0.4);';
+          barClass = 'bar-overdue';
           statusText = `${safeIcon('alert-triangle', 12)} Overdue by ${Math.abs(daysDiff)}d`;
+          cyclePercent = 100;
         } else if (daysDiff === 0) {
           statusClass = 'status-due-today';
-          statusStyle =
-            'background: rgba(225, 29, 72, 0.25); color: #FB7185; border: 1px solid rgba(225, 29, 72, 0.5); font-weight: 800;';
+          barClass = 'bar-due-today';
           statusText = `${safeIcon('alert-triangle', 12)} Due Today`;
+          cyclePercent = 100;
         } else if (daysDiff <= 3) {
           statusClass = 'status-due-soon';
-          statusStyle =
-            'background: rgba(217, 130, 43, 0.2); color: #E5943C; border: 1px solid rgba(217, 130, 43, 0.4); font-weight: 700;';
+          barClass = 'bar-due-soon';
           statusText = `${safeIcon('zap', 12)} Due in ${daysDiff} days`;
+        } else {
+          statusClass = 'status-due-soon';
+          barClass = 'bar-due-soon';
+          statusText = `${safeIcon('clock', 12)} Due in ${daysDiff} days`;
         }
+
+        const billAmount = parseFloat(b.amount) || 0;
+        const splitAmount = billAmount / memberCount;
 
         return `
         <div class="utility-card">
@@ -380,12 +407,21 @@ export class HouseholdView {
           </div>
 
           <div class="utility-amount-row">
-            <span class="utility-amount-val">${formatCurrency(parseFloat(b.amount) || 0)}</span>
+            <span class="utility-amount-val">${formatCurrency(billAmount)}</span>
             <span class="utility-freq-sub">Due on ${b.dueDay}th</span>
           </div>
 
-          <div class="utility-status-pill ${statusClass}" style="${statusStyle}">
-            ${statusText}
+          <div class="utility-countdown-meter" title="Cycle progress: ${cyclePercent}% (${daysDiff < 0 ? 'overdue' : daysDiff + ' days left'})">
+            <div class="utility-countdown-bar ${barClass}" style="width: ${cyclePercent}%;"></div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div class="utility-status-pill ${statusClass}">
+              ${statusText}
+            </div>
+            <div class="utility-split-breakdown" title="Equal split across ${memberCount} members">
+              ${safeIcon('users', 11)} ${formatCurrency(splitAmount)} / person (${memberCount} members)
+            </div>
           </div>
 
           <div class="utility-card-footer">
@@ -754,6 +790,35 @@ export class HouseholdView {
           const to = target.getAttribute('data-to') || '';
           const amount = target.getAttribute('data-amount') || '';
           this.openSettleModal(from, to, amount);
+          break;
+        }
+
+        case 'fast-settle': {
+          const from = target.getAttribute('data-from') || '';
+          const to = target.getAttribute('data-to') || '';
+          const amount = parseFloat(target.getAttribute('data-amount')) || 0;
+          if (from && to && amount > 0) {
+            try {
+              const res = await this.api?.addSettlement?.({
+                from,
+                to,
+                amount,
+                paymentMethod: 'UPI / Direct',
+                date: new Date().toISOString().split('T')[0],
+                notes: '1-Click Quick Settle'
+              });
+              if (res?.success !== false) {
+                showToast(`Recorded settlement: ${from} paid ${to} ${formatCurrency(amount)}`);
+                if (this.onDataChanged) await this.onDataChanged();
+                await this.render();
+              } else {
+                showToast(res?.error || 'Failed to record fast settlement');
+              }
+            } catch (err) {
+              console.error('Failed 1-click fast settle:', err);
+              showToast('Failed to record fast settlement: ' + (err.message || 'Unknown error'));
+            }
+          }
           break;
         }
 

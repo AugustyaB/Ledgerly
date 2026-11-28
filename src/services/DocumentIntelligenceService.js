@@ -29,6 +29,7 @@ const { CategoryMatcher } = require('../categoryMatcher');
 const ReceiptTier1Engine = require('./ReceiptTier1Engine');
 const ReceiptTier2VisionEngine = require('./ReceiptTier2VisionEngine');
 const ReceiptTier3RegionalEngine = require('./ReceiptTier3RegionalEngine');
+const ReceiptEngine = require('./ReceiptEngine');
 const ReceiptLearningService = require('./ReceiptLearningService');
 const ModelManager = require('./ModelManager');
 const smartDocumentAnalyzer = require('./SmartDocumentAnalyzer');
@@ -77,15 +78,33 @@ class DocumentIntelligenceService {
         normalizer: this.normalizer,
         categoryMatcher: this.categoryMatcher
       });
+
+    this.receiptEngine =
+      options.receiptEngine ||
+      new ReceiptEngine({
+        normalizer: this.normalizer,
+        categoryMatcher: this.categoryMatcher,
+        receiptLearning: this.receiptLearning,
+        smartDocumentAnalyzer: this.smartDocumentAnalyzer
+      });
   }
 
   /**
-   * Returns the currently active model ID. In the unified architecture,
-   * the built-in omni-regional engine is always active and ready.
+   * Returns the currently active model ID.
    * @returns {string}
    */
   getActiveEngine() {
-    return 'omni-regional-engine';
+    if (this.modelManager) {
+      if (typeof this.modelManager.getActiveModelId === 'function') {
+        const id = this.modelManager.getActiveModelId();
+        if (id) return id;
+      }
+      if (typeof this.modelManager.getActiveModel === 'function') {
+        const id = this.modelManager.getActiveModel();
+        if (id) return id;
+      }
+    }
+    return 'tier1-fastlite';
   }
 
   /**
@@ -104,7 +123,7 @@ class DocumentIntelligenceService {
   }
 
   /**
-   * Processes a document (PDF or image) through the unified Omni-Regional Perception Engine.
+   * Processes a document (PDF or image) through the appropriate or active perception engine.
    *
    * @param {string|Buffer|Uint8Array|Object} input - File path, buffer, or normalized payload
    * @param {Object} [options] - Options (e.g. currency)
@@ -116,32 +135,79 @@ class DocumentIntelligenceService {
     let fallbackTriggered = false;
     let fallbackReason = null;
 
-    // Direct inference through the unified Omni-Regional Perception Engine (India, US, EU, APAC)
-    try {
-      if (this.tier3Engine) {
-        result = await this.tier3Engine.processDocument(input, {
-          ...options,
-          engine: options.engine || options.specialistId || 'omni-regional-engine'
-        });
+    const isTier2 =
+      requestedEngine &&
+      (requestedEngine.startsWith('tier2-') ||
+        requestedEngine === 'tier2-visionpro' ||
+        requestedEngine === 'tier2');
+
+    const isTier3 =
+      requestedEngine &&
+      (requestedEngine.startsWith('tier3-') || requestedEngine === 'omni-regional-engine');
+
+    // 1. Dispatch to Tier 2 Vision-Pro if requested
+    if (isTier2) {
+      const isReady =
+        (this.modelManager && typeof this.modelManager.isModelReady === 'function'
+          ? this.modelManager.isModelReady(requestedEngine)
+          : true) &&
+        (this.tier2Engine && typeof this.tier2Engine.isModelReady === 'function'
+          ? this.tier2Engine.isModelReady(requestedEngine)
+          : true);
+
+      if (isReady && this.tier2Engine) {
+        try {
+          result = await this.tier2Engine.processDocument(input, {
+            ...options,
+            engine: requestedEngine
+          });
+        } catch (engineErr) {
+          fallbackTriggered = true;
+          fallbackReason = engineErr.message;
+        }
+      } else {
+        fallbackTriggered = true;
+        fallbackReason = 'MODEL_NOT_DOWNLOADED';
       }
-    } catch (engineErr) {
-      console.warn(
-        '[DocumentIntelligenceService] Omni-regional engine error, using Tier 1 fallback:',
-        engineErr.message
-      );
-      fallbackTriggered = true;
-      fallbackReason = engineErr.message;
+    }
+    // 2. Dispatch to Tier 3 Regional if requested
+    else if (isTier3) {
+      const isReady =
+        (this.modelManager && typeof this.modelManager.isModelReady === 'function'
+          ? this.modelManager.isModelReady(requestedEngine)
+          : true) &&
+        (this.tier3Engine && typeof this.tier3Engine.isModelReady === 'function'
+          ? this.tier3Engine.isModelReady(requestedEngine)
+          : true);
+
+      if (isReady && this.tier3Engine) {
+        try {
+          result = await this.tier3Engine.processDocument(input, {
+            ...options,
+            engine: options.engine || options.specialistId || requestedEngine
+          });
+        } catch (engineErr) {
+          fallbackTriggered = true;
+          fallbackReason = engineErr.message;
+        }
+      } else {
+        fallbackTriggered = true;
+        fallbackReason = 'MODEL_NOT_DOWNLOADED';
+      }
     }
 
-    // Resilient fallback to Tier 1 fast-lite if omni-regional was unready or returned error
+    // 3. Fallback or direct execution through Tier 1 / ReceiptEngine
     if (!result || !result.success) {
-      if (this.tier1Engine) {
+      const engine = this.receiptEngine || this.tier1Engine;
+      if (engine) {
         try {
-          result = await this.tier1Engine.processDocument(input, options);
-          fallbackTriggered = true;
-          fallbackReason = fallbackReason || 'OMNI_REGIONAL_FALLBACK';
-        } catch (tier1Err) {
-          console.error('[DocumentIntelligenceService] Tier 1 fallback failure:', tier1Err);
+          result = await engine.processDocument(input, options);
+          if (isTier2 || isTier3) {
+            fallbackTriggered = true;
+            fallbackReason = fallbackReason || 'MODEL_FALLBACK_TIER1';
+          }
+        } catch (fallbackErr) {
+          console.error('[DocumentIntelligenceService] Fallback failure:', fallbackErr);
         }
       }
     }
@@ -213,7 +279,14 @@ class DocumentIntelligenceService {
       if (data.regionalData.stateName) data.state = data.regionalData.stateName;
       if (data.regionalData.cgst !== undefined) data.cgst = data.regionalData.cgst;
       if (data.regionalData.sgst !== undefined) data.sgst = data.regionalData.sgst;
-      if (data.regionalData.upi && data.regionalData.upi.utr) data.utr = data.regionalData.upi.utr;
+      if (data.regionalData.upi) {
+        if (data.regionalData.upi.utr) data.utr = data.regionalData.upi.utr;
+        if (data.regionalData.upi.isUpiPayment !== undefined) data.isUpiPayment = data.regionalData.upi.isUpiPayment;
+        if (data.regionalData.upi.app) {
+          data.upiApp = data.regionalData.upi.app;
+          data.paymentMethod = data.regionalData.upi.app;
+        }
+      }
     } else if (data.gstDetails) {
       if (data.gstDetails.gstin) data.gstin = data.gstDetails.gstin;
       if (data.gstDetails.stateName) data.state = data.gstDetails.stateName;

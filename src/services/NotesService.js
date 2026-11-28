@@ -177,7 +177,10 @@ class NotesService {
     };
 
     data.notes.unshift(newNote);
-    this._profiles.saveActiveData(data);
+    const saveRes = this._profiles.saveActiveData(data);
+    if (saveRes && !saveRes.success) {
+      return { success: false, error: saveRes.error || 'Failed to save note' };
+    }
 
     return { success: true, note: newNote };
   }
@@ -225,7 +228,10 @@ class NotesService {
     if (targetProfile && targetIndex !== -1) {
       targetProfile.data.notes[targetIndex].content = updated.content.trim();
       targetProfile.data.notes[targetIndex].updatedAt = new Date().toISOString();
-      this._db.write(root);
+      const writeRes = this._db.write(root);
+      if (writeRes && !writeRes.success) {
+        return { success: false, error: writeRes.error || 'Failed to update note' };
+      }
       return { success: true, note: targetProfile.data.notes[targetIndex] };
     }
 
@@ -251,7 +257,10 @@ class NotesService {
       const idx = active.data.notes.findIndex(n => n.id === id);
       if (idx !== -1) {
         active.data.notes.splice(idx, 1);
-        this._db.write(root);
+        const writeRes = this._db.write(root);
+        if (writeRes && !writeRes.success) {
+          return { success: false, error: writeRes.error || 'Failed to delete note' };
+        }
         return { success: true, id };
       }
     }
@@ -262,7 +271,10 @@ class NotesService {
         const idx = p.data.notes.findIndex(n => n.id === id);
         if (idx !== -1) {
           p.data.notes.splice(idx, 1);
-          this._db.write(root);
+          const writeRes = this._db.write(root);
+          if (writeRes && !writeRes.success) {
+            return { success: false, error: writeRes.error || 'Failed to delete note' };
+          }
           return { success: true, id };
         }
       }

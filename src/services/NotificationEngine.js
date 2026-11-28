@@ -74,6 +74,22 @@ class NotificationEngine {
     this._intelligence = facade;
   }
 
+  /**
+   * Injects direct domain services for streamlined evaluation (Milestone v1.2.0 Phase 3).
+   *
+   * @param {object} [services={}]
+   * @param {any} [services.storage] - ExpenseStorage instance
+   * @param {any} [services.intelligence] - FinancialIntelligenceFacade instance
+   * @param {any} [services.hunter] - SubscriptionHunterService instance
+   * @param {any} [services.rollups] - AggregationRollupService instance
+   */
+  setDomainServices(services = {}) {
+    if (services.intelligence) this._intelligence = services.intelligence;
+    if (services.hunter) this._subscriptionHunter = services.hunter;
+    if (services.rollups) this._rollups = services.rollups;
+    if (services.storage) this._storage = services.storage;
+  }
+
   // ==========================================================================
   // 1. Notification Preferences Configuration
   // ==========================================================================
@@ -606,9 +622,15 @@ class NotificationEngine {
       let safeAllowance = metrics.dailyDiscretionaryBudget || 0;
       let pacingStatus = 'on_track';
 
-      if (this._intelligence && typeof this._intelligence.getSafeToSpend === 'function') {
+      const safeSpendFn = (this._storage && typeof this._storage.getSafeToSpend === 'function')
+        ? () => this._storage.getSafeToSpend()
+        : (this._intelligence && typeof this._intelligence.getSafeToSpend === 'function')
+          ? () => this._intelligence.getSafeToSpend()
+          : null;
+
+      if (safeSpendFn) {
         try {
-          const sRes = this._intelligence.getSafeToSpend();
+          const sRes = safeSpendFn();
           if (sRes && sRes.success && sRes.data) {
             safeAllowance = sRes.data.safeDailyAllowance;
             pacingStatus = sRes.data.pacingStatus;
@@ -634,7 +656,30 @@ class NotificationEngine {
     // Trigger 10 (In-App Only): Subscription Price Hike Alerts (Phase 0.8.4)
     // ------------------------------------------------------------------------
     let subList = null;
-    if (this._intelligence && typeof this._intelligence.detectSubscriptions === 'function') {
+    if (this._subscriptionHunter && typeof this._subscriptionHunter.detectSubscriptions === 'function') {
+      try {
+        const expenses = Array.isArray(data.expenses) ? data.expenses : [];
+        const detected = this._subscriptionHunter.detectSubscriptions(expenses);
+        if (detected && Array.isArray(detected.subscriptions)) {
+          subList = detected.subscriptions;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!subList && this._storage && typeof this._storage.detectSubscriptions === 'function') {
+      try {
+        const s = this._storage.detectSubscriptions();
+        if (s && s.success && s.data && Array.isArray(s.data.subscriptions)) {
+          subList = s.data.subscriptions;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!subList && this._intelligence && typeof this._intelligence.detectSubscriptions === 'function') {
       try {
         const s = this._intelligence.detectSubscriptions();
         if (s && s.success && s.data && Array.isArray(s.data.subscriptions)) {

@@ -12,7 +12,8 @@
  *         4. Stealth Privacy Mode (P key, Cryptographic blur)
  *         5. Smart Receipts & Offline OCR (3-Tier OCR & Bank Reconciliation)
  *         6. Household Splits & Multi-Profiles (Solo/Household, Fair Settle-Up)
- *         7. Bank-Grade Vault Security (AES-256-GCM Zero-Knowledge Vault)
+ *         7. Multi-Device Wi-Fi Radar & Mobile Companion (Sec 5)
+ *         8. Bank-Grade Vault Security (AES-256-GCM Zero-Knowledge Vault)
  *
  * Persistence: localStorage.getItem('ledgerly_walkthrough_completed')
  */
@@ -207,6 +208,32 @@ export const WALKTHROUGH_STEPS = [
     tip: 'Switch profiles via profile avatar or in Household Hub.'
   },
   {
+    id: 'multi-device-sync',
+    icon: 'wifi',
+    accent: '#E5943C', // Spiced Chai Amber
+    badge: 'ZERO-CLOUD MULTI-DEVICE',
+    title: 'Multi-Device Wi-Fi Radar & Mobile Companion',
+    subtitle: 'Pair companion phones or tablets over your local Wi-Fi with end-to-end optical QR encryption without cloud intermediaries.',
+    points: [
+      {
+        icon: 'camera',
+        title: 'Instant Camera Receipts',
+        desc: 'Snap physical bills on mobile and stream directly to your desktop ML review queue.'
+      },
+      {
+        icon: 'wifi',
+        title: 'Zero-Cloud Local LAN Sync',
+        desc: 'Offline transactions synchronize securely over home Wi-Fi via UDP beacons.'
+      },
+      {
+        icon: 'radar',
+        title: 'Aerospace Radar Discovery',
+        desc: 'Monitor live connected companions and signal status directly in Settings.'
+      }
+    ],
+    tip: 'Scan the optical QR code in Settings ➔ Mobile Companion to pair in seconds.'
+  },
+  {
     id: 'vault-security',
     icon: 'shield-check',
     accent: '#14B8A6', // Teal
@@ -360,6 +387,13 @@ export class WalkthroughGuide {
     this.#cleanups = [];
   }
 
+  /**
+   * Alias for destroy to fulfill standard lifecycle contract.
+   */
+  unmount() {
+    this.destroy();
+  }
+
   // ==========================================================================
   // NAVIGATION & CONTROLS
   // ==========================================================================
@@ -486,6 +520,13 @@ export class WalkthroughGuide {
    * Render current step content, indicators, and buttons into the modal DOM.
    */
   render() {
+    return this.renderCurrentStep();
+  }
+
+  /**
+   * Render current step content, indicators, and buttons into the modal DOM.
+   */
+  renderCurrentStep() {
     if (typeof document === 'undefined') return;
 
     const step = WALKTHROUGH_STEPS[this.#currentStep];
@@ -520,11 +561,13 @@ export class WalkthroughGuide {
 
       // Bind dot clicks
       dotsContainer.querySelectorAll('.walkthrough-dot').forEach(dot => {
-        dot.addEventListener('click', e => {
+        const dotHandler = e => {
           e.preventDefault();
           const targetIdx = parseInt(dot.getAttribute('data-step-index') || '0', 10);
           this.goToStep(targetIdx);
-        });
+        };
+        dot.addEventListener('click', dotHandler);
+        this.#cleanups.push(() => dot.removeEventListener('click', dotHandler));
       });
     }
 
@@ -565,6 +608,58 @@ export class WalkthroughGuide {
       `
         )
         .join('');
+    }
+
+    // Optional Step Action Row (e.g. Multi-Device Sync Radar CTA)
+    let actionRowEl =
+      document.getElementById('walkthrough-action-row') ||
+      this.#modalEl?.querySelector('.walkthrough-action-row');
+    if (!actionRowEl && this.#modalEl) {
+      const tipBox = this.#modalEl.querySelector('.walkthrough-tip-box');
+      if (tipBox && tipBox.parentNode) {
+        actionRowEl = document.createElement('div');
+        actionRowEl.id = 'walkthrough-action-row';
+        actionRowEl.className = 'walkthrough-action-row';
+        actionRowEl.style.display = 'none';
+        tipBox.parentNode.insertBefore(actionRowEl, tipBox);
+      }
+    }
+
+    if (actionRowEl) {
+      if (step.id === 'multi-device-sync') {
+        actionRowEl.style.display = 'flex';
+        actionRowEl.innerHTML = `
+          <button type="button" class="btn btn-sm btn-secondary btn-walkthrough-radar-cta" data-action="open-sync-radar" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 7px 14px;" title="Open Settings ➔ Mobile Companion Sync Radar">
+            ${safeIcon('radar', 14)} <span>📡 Open Sync Radar</span>
+          </button>
+        `;
+        const openBtn = actionRowEl.querySelector('[data-action="open-sync-radar"]');
+        if (openBtn) {
+          const clickHandler = e => {
+            e.preventDefault();
+            this.close();
+            const settingsNav =
+              document.getElementById('nav-item-settings') ||
+              document.querySelector('[data-tab="settings"]');
+            if (settingsNav) {
+              settingsNav.click();
+            }
+            setTimeout(() => {
+              const syncTab = document.querySelector(
+                '.settings-nav-item[data-settings-target="settings-sync-pane"]'
+              );
+              if (syncTab) {
+                syncTab.click();
+              }
+            }, 60);
+          };
+          openBtn.addEventListener('click', clickHandler);
+          this.#cleanups.push(() => openBtn.removeEventListener('click', clickHandler));
+        }
+      } else {
+        actionRowEl.style.display = 'none';
+        actionRowEl.innerHTML = '';
+      }
     }
 
     // Keyboard shortcut / Tip bar

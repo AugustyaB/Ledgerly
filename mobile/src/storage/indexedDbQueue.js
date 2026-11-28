@@ -18,9 +18,10 @@ import {
 } from '../shared/validator.js';
 
 const DB_NAME = 'ledgerly_mobile_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_RECEIPTS = 'receipt_queue';
 const STORE_TRANSACTIONS = 'offline_transactions';
+const STORE_CORRECTIONS = 'correction_ledger';
 
 class IndexedDbQueue {
   constructor() {
@@ -56,6 +57,14 @@ class IndexedDbQueue {
           const txStore = db.createObjectStore(STORE_TRANSACTIONS, { keyPath: 'id' });
           txStore.createIndex('date', 'date', { unique: false });
           txStore.createIndex('syncStatus', 'syncStatus', { unique: false });
+        }
+
+        // 3. Private Correction Ledger Store (Phase 1.3.0)
+        if (!db.objectStoreNames.contains(STORE_CORRECTIONS)) {
+          const corrStore = db.createObjectStore(STORE_CORRECTIONS, { keyPath: 'id' });
+          corrStore.createIndex('timestamp', 'timestamp', { unique: false });
+          corrStore.createIndex('fieldName', 'fieldName', { unique: false });
+          corrStore.createIndex('receiptId', 'receiptId', { unique: false });
         }
       };
 
@@ -348,6 +357,77 @@ class IndexedDbQueue {
     return merged;
   }
 
+  // ==========================================================================
+  // Private Correction Ledger Operations (Phase 1.3.0)
+  // ==========================================================================
+
+  /**
+   * Logs a user correction to extracted receipt fields into the private correction ledger.
+   * @param {Object} entry
+   * @param {string} [entry.id]
+   * @param {string} [entry.receiptId]
+   * @param {string} entry.fieldName - Field name edited (e.g. 'amount', 'merchant', 'date')
+   * @param {any} [entry.originalValue] - Original extracted or OCR value
+   * @param {any} [entry.correctedValue] - Corrected value entered by user
+   * @param {number} [entry.confidence=0.85] - Initial extraction confidence
+   * @param {string} [entry.timestamp] - ISO timestamp
+   * @returns {Promise<Object>}
+   */
+  async logCorrection(entry) {
+    if (!entry || typeof entry !== 'object') {
+      throw new Error('Correction entry must be an object.');
+    }
+    if (!entry.fieldName || typeof entry.fieldName !== 'string') {
+      throw new Error('Correction entry requires a valid fieldName.');
+    }
+
+    const payload = {
+      id: entry.id || `cor-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      receiptId: entry.receiptId || null,
+      fieldName: entry.fieldName.trim(),
+      originalValue: entry.originalValue !== undefined ? entry.originalValue : null,
+      correctedValue: entry.correctedValue !== undefined ? entry.correctedValue : null,
+      confidence: typeof entry.confidence === 'number' ? entry.confidence : 0.85,
+      timestamp: entry.timestamp || new Date().toISOString()
+    };
+
+    await this.runTransaction(STORE_CORRECTIONS, 'readwrite', (store) => {
+      store.put(payload);
+    });
+
+    return payload;
+  }
+
+  /**
+   * Retrieves all entries from the private correction ledger sorted by timestamp descending.
+   * @returns {Promise<Array<Object>>}
+   */
+  async getAllCorrections() {
+    const db = await this.getDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CORRECTIONS, 'readonly');
+      const store = tx.objectStore(STORE_CORRECTIONS);
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const list = request.result || [];
+        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        resolve(list);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Clears all entries in the private correction ledger.
+   * @returns {Promise<void>}
+   */
+  async clearCorrections() {
+    await this.runTransaction(STORE_CORRECTIONS, 'readwrite', (store) => {
+      store.clear();
+    });
+  }
+
   /**
    * Purges all stores in the database (used for testing or complete sync resets).
    * @returns {Promise<void>}
@@ -355,9 +435,16 @@ class IndexedDbQueue {
   async clearAll() {
     const db = await this.getDb();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([STORE_RECEIPTS, STORE_TRANSACTIONS], 'readwrite');
+      const storeNames = [STORE_RECEIPTS, STORE_TRANSACTIONS];
+      if (db.objectStoreNames.contains(STORE_CORRECTIONS)) {
+        storeNames.push(STORE_CORRECTIONS);
+      }
+      const tx = db.transaction(storeNames, 'readwrite');
       tx.objectStore(STORE_RECEIPTS).clear();
       tx.objectStore(STORE_TRANSACTIONS).clear();
+      if (db.objectStoreNames.contains(STORE_CORRECTIONS)) {
+        tx.objectStore(STORE_CORRECTIONS).clear();
+      }
 
       tx.oncomplete = () => {
         this.notifyUpdate();

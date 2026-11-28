@@ -1,7 +1,7 @@
 {
   "name": "ledgerly-mobile",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "Ledgerly Mobile — Offline Receipt Capture & Local Sync Client",
   "scripts": {

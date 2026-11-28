@@ -65,6 +65,7 @@ class StatementReconciliationService {
    * @param {import('./JsonDatabase')} options.db - JsonDatabase instance
    * @param {import('./ExpenseService')} [options.expenses] - ExpenseService instance
    * @param {import('./ReceiptLearningService')} [options.receiptLearning] - Optional ReceiptLearningService
+   * @param {import('./ReceiptEngine')} [options.receiptEngine] - Optional ReceiptEngine
    * @param {string} [options.configPath] - Explicit path to expenses_config.json
    * @param {any} [options.intelligence] - Optional FinancialIntelligenceFacade
    */
@@ -72,6 +73,7 @@ class StatementReconciliationService {
     this._db = options.db;
     this._expenses = options.expenses;
     this._receiptLearning = options.receiptLearning;
+    this._receiptEngine = options.receiptEngine;
     this._intelligence = options.intelligence;
 
     let baseDir = process.cwd();
@@ -147,6 +149,12 @@ class StatementReconciliationService {
   _resolveMerchantAlias(raw) {
     if (!raw) return null;
     try {
+      if (this._receiptEngine && typeof this._receiptEngine.resolveMerchantAlias === 'function') {
+        const res = this._receiptEngine.resolveMerchantAlias(raw);
+        if (res && res.resolved && (res.name || res.canonicalMerchant)) {
+          return res.name || res.canonicalMerchant;
+        }
+      }
       if (this._receiptLearning && typeof this._receiptLearning.resolveMerchantAlias === 'function') {
         const res = this._receiptLearning.resolveMerchantAlias(raw);
         if (res && res.resolved && res.canonicalMerchant) {
@@ -247,9 +255,9 @@ class StatementReconciliationService {
    * @param {string} m2 - Ledger merchant/title
    * @returns {number} Similarity score (0.0 to 1.0)
    */
-  calculateMerchantSimilarity(m1, m2) {
-    const norm1 = this.normalizeMerchant(m1);
-    const norm2 = this.normalizeMerchant(m2);
+  calculateMerchantSimilarity(m1, m2, precomputedNorm1 = null, precomputedNorm2 = null) {
+    const norm1 = precomputedNorm1 !== null ? precomputedNorm1 : this.normalizeMerchant(m1);
+    const norm2 = precomputedNorm2 !== null ? precomputedNorm2 : this.normalizeMerchant(m2);
 
     if (!norm1 || !norm2) return 0.0;
     if (norm1 === norm2) return 1.0;
@@ -469,6 +477,7 @@ class StatementReconciliationService {
     const incomingAmt = Math.abs(parseFloat(incoming.amount) || 0);
     const incomingDate = incoming.date || new Date().toISOString().substring(0, 10);
     const incomingTitle = incoming.title || incoming.merchant || incoming.description || '';
+    const normIncomingTitle = this.normalizeMerchant(incomingTitle);
 
     const candidates = [];
 
@@ -485,7 +494,7 @@ class StatementReconciliationService {
       if (dateResult.isVetoed) continue; // Hard date veto
 
       const merchantTitle = ledgerExp.title || ledgerExp.merchant || '';
-      const merchantScore = this.calculateMerchantSimilarity(incomingTitle, merchantTitle);
+      const merchantScore = this.calculateMerchantSimilarity(incomingTitle, merchantTitle, normIncomingTitle);
 
       // Discard candidates that have negligible merchant similarity (< 0.20) and non-exact amount (> 5% delta)
       if (merchantScore < 0.20 && (amtResult.score < 0.90 || amtResult.deltaPct > 0.05)) {
@@ -910,6 +919,18 @@ class StatementReconciliationService {
       skippedCount,
       errors
     };
+  }
+
+  /**
+   * Applies confirmed user resolutions.
+   * Direct domain routing alias for applyReconciliation (Milestone v1.2.0 Phase 3).
+   *
+   * @param {import('../types').ReconciliationResolution[]} resolutions
+   * @param {object} [options={}]
+   * @returns {import('../types').ReconciliationApplyResult}
+   */
+  applyResolutions(resolutions = [], options = {}) {
+    return this.applyReconciliation(resolutions, options);
   }
 }
 

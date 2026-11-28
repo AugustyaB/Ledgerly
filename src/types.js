@@ -170,6 +170,7 @@
  * @property {string} color - Accent theme color hex code.
  * @property {string} createdAt - Profile creation ISO timestamp.
  * @property {number} expenseCount - Count of logged expenses in this profile.
+ * @property {number} [currentMonthSpend] - Aggregated current month spend amount.
  * @property {boolean} [isActive] - Whether this is the currently active profile.
  */
 

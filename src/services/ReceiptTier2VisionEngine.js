@@ -1637,7 +1637,20 @@ class ReceiptTier2VisionEngine {
     };
   }
 
-  async _extractOcrText(buffer) {
+  async _extractOcrText(buffer, options = {}) {
+    if (!buffer || buffer.length === 0) return '';
+
+    // Delegate to perception provider if supplied
+    if (options.provider && typeof options.provider.recognize === 'function') {
+      try {
+        const pRes = await options.provider.recognize(buffer, options);
+        if (typeof pRes === 'string') return pRes;
+        if (pRes && typeof pRes.text === 'string') return pRes.text;
+      } catch (err) {
+        console.warn('[ReceiptTier2VisionEngine] Provider extraction error:', err.message);
+      }
+    }
+
     if (!tesseractModule || !tesseractModule.createWorker) {
       return '';
     }
@@ -1653,5 +1666,12 @@ class ReceiptTier2VisionEngine {
     }
   }
 }
+
+// Attach specialist sub-processors for modular domain access
+ReceiptTier2VisionEngine.AntiTrapFilter = AntiTrapFilter;
+ReceiptTier2VisionEngine.ArithmeticInpaintingSolver = ArithmeticInpaintingSolver;
+ReceiptTier2VisionEngine.DegradedPaperProcessor = DegradedPaperProcessor;
+ReceiptTier2VisionEngine.HandwrittenChitProcessor = HandwrittenChitProcessor;
+ReceiptTier2VisionEngine.MultilingualTravelProcessor = MultilingualTravelProcessor;
 
 module.exports = ReceiptTier2VisionEngine;
