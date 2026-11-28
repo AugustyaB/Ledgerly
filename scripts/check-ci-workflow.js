@@ -51,8 +51,8 @@ runTest('Workflow triggers on push, pull_request, and workflow_dispatch', () => 
   assert.ok(content.includes("- 'mobile/**'"), 'Missing mobile path trigger filter');
 });
 
-runTest('Workflow selects Apple Silicon macos-14 runner', () => {
-  assert.ok(content.includes('runs-on: macos-14'), 'Runner must be macos-14 for Apple Silicon M-series performance');
+runTest('Workflow selects Apple Silicon macos-15 runner', () => {
+  assert.ok(content.includes('runs-on: macos-15'), 'Runner must be macos-15 for Apple Silicon M-series performance');
 });
 
 runTest('Workflow sets up Node.js 20 with npm caching', () => {
